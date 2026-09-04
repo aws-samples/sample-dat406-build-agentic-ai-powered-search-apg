@@ -1,12 +1,20 @@
 /**
- * Eyebrow — Readable uppercase UI label with burgundy dot.
+ * Eyebrow — the Observatory's name for the one shared section label.
  *
- * Uses Instrument Sans so longer workshop labels remain easy to scan.
+ * This used to be a second implementation of `shared/SectionEyebrow`: same
+ * job, same family, same weight and tracking, but 12px against the
+ * primitive's 11px and a 6px dot against its 5px. Two implementations of one
+ * label is how a surface drifts, so this is now a thin adapter and the
+ * primitive is the only recipe. The name and the `label` / `variant` props
+ * stay because forty-odd call sites read better with them than with
+ * `<SectionEyebrow>{label}</SectionEyebrow>`.
  *
  * Requirements: 15.4
  */
 
 import React from 'react';
+
+import { SectionEyebrow } from '../../shared';
 
 export interface EyebrowProps {
   label: string;
@@ -18,40 +26,11 @@ export const Eyebrow: React.FC<EyebrowProps> = ({
   label,
   variant = 'burgundy',
   className = '',
-}) => {
-  const dotColor =
-    variant === 'burgundy' ? 'var(--obs-red-1)' : 'var(--obs-ink-4)';
-  const textColor =
-    variant === 'burgundy' ? 'var(--obs-red-1)' : 'var(--obs-ink-4)';
-
-  return (
-    <span
-      className={className.trim()}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '8px',
-        fontFamily: 'var(--obs-heading)',
-        fontSize: 'var(--obs-eyebrow-size)',
-        fontWeight: 'var(--obs-eyebrow-weight)',
-        letterSpacing: 'var(--obs-eyebrow-tracking)',
-        textTransform: 'uppercase',
-        color: textColor,
-        lineHeight: 1,
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          display: 'inline-block',
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          backgroundColor: dotColor,
-          flexShrink: 0,
-        }}
-      />
-      {label}
-    </span>
-  );
-};
+}) => (
+  <SectionEyebrow
+    tone={variant === 'burgundy' ? 'brand' : 'muted'}
+    className={className.trim() || undefined}
+  >
+    {label}
+  </SectionEyebrow>
+);

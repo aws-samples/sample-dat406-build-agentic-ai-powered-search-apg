@@ -1,9 +1,12 @@
-/* Reference views, set as an index rather than a card grid: one table per
-   participant question, each row naming the view, what it shows and the
-   table or service it reads. The register is the ledger's (mono paths and
-   sources, hairline rules), because these views are entries in the evidence
-   story, not features. No !important: the heading takes the display face
-   through the shared observatory rules. */
+/* Reference views, set as one ledger rather than four differently ruled
+   tables. A masthead states the shape of the index and carries the canonical
+   proof note; below it, each participant question is a band, and every
+   question's table shares one fixed column geometry so the eight rows read as
+   a single column of evidence.
+
+   The register is the ledger's: mono for what you can paste, sans for what a
+   view explains, hairline rules, no card. No !important -- the heading takes
+   the display face through the shared Observatory rules. */
 .workbench-resources {
   display: grid;
   gap: 28px;
@@ -87,23 +90,22 @@
   padding-top: 24px;
 }
 
-.workbench-resources-heading {
+.workbench-resources-content {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-  gap: 18px 48px;
-  align-items: end;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--obs-rule-2);
+  gap: 0;
 }
 
-.workbench-resources-heading > div:first-child > span {
-  display: block;
-  margin-bottom: 8px;
-  font-family: var(--obs-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--obs-red-1);
+/* ---- Masthead -------------------------------------------------------- */
+
+.workbench-resources-heading {
+  display: grid;
+  gap: 20px;
+}
+
+.workbench-resources-title {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
 }
 
 .workbench-resources-heading h2 {
@@ -114,9 +116,55 @@
   color: var(--obs-ink-1);
 }
 
+/* Figures on the left, the canonical-proof note on the right, in one band.
+   The note used to float beside the title with nothing to align to, which is
+   what made the header read lopsided. */
+.workbench-resources-masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+  gap: 22px 48px;
+  align-items: start;
+  padding: 20px 0;
+  border-top: 1px solid var(--obs-rule-2);
+  border-bottom: 1px solid var(--obs-rule-2);
+}
+
+.workbench-resources-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 44px;
+}
+
+.workbench-resource-figure {
+  display: grid;
+  gap: 6px;
+}
+
+/* Serif figures. Every count on the technical surfaces is set in Fraunces so
+   a number reads as a measured quantity rather than as more interface. */
+.workbench-resource-figure-value {
+  font-family: var(--obs-display);
+  font-size: clamp(30px, 2.8vw, 38px);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--obs-ink-1);
+}
+
+.workbench-resource-figure-label {
+  font-family: var(--obs-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--obs-ink-4);
+}
+
 .workbench-resources-canonical {
   display: grid;
-  gap: 8px;
+  justify-items: start;
+  gap: 10px;
   font-family: var(--obs-sans);
   font-size: 14px;
   line-height: 1.55;
@@ -148,28 +196,49 @@
   color: var(--obs-red-1);
 }
 
+/* ---- The index ------------------------------------------------------- */
+
 .workbench-resources-index {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px 48px;
+  grid-template-columns: 1fr;
+  gap: 0;
 }
 
+/* The hover fill needs a gutter or it hugs the text. The band and the table
+   bleed into it by the same amount, so the type stays on the section's own
+   left edge. */
 .workbench-resource-question {
+  --row-gutter: 10px;
   display: grid;
-  gap: 12px;
   align-content: start;
 }
 
 .workbench-resource-question-head {
   display: grid;
-  gap: 4px;
+  gap: 5px;
+  margin-inline: calc(var(--row-gutter) * -1);
+  padding: 24px var(--row-gutter) 12px;
 }
 
+.workbench-resource-question:first-child .workbench-resource-question-head {
+  padding-top: 20px;
+}
+
+.workbench-resource-question + .workbench-resource-question
+  .workbench-resource-question-head {
+  border-top: 1px solid var(--obs-rule-2);
+}
+
+/* The question leads the group. Two sizes apart from the view name below it,
+   because a 17px/600 band beside a 15px/500 row name read as the same voice
+   twice. */
 .workbench-resource-question h3 {
   margin: 0;
-  font-family: var(--obs-sans);
-  font-size: 15px;
+  font-family: var(--obs-heading);
+  font-size: 20px;
   font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
   color: var(--obs-ink-1);
 }
 
@@ -179,76 +248,186 @@
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--obs-ink-3);
-  max-width: 52ch;
+  max-width: 62ch;
 }
 
-.workbench-resource-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--obs-sans);
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--obs-ink-2);
+/* Fixed layout with explicit widths is what makes four tables read as one
+   ledger: the View, What it shows and Reads from columns land on the same
+   three verticals in every group. */
+.gov-data-table.workbench-resource-table {
+  table-layout: fixed;
 }
 
-.workbench-resource-table th,
-.workbench-resource-table td {
-  padding: 9px 12px 9px 0;
-  border-top: 1px solid var(--obs-rule-1);
-  text-align: left;
-  vertical-align: top;
+/* Nothing here can overflow -- the columns are percentages of the container --
+   so the scroll wrapper gives up its clipping and lets the row fill bleed
+   into the gutter. */
+.workbench-resource-question .gov-data-table-scroll {
+  overflow: visible;
+  margin-inline: calc(var(--row-gutter) * -1);
 }
 
-.workbench-resource-table thead th {
-  border-top: 0;
-  padding-top: 0;
-  font-family: var(--obs-mono);
-  font-size: var(--text-label);
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--obs-ink-4);
+/* The row is the target. One anchor carries the href and the keyboard focus;
+   its stretched pseudo-element carries the hit area. */
+.workbench-resource-table tbody tr {
+  position: relative;
+  transition: background-color var(--gov-motion-fast) var(--gov-motion-ease);
 }
 
-.workbench-resource-table tbody th {
-  display: grid;
-  gap: 2px;
-  font-weight: 500;
-  white-space: nowrap;
+.workbench-resource-table .workbench-resource-view a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
 }
 
-.workbench-resource-table tbody th a {
-  color: var(--obs-ink-1);
-  text-decoration: none;
-  border-bottom: 1px solid var(--obs-rule-2);
+.workbench-resource-table tbody tr:hover,
+.workbench-resource-table tbody tr:focus-within {
+  background: var(--obs-panel-muted);
 }
 
-.workbench-resource-table tbody th a:hover,
-.workbench-resource-table tbody th a:focus-visible {
+.workbench-resource-table tbody tr:hover :is(th, td),
+.workbench-resource-table tbody tr:focus-within :is(th, td) {
+  border-top-color: var(--obs-red-1);
+}
+
+.workbench-resource-table tbody tr:hover .workbench-resource-view a,
+.workbench-resource-table tbody tr:focus-within .workbench-resource-view a {
   color: var(--obs-red-1);
   border-bottom-color: currentColor;
 }
 
-.workbench-resource-table code {
+.workbench-resource-table .workbench-resource-view {
+  display: grid;
+  gap: 3px;
+}
+
+.workbench-resource-table .workbench-resource-view a {
+  font-family: var(--obs-sans);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--obs-ink-1);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  justify-self: start;
+}
+
+.workbench-resource-table .workbench-resource-view a:focus-visible {
+  outline: 2px solid var(--obs-red-1);
+  outline-offset: 3px;
+}
+
+.workbench-resource-table .workbench-resource-shows {
+  font-family: var(--obs-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--obs-ink-2);
+}
+
+/* A path is read, not compared, so it stays at the label size under the name
+   it belongs to. */
+.workbench-resource-table .workbench-resource-view code {
   font-family: var(--obs-mono);
   font-size: 11px;
+  line-height: 1.4;
+  color: var(--obs-ink-4);
+  overflow-wrap: anywhere;
+}
+
+/* Reads-from is a list of sources, not a sentence, so each source takes its
+   own line. A comma run between tinted tokens reads as punctuation floating
+   in a gap; one source per line also lets the eye count them.
+
+   Mono marks the ones a participant can paste into psql; the rest describe a
+   source in words and stay in prose. */
+.workbench-resource-table .workbench-resource-sources {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+}
+
+.workbench-resource-table .workbench-resource-source[data-register='prose'] {
+  font-family: var(--obs-sans);
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--obs-ink-3);
+  padding: 2px 0;
+}
+
+.workbench-resource-table .workbench-resource-source code {
+  /* Above the row overlay, so an identifier can still be selected and pasted.
+     Prose stays below it and is part of the link target. */
+  position: relative;
+  z-index: 1;
+  font-family: var(--obs-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--obs-cream-2);
+  color: var(--obs-ink-2);
   overflow-wrap: anywhere;
   white-space: normal;
 }
 
-.workbench-resource-table td:last-child {
-  min-width: 11ch;
+/* ---- Legend ---------------------------------------------------------- */
+
+.workbench-resources-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 28px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--obs-rule-2);
+  font-family: var(--obs-sans);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--obs-ink-4);
 }
 
-@media (max-width: 960px) {
-  .workbench-resources-heading,
-  .workbench-resources-index {
+.workbench-resources-legend code {
+  font-family: var(--obs-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--obs-cream-2);
+  color: var(--obs-ink-2);
+}
+
+/* ---- Density --------------------------------------------------------- */
+
+/* Cell padding only above the stacking breakpoint. Below 560px the shared
+   table turns each row into a stacked block with `padding: 0`, and a rule of
+   equal specificity here would silently put the padding back and make one row
+   read as three. */
+@media (min-width: 561px) {
+  .gov-data-table.workbench-resource-table :is(th, td) {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .gov-data-table.workbench-resource-table :is(th, td):first-child {
+    padding-left: var(--row-gutter);
+  }
+
+  .gov-data-table.workbench-resource-table :is(th, td):last-child {
+    padding-right: var(--row-gutter);
+  }
+
+  .gov-data-table.workbench-resource-table thead th {
+    padding-bottom: 8px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .workbench-resources-masthead {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 560px) {
+  .workbench-resource-question {
+    --row-gutter: 0px;
+  }
+
   .workbench-resources-disclosure {
     min-height: 44px;
   }
@@ -258,24 +437,13 @@
     justify-content: space-between;
   }
 
-  .workbench-resource-table thead {
-    display: none;
+  .workbench-resources-figures {
+    gap: 14px 28px;
   }
 
-  .workbench-resource-table tr {
-    display: grid;
-    gap: 4px;
-    padding: 10px 0;
-    border-top: 1px solid var(--obs-rule-1);
-  }
-
-  .workbench-resource-table th,
-  .workbench-resource-table td {
-    padding: 0;
-    border-top: 0;
-  }
-
-  .workbench-resource-table tbody th {
+  /* The row is a stacked block, so the source list becomes one wrapped line
+     and the View cell stops holding its own. */
+  .workbench-resource-table .workbench-resource-source {
     white-space: normal;
   }
 }

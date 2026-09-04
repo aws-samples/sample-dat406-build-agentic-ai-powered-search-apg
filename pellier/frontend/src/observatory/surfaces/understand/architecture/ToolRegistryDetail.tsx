@@ -13,6 +13,7 @@ import { useObservatoryData } from '../../../hooks/useObservatoryData';
 import type { ArchitectureConcept } from '../../../types';
 import { DetailLoadingState, DetailErrorState, DetailEmptyState } from './DetailStates';
 import { ARCHITECTURE_CODE_BLOCK } from './codeStyles';
+import { SectionEyebrow } from '../../../../shared';
 
 const ToolRegistryDetail: React.FC = () => {
   const { data, loading, error, refetch } = useObservatoryData<ArchitectureConcept[]>({
@@ -154,10 +155,13 @@ LIMIT 5;`}</pre>
 
 /* ---- Shared styles ---- */
 
+/* One label register on the surface. This was six identical copies of a mono
+   0.22em recipe, one per detail page; mono here marked prose, not an
+   identifier, which is the distinction the shared primitive restores. */
 const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
-  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
+  <SectionEyebrow tone="muted" dot={false}>
     {label}
-  </span>
+  </SectionEyebrow>
 );
 
 const titleStyle: React.CSSProperties = {

@@ -1,0 +1,124 @@
+/* ========================================================================
+ * Shared design primitives — the parts an inline style cannot express.
+ *
+ * The primitives in `src/shared/` carry their type and colour contract as
+ * inline styles, deliberately: that is the house pattern (PolicyDecisionBadge,
+ * TraceChip, Eyebrow), it keeps the contract assertable under `css: false` in
+ * vitest, and it keeps every size visible to the type-floor guard in
+ * `src/__tests__/observatory_type_floor.test.ts`.
+ *
+ * What lands here is only what inline styles genuinely cannot do: media
+ * queries, pseudo-elements, and sticky-header stacking. Values still come from
+ * tokens, never from literals.
+ *
+ * Namespace: `gov-`. These primitives are shared by the Observatory and the
+ * Operator desk, so they take neither surface's prefix.
+ * ==================================================================== */
+
+/* ---- EvidenceCard ---------------------------------------------------- */
+
+/* A toned card is marked by a short rule crossing its top edge, the same
+   28px tick the section frame has always used. It is a tick, not a filled
+   left bar: a card carrying a 3px colour stripe down one side reads as an
+   alert, and an evidence card is not an alert. */
+.gov-evidence-card[data-tone]:not([data-tone='neutral'])::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 24px;
+  width: 28px;
+  height: 2px;
+  background: var(--gov-card-tone);
+}
+
+.gov-evidence-card[data-padding='compact'][data-tone]:not([data-tone='neutral'])::before {
+  left: 20px;
+}
+
+/* ---- DataTable ------------------------------------------------------- */
+
+.gov-data-table-scroll {
+  overflow-x: auto;
+  /* The scrollbar is part of the surface. Left to the browser it is the one
+     grey element on a warm page. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--obs-rule-3) transparent;
+}
+
+.gov-data-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.gov-data-table-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--obs-rule-3);
+}
+
+.gov-data-table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Cell layout lives here rather than inline, and deliberately: the stacked
+   layout below has to override it, and an inline style beats a media query.
+   The first version of this file kept padding and the row rule inline and the
+   narrow layout silently did nothing -- every cell kept its own hairline and
+   its own 9px, so a stacked row read as three rows.
+
+   What stays inline on the element is the type contract (family, size,
+   tabular figures) and the sticky offset, which is per call site. */
+.gov-data-table th,
+.gov-data-table td {
+  padding: 9px 12px 9px 0;
+  border-top: 1px solid var(--obs-rule-1);
+  vertical-align: top;
+  font-weight: 400;
+}
+
+.gov-data-table thead th {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* Alignment is layout, not type: a numeric column is right-aligned so digits
+   line up by place value, and that stops being true once the row stacks. */
+.gov-data-table [data-align='numeric'] {
+  text-align: right;
+}
+
+.gov-data-table [data-align='text'],
+.gov-data-table [data-align='code'] {
+  text-align: left;
+}
+
+/* A sticky header needs a background of its own, or the rows scroll through
+   it. The offset itself is per-call-site and stays inline. */
+.gov-data-table[data-sticky-header='true'] thead th {
+  position: sticky;
+  z-index: 1;
+  padding-top: 9px;
+  background: var(--obs-panel);
+}
+
+/* Below 560px a three-column table is not a table. Rows become stacked
+   blocks and the header, which no longer sits above anything, is removed
+   from the accessibility tree along with the visual layout. Same treatment
+   the reference-view index has always used. */
+@media (max-width: 560px) {
+  .gov-data-table[data-stacked='true'] thead {
+    display: none;
+  }
+
+  .gov-data-table[data-stacked='true'] tr {
+    display: grid;
+    gap: 4px;
+    padding: 10px 0;
+    border-top: 1px solid var(--obs-rule-1);
+  }
+
+  .gov-data-table[data-stacked='true'] th,
+  .gov-data-table[data-stacked='true'] td {
+    padding: 0;
+    border-top: 0;
+    text-align: left;
+  }
+}

@@ -70,7 +70,14 @@ describe('PresencePill health', () => {
       'fetch',
       vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
         if (init?.signal) signals.push(init.signal)
-        return new Promise<Response>(() => {})
+        // Reject on abort the way fetch does. A mock that ignores the signal
+        // hangs forever, so the hook never learns the check failed and the
+        // label assertion below can only pass by accident.
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          )
+        })
       }),
     )
     render(<PresencePill surface="pellier" />)
@@ -81,15 +88,31 @@ describe('PresencePill health', () => {
     await vi.advanceTimersByTimeAsync(HEALTH_TIMEOUT_MS + 100)
 
     expect(signals[0].aborted).toBe(true)
-    expect(pill()).toHaveTextContent('Concierge offline')
+    // waitFor, not a bare assertion: the abort has to propagate through the
+    // fetch rejection and a state update before the label changes. The bare
+    // form passed vacuously while "offline" was also the initial state.
+    await waitFor(() => expect(pill()).toHaveTextContent('Concierge offline'))
   })
 
-  it('says offline until a health check has succeeded', async () => {
+  it('claims neither online nor offline before the first check answers', async () => {
+    // An unanswered request is not evidence of an unreachable backend. The pill
+    // used to render "offline" for the whole first round trip, which in a
+    // workshop room reads as a broken system rather than a pending request.
     vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
     render(<PresencePill surface="pellier" />)
 
-    expect(pill()).toHaveTextContent('Concierge offline')
+    expect(pill()).toHaveTextContent('Concierge checking')
     expect(pill()).not.toHaveTextContent('Concierge online')
+    expect(pill()).not.toHaveTextContent('Concierge offline')
+    expect(pill()).toHaveAttribute('data-reachable', 'unknown')
+  })
+
+  it('says offline once a check has actually failed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })))
+    render(<PresencePill surface="pellier" />)
+
+    await waitFor(() => expect(pill()).toHaveTextContent('Concierge offline'))
+    expect(pill()).toHaveAttribute('data-reachable', 'false')
   })
 
   it('says online after /api/health answers', async () => {

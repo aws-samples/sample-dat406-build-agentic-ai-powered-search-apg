@@ -8,8 +8,10 @@
  */
 import { useCallback, useEffect, useRef } from 'react'
 import { ArrowRight, ShieldCheck, X } from 'lucide-react'
+import ResponsiveImage from '../../components/ResponsiveImage'
 import { OPERATOR_SIGNIN_MODAL } from '../../copy'
 import { useUI } from '../../contexts/UIContext'
+import { SectionEyebrow } from '../../shared'
 import { useFocusTrap } from '../../shared/useFocusTrap'
 import { redirectToSignIn } from '../../utils/auth'
 
@@ -63,6 +65,28 @@ export default function OperatorSignInModal() {
       role="presentation"
       onClick={close}
     >
+      {/*
+       * The house plate behind the dialog. `hero-fresh-2` is already the
+       * desk's atmosphere image, so signing in reads as arriving at the same
+       * room rather than at a separate login product; its wide empty plaster
+       * at the right is what makes room for the sheet.
+       *
+       * Through ResponsiveImage, never a CSS `url()`: the AVIF and WebP
+       * derivatives are used and every URL passes the Workshop Studio base
+       * path. The scrim lives on the overlay's ::after, and no cream text sits
+       * on the photograph — the dialog stays opaque raised paper, so form
+       * contrast is untouched.
+       */}
+      <ResponsiveImage
+        src="/products/hero-fresh-2.png"
+        widths={[960, 1600]}
+        sizes="100vw"
+        pictureClassName="operator-signin-plate"
+        className="operator-signin-plate-image"
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+      />
       <section
         ref={dialogRef}
         className="operator-signin-dialog"
@@ -86,9 +110,15 @@ export default function OperatorSignInModal() {
         <div className="operator-signin-mark" aria-hidden>
           <ShieldCheck />
         </div>
-        <p className="operator-signin-eyebrow">
-          {OPERATOR_SIGNIN_MODAL.EYEBROW}
-        </p>
+        {/* The wrapper carries the block layout and the spacing. SectionEyebrow
+            sets `display: inline-flex` inline, and an inline style beats a
+            class rule, so styling the primitive itself would have needed an
+            `!important` to put it on its own line. */}
+        <div className="operator-signin-eyebrow">
+          <SectionEyebrow tone="brand">
+            {OPERATOR_SIGNIN_MODAL.EYEBROW}
+          </SectionEyebrow>
+        </div>
         <h2 id="operator-signin-modal-title">
           {OPERATOR_SIGNIN_MODAL.TITLE}
         </h2>

@@ -2,24 +2,25 @@
  * DetailPageShell — Reusable template for all 8 architecture detail pages.
  *
  * Renders:
- *   - Detail Eyebrow (numeral + concept name + CategoryBadge)
- *   - Hero title (Fraunces 56px italic)
- *   - Hero prose
+ *   - EditorialTitle: back link, section label with a CategoryBadge beside
+ *     it, the shared Fraunces page title, and the hero prose as its summary
  *   - Slot for concept-specific content (children)
- *   - Cheat-sheet strip (3-column grid of takeaways with Roman numeral
- *     Eyebrows and italic text)
- *   - Live state callout (pulsing indicator, context description,
- *     current metric values)
+ *   - Cheat-sheet strip of takeaways, one EvidenceCard each
+ *   - Live state callout with Fraunces figures
+ *
+ * These pages used to carry their own title grammar -- an italic 56px hero
+ * over a mono roman-numeral label -- against the Fraunces 400 page title
+ * every other Observatory route uses. They now come through EditorialTitle,
+ * so there is one page-title step on the surface; the numeral and concept
+ * name are unchanged, they simply take the shared label register.
  *
  * Requirements: 7.1, 7.4, 7.5
  */
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { Eyebrow, ExpCard, CategoryBadge, StatusDot } from '../../../components';
+import { EditorialTitle, CategoryBadge, StatusDot } from '../../../components';
 import type { CategoryType } from '../../../components/CategoryBadge';
-import { SurfaceCrossLink } from '../../../../shared';
+import { EvidenceCard, SectionEyebrow, SurfaceCrossLink } from '../../../../shared';
 
 /* -----------------------------------------------------------------------
  * Types
@@ -78,56 +79,43 @@ const CheatSheetStrip: React.FC<{ items: CheatSheetItem[] }> = ({ items }) => {
   if (items.length === 0) return null;
 
   // 4 items lay out best as a 2x2 grid; 3 (the common case) stays 3-up.
-  const columns = items.length === 4 ? 2 : 3;
+  // `auto-fit` with a floor is what makes either collapse: the fixed
+  // `repeat(3, 1fr)` this used to be kept three columns at 375px, which left
+  // each tile about 80px wide and pushed its text off the page.
+  const minTile = items.length === 4 ? '260px' : '200px';
 
   return (
     <section style={{ marginTop: '48px' }}>
-      <Eyebrow label="Cheat sheet" variant="muted" />
+      <SectionEyebrow tone="muted">Cheat sheet</SectionEyebrow>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${columns}, 1fr)`,
+          gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${minTile}), 1fr))`,
           gap: '20px',
           marginTop: '20px',
         }}
       >
         {items.map((item, idx) => (
-          <div
-            key={idx}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              padding: '20px',
-              background: 'var(--obs-cream-2)',
-              borderRadius: '10px',
-              border: '1px solid var(--obs-card-border)',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--obs-mono)',
-                fontSize: 'var(--text-label)',
-                letterSpacing: '0.22em',
-                textTransform: 'uppercase',
-                color: 'var(--obs-ink-4)',
-                fontWeight: 500,
-              }}
+          <EvidenceCard key={idx} quiet padding="compact">
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
             >
-              {item.numeral}
-            </span>
-            <p
-              style={{
-                fontFamily: 'var(--obs-sans)',
-                fontSize: '13px',
-                lineHeight: 1.55,
-                color: 'var(--obs-ink-1)',
-                margin: 0,
-              }}
-            >
-              {item.text}
-            </p>
-          </div>
+              <SectionEyebrow tone="muted" dot={false}>
+                {item.numeral}
+              </SectionEyebrow>
+              <p
+                style={{
+                  fontFamily: 'var(--obs-sans)',
+                  fontSize: '13px',
+                  lineHeight: 1.55,
+                  color: 'var(--obs-ink-1)',
+                  margin: 0,
+                }}
+              >
+                {item.text}
+              </p>
+            </div>
+          </EvidenceCard>
         ))}
       </div>
     </section>
@@ -145,23 +133,12 @@ interface LiveStateCalloutProps {
 
 const LiveStateCallout: React.FC<LiveStateCalloutProps> = ({ label, values }) => (
   <section style={{ marginTop: '40px' }}>
-    <ExpCard>
+    <EvidenceCard>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {/* Header with pulsing indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <StatusDot status="live" size={8} />
-          <span
-            style={{
-              fontFamily: 'var(--obs-mono)',
-              fontSize: 'var(--text-label)',
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: 'var(--obs-red-1)',
-              fontWeight: 500,
-            }}
-          >
-            Live state
-          </span>
+          <SectionEyebrow dot={false}>Live state</SectionEyebrow>
         </div>
 
         {/* Context description */}
@@ -178,14 +155,15 @@ const LiveStateCallout: React.FC<LiveStateCalloutProps> = ({ label, values }) =>
           {label}
         </p>
 
-        {/* Metric values */}
+        {/* Metric values. Fraunces, because a measured quantity is a figure
+            and every figure on these surfaces is set in the display face. */}
         <div
           style={{
             display: 'flex',
             gap: '32px',
             flexWrap: 'wrap',
             paddingTop: '12px',
-            borderTop: '1px solid var(--obs-card-border)',
+            borderTop: '1px solid var(--obs-rule-1)',
           }}
         >
           {values.map((v, idx) => (
@@ -194,28 +172,21 @@ const LiveStateCallout: React.FC<LiveStateCalloutProps> = ({ label, values }) =>
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '4px',
+                gap: '6px',
               }}
             >
-              <span
-                style={{
-                  fontFamily: 'var(--obs-mono)',
-                  fontSize: 'var(--text-label)',
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--obs-ink-4)',
-                }}
-              >
+              <SectionEyebrow tone="muted" dot={false}>
                 {v.label}
-              </span>
+              </SectionEyebrow>
               <span
                 style={{
-                  fontFamily: 'var(--obs-heading)',
-                  fontSize: '28px',
+                  fontFamily: 'var(--obs-display)',
+                  fontSize: '30px',
                   fontWeight: 400,
                   color: 'var(--obs-ink-1)',
                   letterSpacing: '-0.02em',
                   lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
                 }}
               >
                 {v.value}
@@ -224,7 +195,7 @@ const LiveStateCallout: React.FC<LiveStateCalloutProps> = ({ label, values }) =>
           ))}
         </div>
       </div>
-    </ExpCard>
+    </EvidenceCard>
   </section>
 );
 
@@ -242,116 +213,53 @@ const DetailPageShell: React.FC<DetailPageShellProps> = ({
   cheatSheet,
   liveState,
   seeInPellier,
-}) => {
-  const navigate = useNavigate();
+}) => (
+  <div
+    style={{
+      padding: '40px clamp(20px, 4vw, 48px)',
+      maxWidth: '1100px',
+    }}
+  >
+    {/* One title block: back link, section label with the category beside
+        it, the shared Fraunces page title, and the hero prose as summary. */}
+    <EditorialTitle
+      eyebrow={`${numeral} · ${conceptName}`}
+      title={title}
+      summary={prose}
+      backTo={{
+        to: '/observatory/architecture',
+        label: 'Back to Architecture',
+      }}
+      aside={<CategoryBadge category={category} />}
+    />
 
-  return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
-      {/* Back link — returns to architecture index */}
-      <button
-        onClick={() => navigate('/observatory/architecture')}
-        className="font-sans"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'var(--obs-ink-1)',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-          marginBottom: '24px',
-        }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--obs-ink-1)'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--obs-ink-1)'; }}
-      >
-        <ArrowLeft size={16} strokeWidth={1.75} />
-        Back to Architecture
-      </button>
-
-      {/* Detail Eyebrow: numeral + concept name + CategoryBadge */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          marginBottom: '16px',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--obs-mono)',
-            fontSize: 'var(--text-label)',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'var(--obs-ink-4)',
-            fontWeight: 500,
-          }}
-        >
-          {numeral} · {conceptName}
-        </span>
-        <CategoryBadge category={category} />
+    {/* "See this in Pellier" cross-link - appears below the hero prose on
+        every architecture detail page that supplies one. Pairs the deep-dive
+        explainer with a one-click drop back onto the storefront so the round
+        trip is always available. The title block already sets the 32px gap
+        below itself, so this only needs its own trailing space. */}
+    {seeInPellier && (
+      <div style={{ margin: '-12px 0 32px 0' }}>
+        <SurfaceCrossLink
+          direction="to-pellier"
+          href={seeInPellier.href}
+          label={seeInPellier.label}
+          italic={false}
+        />
       </div>
+    )}
 
-      {/* Hero title — same Fraunces display stack as Pellier hero + EditorialTitle */}
-      <h1
-        className="font-display italic text-espresso"
-        style={{
-          fontSize: 'clamp(40px, 5vw, 56px)',
-          fontWeight: 400,
-          lineHeight: 1.08,
-          letterSpacing: '-0.02em',
-          margin: '0 0 16px 0',
-        }}
-      >
-        {title}
-      </h1>
+    {/* Concept-specific content */}
+    {children}
 
-      {/* Hero prose */}
-      <p
-        style={{
-          fontFamily: 'var(--obs-sans)',
-          fontSize: 'var(--obs-body-size)',
-          lineHeight: 'var(--obs-body-leading)',
-          color: 'var(--obs-ink-1)',
-          maxWidth: '680px',
-          margin: '0 0 16px 0',
-        }}
-      >
-        {prose}
-      </p>
+    {/* Cheat-sheet strip */}
+    <CheatSheetStrip items={cheatSheet} />
 
-      {/* "See this in Pellier" cross-link - appears below the
-          hero prose on every architecture detail page that supplies
-          one. Pairs the deep-dive explainer with a one-click drop
-          back onto the storefront so the round trip is always
-          available. */}
-      {seeInPellier && (
-        <div style={{ margin: '0 0 40px 0' }}>
-          <SurfaceCrossLink
-            direction="to-pellier"
-            href={seeInPellier.href}
-            label={seeInPellier.label}
-            italic={false}
-          />
-        </div>
-      )}
-      {!seeInPellier && <div style={{ height: 24 }} />}
-
-      {/* Concept-specific content */}
-      {children}
-
-      {/* Cheat-sheet strip */}
-      <CheatSheetStrip items={cheatSheet} />
-
-      {/* Live state callout */}
-      {liveState && (
-        <LiveStateCallout label={liveState.label} values={liveState.values} />
-      )}
-    </div>
-  );
-};
+    {/* Live state callout */}
+    {liveState && (
+      <LiveStateCallout label={liveState.label} values={liveState.values} />
+    )}
+  </div>
+);
 
 export default DetailPageShell;

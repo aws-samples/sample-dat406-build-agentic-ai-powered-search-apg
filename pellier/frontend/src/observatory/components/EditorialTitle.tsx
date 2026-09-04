@@ -1,7 +1,14 @@
 /**
- * EditorialTitle — Page-level title block (eyebrow + Fraunces title + summary paragraph).
+ * EditorialTitle — the one page-title block on the Observatory.
  *
- * Used at the top of each Observatory surface for consistent editorial hierarchy.
+ * Back link, section label, Fraunces title, summary. Three title grammars
+ * used to ship at once: this one, the architecture detail pages' italic
+ * 56px with a mono roman-numeral label, and the workbench's sans 38/600.
+ * The detail pages now come through here, so the surface has one page-title
+ * step and one label register.
+ *
+ * `aside` is the slot the detail pages needed: a CategoryBadge sits beside
+ * the section label rather than becoming a second, competing label.
  *
  * Requirements: 15.3, 15.7
  */
@@ -11,13 +18,32 @@ import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Eyebrow } from './Eyebrow';
 
+export interface EditorialTitleBackLink {
+  /** Route to return to. */
+  to: string;
+  /** Visible label, e.g. "Back to Architecture". */
+  label: string;
+  /** Accessible name, when the visible label needs more context. */
+  ariaLabel?: string;
+}
+
 export interface EditorialTitleProps {
   eyebrow: string;
   title: string;
   summary?: string;
   className?: string;
   backToReferences?: boolean;
+  /** A back link to somewhere other than the workbench resources index. */
+  backTo?: EditorialTitleBackLink;
+  /** Rendered inline after the eyebrow. One badge, not a second label. */
+  aside?: React.ReactNode;
 }
+
+const REFERENCES_BACK_LINK: EditorialTitleBackLink = {
+  to: '/observatory/workbench#resources',
+  label: 'Labs & Workbench resources',
+  ariaLabel: 'Back to Labs and Workbench resources',
+};
 
 export const EditorialTitle: React.FC<EditorialTitleProps> = ({
   eyebrow,
@@ -25,7 +51,11 @@ export const EditorialTitle: React.FC<EditorialTitleProps> = ({
   summary,
   className = '',
   backToReferences = false,
+  backTo,
+  aside,
 }) => {
+  const back = backTo ?? (backToReferences ? REFERENCES_BACK_LINK : undefined);
+
   return (
     <header
       className={className}
@@ -36,17 +66,32 @@ export const EditorialTitle: React.FC<EditorialTitleProps> = ({
         marginBottom: '32px',
       }}
     >
-      {backToReferences ? (
+      {back ? (
         <Link
-          to="/observatory/workbench#resources"
+          to={back.to}
           className="observatory-reference-return"
-          aria-label="Back to Labs and Workbench resources"
+          aria-label={back.ariaLabel ?? back.label}
         >
           <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          <span>Labs &amp; Workbench resources</span>
+          <span>{back.label}</span>
         </Link>
       ) : null}
-      <Eyebrow label={eyebrow} />
+
+      {aside ? (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <Eyebrow label={eyebrow} />
+          {aside}
+        </span>
+      ) : (
+        <Eyebrow label={eyebrow} />
+      )}
 
       {/* Size, leading, weight and tracking come from
           `.observatory-page-title` so every route shares one page-title step.

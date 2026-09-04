@@ -130,6 +130,31 @@ describe('OperatorSignInModal', () => {
     expect(primary).toHaveFocus()
   })
 
+  it('sets the sheet on the house plate, loaded through the asset helpers', async () => {
+    // The owner asked for a background here, and the one rule that matters is
+    // that it never becomes a CSS url(): a bare root-relative path 404s behind
+    // the Workshop Studio /ports/8000/ proxy, and a sign-in screen with a
+    // missing background is the first thing anyone sees of this desk.
+    const user = userEvent.setup()
+    const { container } = renderModal()
+    await user.click(screen.getByText('Open sign-in'))
+
+    const plate = container.querySelector('.operator-signin-plate')
+    expect(plate).not.toBeNull()
+    const img = plate?.querySelector('img')
+    expect(img?.getAttribute('src')).toContain('/products/hero-fresh-2-960.webp')
+    expect(
+      plate?.querySelector('source[type="image/avif"]')?.getAttribute('srcSet'),
+    ).toContain('/products/hero-fresh-2-1600.avif')
+
+    // Decorative. The dialog's own words carry the moment.
+    expect(img).toHaveAttribute('alt', '')
+    expect(img).toHaveAttribute('aria-hidden', 'true')
+
+    // Still exactly one heading: the eyebrow is a label, not a second title.
+    expect(screen.getAllByRole('heading')).toHaveLength(1)
+  })
+
   it('closes when the warm-paper dialog backdrop is clicked', async () => {
     const user = userEvent.setup()
     renderModal()

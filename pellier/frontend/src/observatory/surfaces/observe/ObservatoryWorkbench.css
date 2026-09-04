@@ -30,10 +30,17 @@
   --pl-faint: var(--obs-ink-5);
 
   /* Semantic accents */
-  --pl-accent: #6d1f28;
-  --pl-accent-2: #8a3943;
-  --pl-accent-deep: #6d1f28;
-  --pl-accent-rgb: 109, 31, 40;
+  /* Aliases of the one house burgundy (styles/pellier-landing.css). Every
+     value here renders exactly what the literals did; only the declaration
+     moved. `--pl-accent-deep` is deliberately still the base swatch and not
+     `--pellier-burgundy-deep`: it has 17 call sites, several of them filled
+     button backgrounds, so darkening it is a visual change for the workbench
+     pass, not a token rename. It does mean the hover rules that switch from
+     --pl-accent to --pl-accent-deep currently change nothing. */
+  --pl-accent: var(--pellier-burgundy);
+  --pl-accent-2: var(--pellier-burgundy-soft);
+  --pl-accent-deep: var(--pellier-burgundy);
+  --pl-accent-rgb: var(--pellier-burgundy-rgb);
   --pl-olive: #6a7a4d;
   --pl-olive-soft: #edf2e7;
   --pl-olive-line: #c9d6bc;
@@ -187,7 +194,7 @@
   color: var(--pl-ink) !important;
   isolation: isolate;
   padding: 10px;
-  box-shadow: 0 1px 2px rgb(20 28 24 / 0.04);
+  box-shadow: 0 1px 2px rgb(60 40 10 / 0.04);
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -255,7 +262,7 @@
 
 .observatory-lab-rail-card:hover {
   border-color: color-mix(in srgb, var(--pl-accent) 28%, var(--pl-line));
-  box-shadow: 0 10px 26px rgb(20 28 24 / 0.08);
+  box-shadow: 0 10px 26px rgb(60 40 10 / 0.08);
   transform: translateY(-1px);
 }
 

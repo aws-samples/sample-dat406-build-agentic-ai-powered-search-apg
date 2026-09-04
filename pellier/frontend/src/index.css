@@ -222,9 +222,12 @@
     --rule-1: var(--dl-line);
     --rule-2: var(--dl-line);
     --rule-3: var(--dl-line-strong);
-    --accent: #7a263a;
-    --accent-ink: #651f31;
-    --red-1: #7a263a;
+    /* Aliases of the one house burgundy declared in pellier-landing.css.
+       `.operator-root` is in this selector list, so the desk's --op-accent
+       and --op-authority resolve to the same swatch as the wordmark. */
+    --accent: var(--pellier-burgundy);
+    --accent-ink: var(--pellier-burgundy-deep);
+    --red-1: var(--pellier-burgundy);
     --red-soft: #f1e1e5;
     --dusk: var(--dl-ink);
     --bg-primary: var(--dl-bg);
@@ -235,8 +238,8 @@
     --header-bg: color-mix(in srgb, var(--dl-bg) 92%, transparent);
     --input-bg: color-mix(in srgb, var(--dl-paper) 82%, transparent);
     --input-border: color-mix(in srgb, var(--dl-ink) 16%, transparent);
-    --link-color: #7a263a;
-    --link-hover: #651f31;
+    --link-color: var(--pellier-burgundy);
+    --link-hover: var(--pellier-burgundy-deep);
     --pellier-atmosphere-image: url('/products/hero-fresh-2-1600.webp');
     background: var(--cream);
     color: var(--ink);

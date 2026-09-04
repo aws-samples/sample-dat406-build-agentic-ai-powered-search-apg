@@ -80,7 +80,14 @@
   --obs-rule-1:     var(--dl-line);
   --obs-rule-2:     var(--dl-line);
   --obs-rule-3:     var(--dl-line-strong);
-  --obs-red-1:      var(--dl-accent);
+  /* The Observatory brand accent is burgundy, not terracotta. base.css sets
+     that on `.observatory-root`, but six derived tokens in
+     observatory/styles/tokens.css (--obs-status-exercise-text,
+     --obs-dot-live, --obs-sidebar-accent, --obs-cat-both,
+     --obs-dot-empty-border, --obs-card-accent-color) are declared at :root,
+     so they substituted THIS value and shipped terracotta everywhere. One
+     alias, one colour, no scope-dependent brand mark. */
+  --obs-red-1:      var(--pellier-burgundy);
   --obs-red-soft:   var(--dl-accent-soft);
   --obs-green-1:    var(--dl-ok);
   --obs-green-soft: rgba(63, 98, 18, 0.12);

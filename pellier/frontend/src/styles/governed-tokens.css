@@ -118,6 +118,20 @@
   --gov-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.06);
   --gov-shadow-md: 0 4px 16px rgba(28, 25, 23, 0.08);
 
+  /* One warm shadow family for raised paper, on every surface.
+     Evidence cards used to be tinted rgb(20 28 24) -- a cool green-grey left
+     over from the period when the Observatory had a cool canvas. On the warm
+     paper all three surfaces now share, a cool shadow reads as a smudge under
+     the card rather than as light falling on it. rgb(60 40 10) is the same
+     tint the Daylight shadows already use. Two steps only: resting for a card
+     that sits, raised for a card you can actually press. */
+  --gov-shadow-card:
+    0 1px 2px rgb(60 40 10 / 0.05),
+    0 14px 36px rgb(60 40 10 / 0.07);
+  --gov-shadow-card-raised:
+    0 2px 4px rgb(60 40 10 / 0.06),
+    0 20px 48px rgb(60 40 10 / 0.11);
+
   /* ---- Focus ----------------------------------------------------- */
   /* One focus ring for the whole product. Terracotta reads as "you are
      acting here", which is exactly what focus means. */

@@ -98,7 +98,7 @@
 .labs-catalog-hero-copy > a:hover {
   border-color: #2c332f;
   background: #2c332f;
-  box-shadow: 0 16px 36px rgb(20 28 24 / 0.2);
+  box-shadow: 0 16px 36px rgb(60 40 10 / 0.2);
   transform: translateY(-1px);
 }
 
@@ -1115,7 +1115,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .labs-catalog-hero-copy {
     gap: 12px;
     padding: 0 0 28px;

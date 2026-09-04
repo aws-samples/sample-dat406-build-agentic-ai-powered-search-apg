@@ -21,6 +21,17 @@ import {
 import ClientAvatar from '../components/ClientAvatar'
 import MembershipRung from '../components/MembershipRung'
 import OperatorSignInAction from '../components/OperatorSignInAction'
+import OperatorState from '../components/OperatorState'
+
+/**
+ * How many rows the entrance stagger walks before it stops adding delay.
+ *
+ * A count, not a duration: 12 x 26ms puts the last staggered row at 312ms,
+ * which is inside the window where a sequence still reads as one gesture. Past
+ * that an operator has begun reading the top of the book, and a row still
+ * arriving underneath is a distraction rather than an arrival.
+ */
+const ENTRANCE_STAGGER_CAP = 12
 
 function money(value: number): string {
   return value.toLocaleString('en-US', {
@@ -66,51 +77,56 @@ const ClientBook: React.FC = () => {
     const operatorRequired = error === 'operator_group_required'
     const unavailable = error === 'operator_unavailable'
     return (
-      <div className="operator-state" data-testid="operator-book-error">
-        <span className="operator-state-title">
-          {authenticationRequired
+      <OperatorState
+        data-testid="operator-book-error"
+        surface={authenticationRequired ? 'plate' : 'paper'}
+        eyebrow="Client book"
+        headline={
+          authenticationRequired
             ? 'Operator sign-in required'
             : operatorRequired
               ? 'Operator access required'
               : unavailable
                 ? 'Operator is temporarily unavailable'
-                : 'The book is unavailable'}
-        </span>
-        {authenticationRequired ? (
-          <>
-            Sign in with the workshop operator account to read the client book.
-            No database request was attempted.
-          </>
-        ) : operatorRequired ? (
-          <>
-            This signed-in account is not a member of the operator group. No
-            database request was attempted.
-          </>
-        ) : unavailable ? (
-          <>
-            The governed service could not be reached, so no current client
-            book was returned.
-          </>
-        ) : (
-          <>
-            The live database did not return the client list. If this is a fresh
-            deployment, confirm migration <code>018_client_book.sql</code> has
-            been applied.
-          </>
-        )}
-        {authenticationRequired ? <OperatorSignInAction /> : null}
-        <div className="operator-receipt-key" style={{ marginTop: 10 }}>
-          {error}
-        </div>
-      </div>
+                : 'The book is unavailable'
+        }
+        body={
+          authenticationRequired ? (
+            <>
+              Sign in with the workshop operator account to read the client
+              book. No database request was attempted.
+            </>
+          ) : operatorRequired ? (
+            <>
+              This signed-in account is not a member of the operator group. No
+              database request was attempted.
+            </>
+          ) : unavailable ? (
+            <>
+              The governed service could not be reached, so no current client
+              book was returned.
+            </>
+          ) : (
+            <>
+              The live database did not return the client list. If this is a
+              fresh deployment, confirm migration{' '}
+              <code>018_client_book.sql</code> has been applied.
+            </>
+          )
+        }
+        reason={error}
+        action={authenticationRequired ? <OperatorSignInAction /> : undefined}
+      />
     )
   }
 
   if (!book) {
     return (
-      <div className="operator-state" data-testid="operator-book-loading">
-        Reading the live client book…
-      </div>
+      <OperatorState
+        data-testid="operator-book-loading"
+        eyebrow="Client book"
+        headline="Reading the live client book…"
+      />
     )
   }
 
@@ -129,6 +145,14 @@ const ClientBook: React.FC = () => {
       /return|dispute|service/i.test(client.note),
   )
 
+  // The entrance stagger walks the rendered order, so it has to be counted
+  // where the rows are emitted rather than derived from an array index: a
+  // section header and a client row are both children of the book, and only
+  // the DOM knows the interleaving.
+  let entranceStep = 0
+  const entranceIndex = () =>
+    Math.min(entranceStep++, ENTRANCE_STAGGER_CAP)
+
   // Richest rung first, and a rung with nobody in it is not a section.
   const sections = [...MEMBERSHIP_RUNGS]
     .reverse()
@@ -140,11 +164,18 @@ const ClientBook: React.FC = () => {
 
   if (book.total === 0) {
     return (
-      <div className="operator-state" data-testid="operator-book-empty">
-        <span className="operator-state-title">No clients seeded</span>
-        The desk is wired but <code>pellier.customers</code> holds no client
-        rows. Apply <code>018_client_book.sql</code> to seed the book.
-      </div>
+      <OperatorState
+        data-testid="operator-book-empty"
+        eyebrow="Client book"
+        headline="No clients seeded"
+        body={
+          <>
+            The desk is wired but <code>pellier.customers</code> holds no
+            client rows. Apply <code>018_client_book.sql</code> to seed the
+            book.
+          </>
+        }
+      />
     )
   }
 
@@ -277,7 +308,13 @@ const ClientBook: React.FC = () => {
         {sections.map(({ rung, clients }) => (
           <React.Fragment key={rung}>
             {rungFilter ? null : (
-              <div className="operator-section" data-rung={rung}>
+              <div
+                className="operator-section"
+                data-rung={rung}
+                style={
+                  { '--op-row-index': entranceIndex() } as React.CSSProperties
+                }
+              >
                 <MembershipRung membership={rung} />
                 {/* Identity and benefit are separated by space, not a
                     middle dot: joined by a dot they read as one long
@@ -299,6 +336,7 @@ const ClientBook: React.FC = () => {
             type="button"
             className="operator-book-row"
             data-testid={`operator-client-${client.slug}`}
+            style={{ '--op-row-index': entranceIndex() } as React.CSSProperties}
             onClick={() => navigate(`/operator/clients/${client.customerId}`)}
           >
             <ClientAvatar

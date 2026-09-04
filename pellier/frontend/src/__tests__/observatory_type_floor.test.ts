@@ -28,10 +28,23 @@ const SRC = resolve(HERE, '..')
 // `TurnReceipt` takes `surface="observatory"`, so it and its stylesheet are
 // part of the Observatory even though they live under components/ and
 // styles/. A guard scoped to directories missed exactly that.
+//
+// `shared/` holds the design primitives -- SectionEyebrow, EvidenceCard,
+// DataTable, StateBadge, EmptyState -- that both surfaces compose. A size
+// that drifts there drifts on both at once, which is the worst version of
+// this defect, so the primitives are inside the fence from the day they land.
+//
+// `styles/observatory-arch.css` used to be listed here. It was retired with
+// the rest of the legacy `at-*` architecture set (`components/observatory/`
+// plus `styles/observatory-shared.css`), which no file imported: the
+// architecture pages render through `observatory/surfaces/understand/`. The
+// entry is gone rather than kept as a dead path, because `walk` returns an
+// empty list for a missing file and a scan root that matches nothing passes
+// forever.
 const SCAN_ROOTS = [
   join(SRC, 'observatory'),
   join(SRC, 'operator'),
-  join(SRC, 'styles', 'observatory-arch.css'),
+  join(SRC, 'shared'),
   join(SRC, 'styles', 'turn-receipt.css'),
   join(SRC, 'components', 'TurnReceipt.tsx'),
 ]
@@ -124,5 +137,8 @@ describe('Observatory and Operator type floor', () => {
     // both directories.
     expect(scanned).toContain(join('styles', 'turn-receipt.css'))
     expect(scanned).toContain(join('components', 'TurnReceipt.tsx'))
+    // The shared primitives both surfaces render.
+    expect(scanned).toContain(join('shared', 'DataTable.tsx'))
+    expect(scanned).toContain(join('shared', 'StateBadge.tsx'))
   })
 })

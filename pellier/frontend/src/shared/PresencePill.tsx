@@ -67,6 +67,11 @@ export const HEALTH_TIMEOUT_MS = 5_000
 
 const PRESENCE_ONLINE = 'Concierge online'
 const PRESENCE_OFFLINE = 'Concierge offline'
+/* Before the first health check answers there is no evidence either way.
+   Saying offline there is the same unfounded claim as saying online was,
+   and it reads in a workshop room as a broken system rather than a pending
+   request. */
+const PRESENCE_CHECKING = 'Concierge checking'
 
 /** Whole hours or days since `iso`, or null when it is not a usable date. */
 function memoryAgeLabel(iso: string | null | undefined): string | null {
@@ -117,8 +122,8 @@ function newestMemoryTimestamp(payload: unknown): string | null {
  * the time it arrived and expires on its own, so the label can never outlive
  * the evidence for it even if the polling loop stops running.
  */
-function useBackendReachable(): boolean {
-  const [reachable, setReachable] = useState(false)
+function useBackendReachable(): boolean | null {
+  const [reachable, setReachable] = useState<boolean | null>(null)
   const [freshUntil, setFreshUntil] = useState<number | null>(null)
   const inFlight = useRef(false)
 
@@ -245,7 +250,12 @@ export const PresencePill: React.FC<PresencePillProps> = ({
   const memoryAge = useMemoryAge(personaId)
   const isObservatory = surface === 'observatory'
   const resolvedLabel =
-    label ?? (reachable ? PRESENCE_ONLINE : PRESENCE_OFFLINE)
+    label ??
+    (reachable === null
+      ? PRESENCE_CHECKING
+      : reachable
+        ? PRESENCE_ONLINE
+        : PRESENCE_OFFLINE)
   const derivedSession =
     !personaId || personaId === 'fresh'
       ? ''
@@ -253,7 +263,7 @@ export const PresencePill: React.FC<PresencePillProps> = ({
   const session = sessionLabel ?? derivedSession
 
   const animation =
-    mode === 'idle' || !reachable
+    mode === 'idle' || reachable !== true
       ? 'none'
       : mode === 'thinking'
         ? 'pelliers-presence-think 1.2s ease-in-out infinite'
@@ -263,12 +273,14 @@ export const PresencePill: React.FC<PresencePillProps> = ({
     <div
       data-testid={`presence-pill-${surface}`}
       data-mode={mode}
-      data-reachable={reachable ? 'true' : 'false'}
+      data-reachable={reachable === null ? 'unknown' : reachable ? 'true' : 'false'}
       role="status"
       aria-label={
-        reachable
-          ? 'AI-assisted personal shopping. A concierge agent is ready to help.'
-          : 'AI-assisted personal shopping. The concierge is not reachable right now.'
+        reachable === null
+          ? 'AI-assisted personal shopping. Checking whether a concierge agent is reachable.'
+          : reachable
+            ? 'AI-assisted personal shopping. A concierge agent is ready to help.'
+            : 'AI-assisted personal shopping. The concierge is not reachable right now.'
       }
       style={{
         display: 'inline-flex',

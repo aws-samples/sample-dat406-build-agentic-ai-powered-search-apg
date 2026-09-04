@@ -22,6 +22,7 @@ import type { ProductCard, TelemetryPanel } from '../../types';
 import { RetrievalReceipt } from '../../components/RetrievalReceipt';
 import { parseRetrievalReceipt } from '../../labs/retrievalReceipt';
 import { BEDROCK_INFERENCE_PROFILES } from '../../constants/bedrockModels';
+import { EmptyState } from '../../../shared';
 import { resolveProductImageUrl } from '../../../utils/resolveProductImageUrl';
 import {
   blurbForProduct,
@@ -1494,7 +1495,8 @@ const TelemetryTab: React.FC = () => {
   const showingSessionTrace = activePattern === sessionCanonical;
   const eyebrowLabel = `${numberToWord(panelCount)} panels \u00B7 ${panelCount}`;
 
-  /* Empty state — no telemetry panels recorded */
+  /* Empty state: no telemetry panels recorded. The absence is the answer, so
+     it is set in the shared EmptyState register rather than as muted grey. */
   if (sessionPanels.length === 0) {
     return (
       <div
@@ -1507,31 +1509,12 @@ const TelemetryTab: React.FC = () => {
           textAlign: 'center',
         }}
       >
-        <Eyebrow label="No telemetry" variant="muted" />
-        <p
-          style={{
-            fontFamily: 'var(--obs-sans)',
-            fontSize: '24px',
-            lineHeight: 1.35,
-            color: 'var(--obs-ink-1)',
-            maxWidth: '420px',
-            marginTop: '16px',
-          }}
-        >
-          No telemetry panels have been recorded for this session.
-        </p>
-        <p
-          style={{
-            fontFamily: 'var(--obs-sans)',
-            fontSize: '16px',
-            color: 'var(--obs-ink-4)',
-            maxWidth: '380px',
-            marginTop: '8px',
-          }}
-        >
-          Telemetry panels appear here as the agentic system processes each
-          step of the conversation.
-        </p>
+        <EmptyState
+          align="center"
+          eyebrow="No telemetry"
+          headline="No telemetry panels have been recorded for this session."
+          body="Telemetry panels appear here as the agentic system processes each step of the conversation."
+        />
       </div>
     );
   }

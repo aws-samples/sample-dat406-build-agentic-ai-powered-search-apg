@@ -34,6 +34,7 @@ import {
 import ActionAssurance from '../components/ActionAssurance'
 import ClientAvatar from '../components/ClientAvatar'
 import OperatorSignInAction from '../components/OperatorSignInAction'
+import OperatorState from '../components/OperatorState'
 import MembershipRung from '../components/MembershipRung'
 import ShopperHandoffView from '../components/ShopperHandoffView'
 import { useOperatorQueueRefresh } from '../shell/OperatorFrame'
@@ -230,45 +231,50 @@ const ReviewRecord: React.FC = () => {
       error === 'authentication_required' || error === 'invalid_credentials'
     const operatorRequired = error === 'operator_group_required'
     return (
-      <div className="operator-state" data-testid="operator-review-error">
-        <span className="operator-state-title">
-          {authenticationRequired
+      <OperatorState
+        data-testid="operator-review-error"
+        surface={authenticationRequired ? 'plate' : 'paper'}
+        eyebrow="Prepared action"
+        lead={
+          <Link to="/operator/reviews" className="operator-back">
+            Back to Action Queue
+          </Link>
+        }
+        headline={
+          authenticationRequired
             ? 'Operator sign-in required'
             : operatorRequired
               ? 'Operator access required'
               : error === 'review_not_found'
                 ? 'No such action'
-                : 'This prepared action is unavailable'}
-        </span>
-        {authenticationRequired ? (
-          <span>
-            Sign in with the workshop operator account to read this prepared
-            action. No database request was attempted.
-          </span>
-        ) : operatorRequired ? (
-          <span>
-            This signed-in account is not a member of the operator group. No
-            database request was attempted.
-          </span>
-        ) : null}
-        {authenticationRequired ? <OperatorSignInAction /> : null}
-        <div style={{ marginTop: 12 }}>
-          <Link to="/operator/reviews" className="operator-filter-clear">
-            Back to Action Queue
-          </Link>
-        </div>
-        <div className="operator-receipt-key" style={{ marginTop: 10 }}>
-          {error}
-        </div>
-      </div>
+                : 'This prepared action is unavailable'
+        }
+        body={
+          authenticationRequired ? (
+            <>
+              Sign in with the workshop operator account to read this prepared
+              action. No database request was attempted.
+            </>
+          ) : operatorRequired ? (
+            <>
+              This signed-in account is not a member of the operator group. No
+              database request was attempted.
+            </>
+          ) : undefined
+        }
+        reason={error}
+        action={authenticationRequired ? <OperatorSignInAction /> : undefined}
+      />
     )
   }
 
   if (!detail) {
     return (
-      <div className="operator-state" data-testid="operator-review-loading">
-        Reading action details from Aurora…
-      </div>
+      <OperatorState
+        data-testid="operator-review-loading"
+        eyebrow="Prepared action"
+        headline="Reading action details from Aurora…"
+      />
     )
   }
 

@@ -15,6 +15,8 @@ import type {
   MemoryItem,
 } from '../../../types';
 import { ARCHITECTURE_CODE_BLOCK } from './codeStyles';
+import { SectionEyebrow, StateBadge } from '../../../../shared';
+import type { StateBadgeTone } from '../../../../shared';
 
 /* Anonymous / unknown personas fall through to Marco, the required path
  * persona, so the brief starts from the workshop's primary memory path. */
@@ -25,35 +27,32 @@ const MEMORY_PERSONA_IDS: ReadonlySet<string> = new Set(['marco', 'anna', 'theo'
  * see whether each substrate read live or is waiting on async extraction.
  * ----------------------------------------------------------------------- */
 
-const SOURCE_COPY: Record<MemorySubstratePanel['source'], { label: string; bg: string; fg: string }> = {
-  live: { label: 'Live', bg: 'var(--obs-status-shipped-bg)', fg: 'var(--obs-status-shipped-text)' },
-  settling: { label: 'Settling', bg: 'var(--obs-status-exercise-bg)', fg: 'var(--obs-status-exercise-text)' },
+/* Provenance, through the shared state badge. This was a mono 0.18em pill
+   with a bullet glyph prefixed to the label; `live` now carries the database
+   mark and `settling` the in-flight mark, so the two states differ by shape
+   as well as by colour. `Live` reads the substrate; `Settling` means the
+   asynchronous extraction has not landed yet, which is a state of the run
+   rather than a claim about where the data came from. */
+const SOURCE_TONE: Record<MemorySubstratePanel['source'], StateBadgeTone> = {
+  live: 'live',
+  settling: 'attention',
 };
 
-const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ source }) => {
-  const { label, bg, fg } = SOURCE_COPY[source];
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        padding: '2px 8px',
-        borderRadius: '999px',
-        background: bg,
-        color: fg,
-        fontFamily: 'var(--obs-mono)',
-        fontSize: 'var(--text-label)',
-        letterSpacing: '0.18em',
-        textTransform: 'uppercase',
-        fontWeight: 600,
-      }}
-    >
-      {source === 'live' ? '● ' : ''}
-      {label}
-    </span>
-  );
+const SOURCE_LABEL: Record<MemorySubstratePanel['source'], string> = {
+  live: 'Live',
+  settling: 'Settling',
 };
+
+const SOURCE_DESCRIPTION: Record<MemorySubstratePanel['source'], string> = {
+  live: 'Read from the substrate on this request.',
+  settling: 'Asynchronous extraction has not produced records yet.',
+};
+
+const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ source }) => (
+  <StateBadge tone={SOURCE_TONE[source]} description={SOURCE_DESCRIPTION[source]}>
+    {SOURCE_LABEL[source]}
+  </StateBadge>
+);
 
 /* -----------------------------------------------------------------------
  * Provenance legend - one-liner that explains the Live source pill.
@@ -96,14 +95,16 @@ const SubstratePanel: React.FC<SubstratePanelProps> = ({ panel }) => (
   <ExpCard>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Card title, at the shared card-title step. See MemoryDashboard:
+            the same panel used to be labelled in mono uppercase here too. */}
         <span
           style={{
-            fontFamily: 'var(--obs-mono)',
-            fontSize: 'var(--text-label)',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'var(--obs-ink-4)',
-            fontWeight: 500,
+            fontFamily: 'var(--obs-heading)',
+            fontSize: '16px',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.25,
+            color: 'var(--obs-ink-1)',
           }}
         >
           {panel.label}
@@ -242,12 +243,12 @@ const TierCard: React.FC<TierCardProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span
           style={{
-            fontFamily: 'var(--obs-mono)',
-            fontSize: 'var(--text-label)',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'var(--obs-ink-4)',
-            fontWeight: 500,
+            fontFamily: 'var(--obs-heading)',
+            fontSize: '16px',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.25,
+            color: 'var(--obs-ink-1)',
           }}
         >
           {tierName}
@@ -463,18 +464,9 @@ GROUP BY tool;`}
               gap: '14px',
             }}
           >
-            <span
-              style={{
-                fontFamily: 'var(--obs-mono)',
-                fontSize: 'var(--text-label)',
-                letterSpacing: '0.22em',
-                textTransform: 'uppercase',
-                color: 'var(--obs-red-1)',
-                fontWeight: 500,
-              }}
-            >
+            <SectionEyebrow dot={false}>
               Live state for {data.persona}
-            </span>
+            </SectionEyebrow>
             <ProvenanceLegend />
           </div>
           <div

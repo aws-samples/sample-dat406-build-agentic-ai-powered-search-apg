@@ -295,6 +295,25 @@ describe('ClientBook', () => {
     )
   })
 
+  it('caps the entrance stagger so the last row is not still arriving', async () => {
+    // The delay is a count, not a duration: without a cap a forty-client book
+    // would still be writing itself out a second after it loaded.
+    mockFetch(() => ({ body: BOOK }))
+    const { container } = render(
+      <MemoryRouter>
+        <ClientBook />
+      </MemoryRouter>,
+    )
+    await screen.findByTestId('operator-book')
+
+    const indices = [...container.querySelectorAll('.operator-book > *')].map(
+      (el) => Number((el as HTMLElement).style.getPropertyValue('--op-row-index')),
+    )
+    expect(indices.length).toBeGreaterThan(0)
+    expect(indices).toEqual([...indices].sort((a, b) => a - b))
+    expect(Math.max(...indices)).toBeLessThanOrEqual(12)
+  })
+
   it('distinguishes an empty book from a broken one', async () => {
     mockFetch(() => ({
       body: { total: 0, clients: [], byMembership: { registered: 0, circle: 0, maison: 0 } },
@@ -452,6 +471,56 @@ describe('ClientRecord', () => {
     expect(record).toHaveTextContent('Standing is business context')
     expect(record).toHaveTextContent('AgentCore Policy still decides')
     expect(record).toHaveTextContent('Aurora still decides')
+  })
+
+  it('gives the three storefront heroes their own plate and everyone else the house ground', async () => {
+    // The record head is the desk's one product-forward moment, and only a
+    // client who exists in the shop has a photograph of their own. An
+    // unrecognised persona must fall back rather than request an asset that
+    // was never generated.
+    mockFetch((url) => {
+      if (url.includes('/api/operator/clients/')) {
+        return {
+          body: {
+            ...RECORD,
+            client: { ...RECORD.client, personaId: 'marco' },
+          },
+        }
+      }
+      return { body: {} }
+    })
+    const { container } = renderRecord()
+    await screen.findByTestId('operator-record')
+
+    const head = container.querySelector('.operator-record-head')
+    expect(head).toHaveAttribute('data-plate', 'persona')
+    // Through ResponsiveImage, so the path carries the Workshop Studio base.
+    expect(
+      container.querySelector('.operator-record-plate-image')?.getAttribute('src'),
+    ).toContain('/products/hero-marco-960.webp')
+  })
+
+  it('falls back to the house ground when the client is not a hero', async () => {
+    const { container } = renderRecord()
+    await screen.findByTestId('operator-record')
+
+    const head = container.querySelector('.operator-record-head')
+    expect(head).toHaveAttribute('data-plate', 'house')
+    expect(container.querySelector('.operator-record-plate-image')).toBeNull()
+  })
+
+  it('keeps the governance note out of the identity band', async () => {
+    renderRecord()
+    await screen.findByTestId('operator-record')
+
+    // The note is guidance for the operator, not part of the client's
+    // identity, and 13px prose belongs on paper rather than over a scrim.
+    const head = document
+      .querySelector('.operator-record-head')
+    expect(head).not.toHaveTextContent('Standing is business context')
+    expect(
+      document.querySelector('.operator-record-context'),
+    ).toHaveTextContent('Standing is business context')
   })
 
   it('shows standing, orders, tickets and credits together', async () => {

@@ -24,6 +24,8 @@ import {
   ExpCard,
   Eyebrow,
 } from '../../components';
+import { DataTable, EvidenceCard } from '../../../shared';
+import type { DataTableColumn } from '../../../shared';
 import IdentityBoundaryCard from './IdentityBoundaryCard';
 
 /* -----------------------------------------------------------------------
@@ -68,7 +70,7 @@ const DARK_INLINE_CODE: React.CSSProperties = {
   fontSize: '11px',
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',
-  borderRadius: '6px',
+  borderRadius: 'var(--gov-radius-sm)',
   padding: '3px 7px',
 };
 
@@ -89,7 +91,7 @@ const EnforcementDiagram: React.FC = () => {
     fontSize: '14px',
     color: 'var(--obs-ink-1)',
     padding: '10px 14px',
-    borderRadius: '6px',
+    borderRadius: 'var(--gov-radius-md)',
     background: 'var(--obs-cream-2)',
     border: '1px solid var(--obs-card-border)',
     overflowWrap: 'anywhere',
@@ -101,14 +103,16 @@ const EnforcementDiagram: React.FC = () => {
     fontSize: '13px',
     margin: '4px 0',
   };
+  /* The shared section-label register, applied to a diagram layer caption.
+     0.04em was a fourth tracking value on a surface that documents one. */
   const layerLabel: React.CSSProperties = {
     fontFamily: 'var(--obs-heading)',
     fontSize: '11px',
     fontWeight: 600,
-    letterSpacing: '0.04em',
+    letterSpacing: '0.08em',
     textTransform: 'uppercase' as const,
-    color: 'var(--obs-ink-3)',
-    marginBottom: '6px',
+    color: 'var(--obs-ink-4)',
+    marginBottom: '7px',
   };
   return (
     <ExpCard>
@@ -265,17 +269,20 @@ const PoliciesCard: React.FC = () => {
       )}
 
       {policies && policies.length > 0 && (
-        <div style={{ display: 'grid', gap: '14px' }}>
+        /* `minmax(0, 1fr)`, not `1fr`: a grid item's automatic minimum is its
+           content's min-content width, and a Cedar block contains ARNs with no
+           break opportunity. Without this the card refuses to shrink and runs
+           past the right edge of a 375px screen instead of scrolling its own
+           code block. */
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr)',
+            gap: '14px',
+          }}
+        >
           {policies.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                border: '1px solid var(--obs-card-border)',
-                borderRadius: '6px',
-                padding: '14px',
-                background: 'var(--obs-cream-1)',
-              }}
-            >
+            <EvidenceCard key={p.id} quiet padding="compact">
               <div
                 style={{
                   display: 'flex',
@@ -324,7 +331,7 @@ const PoliciesCard: React.FC = () => {
               >
                 {p.cedar}
               </pre>
-            </div>
+            </EvidenceCard>
           ))}
         </div>
       )}
@@ -335,6 +342,72 @@ const PoliciesCard: React.FC = () => {
 /* -----------------------------------------------------------------------
  * Recent tool_audit rows — fetched live from /api/observatory/tool-audit/recent
  * ----------------------------------------------------------------------- */
+
+/* The tool_audit ledger, in the shared table register. Every column here is
+   an identifier or a measurement, which is what mono is for; latency is the
+   one quantity you compare down the column, so it is right aligned with
+   tabular figures. `args` and `result` keep their single-line clamp and the
+   full JSON in the title attribute: a row of this table is a row of the table
+   in Aurora and should read like one. */
+const AUDIT_JSON_CLAMP: React.CSSProperties = {
+  display: 'block',
+  maxWidth: '320px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+const TOOL_AUDIT_COLUMNS: DataTableColumn<ToolAuditRow>[] = [
+  {
+    key: 'audit_id',
+    header: 'audit_id',
+    align: 'code',
+    rowHeader: true,
+    render: (r) => r.audit_id,
+  },
+  { key: 'tool', header: 'tool', align: 'code', render: (r) => r.tool },
+  { key: 'caller', header: 'caller', align: 'code', render: (r) => r.caller },
+  {
+    key: 'args',
+    header: 'args',
+    align: 'code',
+    render: (r) => (
+      <span style={AUDIT_JSON_CLAMP} title={JSON.stringify(r.args)}>
+        <code style={DARK_INLINE_CODE}>{JSON.stringify(r.args)}</code>
+      </span>
+    ),
+  },
+  {
+    key: 'result',
+    header: 'result',
+    align: 'code',
+    render: (r) => (
+      <span
+        style={AUDIT_JSON_CLAMP}
+        data-testid="tool-audit-result"
+        title={r.result === null ? 'No result recorded' : JSON.stringify(r.result)}
+      >
+        {r.result === null ? (
+          '\u2013'
+        ) : (
+          <code style={DARK_INLINE_CODE}>{JSON.stringify(r.result)}</code>
+        )}
+      </span>
+    ),
+  },
+  {
+    key: 'latency_ms',
+    header: 'latency_ms',
+    align: 'numeric',
+    render: (r) => r.latency_ms ?? '\u2013',
+  },
+  {
+    key: 'created_at',
+    header: 'created_at',
+    align: 'code',
+    render: (r) => r.created_at?.replace('T', ' ').slice(0, 19),
+  },
+];
 
 const ToolAuditCard: React.FC = () => {
   const [rows, setRows] = useState<ToolAuditRow[] | null>(null);
@@ -393,94 +466,12 @@ const ToolAuditCard: React.FC = () => {
       )}
 
       {rows && rows.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontFamily: 'var(--obs-mono)',
-              fontSize: '12px',
-            }}
-          >
-            <thead>
-              <tr style={{ textAlign: 'left' as const, color: 'var(--obs-ink-3)' }}>
-                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                  audit_id
-                </th>
-                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                  tool
-                </th>
-                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                  caller
-                </th>
-                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                  args
-                </th>
-                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                  result
-                </th>
-                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                  latency_ms
-                </th>
-                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                  created_at
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.audit_id}>
-                  <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                    {r.audit_id}
-                  </td>
-                  <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                    {r.tool}
-                  </td>
-                  <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                    {r.caller}
-                  </td>
-                  <td
-                    style={{
-                      padding: '6px 8px',
-                      borderBottom: '1px solid var(--obs-card-border)',
-                      maxWidth: '320px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap' as const,
-                    }}
-                    title={JSON.stringify(r.args)}
-                  >
-                    <code style={DARK_INLINE_CODE}>{JSON.stringify(r.args)}</code>
-                  </td>
-                  <td
-                    style={{
-                      padding: '6px 8px',
-                      borderBottom: '1px solid var(--obs-card-border)',
-                      maxWidth: '320px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap' as const,
-                    }}
-                    title={r.result === null ? 'No result recorded' : JSON.stringify(r.result)}
-                    data-testid="tool-audit-result"
-                  >
-                    {r.result === null ? (
-                      '–'
-                    ) : (
-                      <code style={DARK_INLINE_CODE}>{JSON.stringify(r.result)}</code>
-                    )}
-                  </td>
-                  <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                    {r.latency_ms ?? '–'}
-                  </td>
-                  <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
-                    {r.created_at?.replace('T', ' ').slice(0, 19)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          ariaLabel="Recent tool_audit rows"
+          columns={TOOL_AUDIT_COLUMNS}
+          rows={rows}
+          rowKey={(r) => String(r.audit_id)}
+        />
       )}
     </ExpCard>
   );

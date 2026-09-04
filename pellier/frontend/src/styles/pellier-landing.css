@@ -32,9 +32,17 @@
  * ======================================================================== */
 
 :root {
-  /* Brand burgundy. Same swatch as --pl-accent on the Labs surface. */
+  /* Brand burgundy. THE burgundy: this is the single swatch the whole
+     product resolves to. `--accent` (storefront + operator desk),
+     `--obs-red-1` (Observatory) and `--pl-accent` (workbench) are all
+     aliases of it. Three literals (#6d1f28, #70232e, #7a263a) used to render
+     as three different burgundies on one screen; changing the house colour
+     now means changing this line. */
   --pellier-burgundy: #6d1f28;
   --pellier-burgundy-soft: #8a3943;
+  /* Pressed, hovered and visited authority. Deep enough to read as the same
+     colour under pressure rather than as a second hue. */
+  --pellier-burgundy-deep: #55181f;
   --pellier-burgundy-rgb: 109, 31, 40;
 
   /* Editorial rhythm for the landing bands. */

@@ -13,6 +13,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { EditorialTitle, ExpCard, Eyebrow } from '../../components';
+import { StateBadge } from '../../../shared';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
 import type {
   ProductionPattern,
@@ -52,26 +53,11 @@ const CATEGORY_TONE: Record<ProductionPattern['category'], { label: string; colo
  * Status pills — Shipped vs Available
  * ----------------------------------------------------------------------- */
 
-const StatusPill: React.FC<{ shipped: boolean }> = ({ shipped }) => {
-  const color = shipped ? 'var(--obs-green-1)' : 'var(--obs-ink-3)';
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        fontFamily: 'var(--obs-mono)',
-        fontSize: 'var(--text-label)',
-        letterSpacing: '0.18em',
-        textTransform: 'uppercase',
-        color,
-        border: `1px solid ${color}`,
-        borderRadius: '999px',
-        padding: '3px 9px',
-      }}
-    >
-      {shipped ? 'Shipped' : 'Available'}
-    </span>
-  );
-};
+const StatusPill: React.FC<{ shipped: boolean }> = ({ shipped }) => (
+  <StateBadge tone={shipped ? 'ok' : 'neutral'}>
+    {shipped ? 'Shipped' : 'Available'}
+  </StateBadge>
+);
 
 /* -----------------------------------------------------------------------
  * Pattern card header — numeral + category badge + title + role

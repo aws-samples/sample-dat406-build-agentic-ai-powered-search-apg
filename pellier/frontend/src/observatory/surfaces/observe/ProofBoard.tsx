@@ -19,7 +19,20 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { EditorialTitle, Eyebrow } from '../../components';
-import { PolicyDecisionBadge, type PolicyDecision } from '../../../shared';
+import {
+  EvidenceCard,
+  PolicyDecisionBadge,
+  SectionEyebrow,
+  StateBadge,
+  type EvidenceCardTone,
+  type PolicyDecision,
+  type StateBadgeTone,
+} from '../../../shared';
+
+/* The tones a card and a badge can both wear. Provenance tones say where a
+   number came from and are not states of a checkpoint, so they are excluded
+   here rather than handled at each call site. */
+type ProofTone = Extract<StateBadgeTone, EvidenceCardTone>;
 
 type CheckState = 'pass' | 'warn' | 'fail';
 type CardStatus = 'complete' | 'needs_build' | 'needs_run' | 'needs_data' | 'needs_config' | 'pending' | 'available';
@@ -176,43 +189,33 @@ const STATUS_LABEL: Record<CardStatus, string> = {
   available: 'Available',
 };
 
-// Status roles come from base.css (--obs-status-*). The brand burgundy is not
-// among them on purpose: a chip that borrows the accent reads as a button.
-const STATUS_TONE: Record<CardStatus, { color: string; bg: string }> = {
-  complete: { color: 'var(--obs-status-ok-fg)', bg: 'var(--obs-status-ok-bg)' },
-  needs_build: { color: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)' },
-  needs_run: { color: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)' },
-  needs_data: { color: 'var(--obs-status-degraded-fg)', bg: 'var(--obs-status-degraded-bg)' },
-  needs_config: { color: 'var(--obs-status-degraded-fg)', bg: 'var(--obs-status-degraded-bg)' },
-  pending: { color: 'var(--obs-status-neutral-fg)', bg: 'var(--obs-status-neutral-bg)' },
-  available: { color: 'var(--obs-status-neutral-fg)', bg: 'var(--obs-status-neutral-bg)' },
+// Status roles come from base.css (--obs-status-*), resolved by the shared
+// StateBadge. The brand burgundy is not among them on purpose: a chip that
+// borrows the accent reads as a button.
+const STATUS_TONE: Record<CardStatus, ProofTone> = {
+  complete: 'ok',
+  needs_build: 'attention',
+  needs_run: 'attention',
+  needs_data: 'degraded',
+  needs_config: 'degraded',
+  pending: 'neutral',
+  available: 'neutral',
 };
 
-const CHECK_TONE: Record<CheckState, { label: string; color: string; bg: string }> = {
-  pass: { label: 'Pass', color: 'var(--obs-status-ok-fg)', bg: 'var(--obs-status-ok-bg)' },
-  warn: { label: 'Warn', color: 'var(--obs-status-degraded-fg)', bg: 'var(--obs-status-degraded-bg)' },
-  fail: { label: 'Fix', color: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)' },
+const CHECK_TONE: Record<CheckState, { label: string; tone: ProofTone }> = {
+  pass: { label: 'Pass', tone: 'ok' },
+  warn: { label: 'Warn', tone: 'degraded' },
+  fail: { label: 'Fix', tone: 'attention' },
 };
 
-const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: string; border: string }> = {
-  pass: {
-    label: 'Seen',
-    color: 'var(--obs-status-ok-fg)',
-    bg: 'var(--obs-status-ok-bg)',
-    border: 'var(--obs-status-ok-line)',
-  },
-  warn: {
-    label: 'Gap',
-    color: 'var(--obs-status-degraded-fg)',
-    bg: 'var(--obs-status-degraded-bg)',
-    border: 'var(--obs-status-degraded-line)',
-  },
-  pending: {
-    label: 'Pending',
-    color: 'var(--obs-status-neutral-fg)',
-    bg: 'var(--obs-status-neutral-bg)',
-    border: 'var(--obs-card-border)',
-  },
+/* Seen / Gap / Pending, as a badge tone and a card tone. The three states used
+   to fill the whole card with their tint, so a board with one gap in it read
+   as three differently coloured surfaces; the state now lives in the badge and
+   in the card's top tick, and the paper stays one colour. */
+const TRACE_TONE: Record<TraceStepState, { label: string; card: ProofTone }> = {
+  pass: { label: 'Seen', card: 'ok' },
+  warn: { label: 'Gap', card: 'degraded' },
+  pending: { label: 'Pending', card: 'neutral' },
 };
 
 // Four-lab workshop spine.
@@ -280,7 +283,7 @@ function cardLab(card: ProofCard): string {
 const CODE_STYLE: React.CSSProperties = {
   margin: 0,
   padding: '12px 14px',
-  borderRadius: '8px',
+  borderRadius: 'var(--gov-radius-md)',
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',
   border: '1px solid color-mix(in srgb, var(--dl-accent-soft) 18%, transparent)',
@@ -304,26 +307,15 @@ function formatTimestamp(value?: string | null) {
 }
 
 function statusPill(status: CardStatus) {
-  const tone = STATUS_TONE[status];
+  // No glyph here, unlike CheckPill. Seven checkpoint statuses share four
+  // tones -- Build and Run are both `attention`, Data and Config both
+  // `degraded` -- so a glyph would repeat rather than distinguish, and this
+  // badge sits inside a tab and a card head where width is scarce. CheckPill
+  // has one glyph per state, so there it earns its place.
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        borderRadius: '4px',
-        padding: '4px 9px',
-        color: tone.color,
-        background: tone.bg,
-        fontFamily: 'var(--obs-heading)',
-        fontSize: '11px',
-        fontWeight: 600,
-        letterSpacing: '0.03em',
-        textTransform: 'uppercase',
-        whiteSpace: 'nowrap',
-      }}
-    >
+    <StateBadge tone={STATUS_TONE[status]} icon={false}>
       {STATUS_LABEL[status]}
-    </span>
+    </StateBadge>
   );
 }
 
@@ -450,7 +442,15 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
                 <span>{stage.number}</span>
                 <strong>{stage.title}</strong>
               </span>
-              <small>{stageCard ? STATUS_LABEL[stageCard.status] : 'Unavailable'}</small>
+              <small>
+                {stageCard ? (
+                  statusPill(stageCard.status)
+                ) : (
+                  <StateBadge tone="neutral" icon={false}>
+                    Unavailable
+                  </StateBadge>
+                )}
+              </small>
             </button>
           );
         })}
@@ -465,14 +465,16 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
         <div className="pellier-governed-proof-question">
           <div className="pellier-governed-proof-stage-label">
             <span>{activeStage.number}</span>
-            <span>{activeStage.title}</span>
+            <SectionEyebrow tone="muted" dot={false}>
+              {activeStage.title}
+            </SectionEyebrow>
           </div>
           <h2 className="font-display">{activeStage.question}</h2>
           <p>{activeStage.description}</p>
         </div>
         <div className="pellier-governed-proof-evidence">
           <div className="pellier-governed-proof-evidence-label">
-            <span>{evidence.label}</span>
+            <SectionEyebrow dot={false}>{evidence.label}</SectionEyebrow>
             {activeCard ? statusPill(activeCard.status) : null}
           </div>
           <p className="font-mono">{evidence.detail}</p>
@@ -492,28 +494,9 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
   );
 };
 
-const CheckPill: React.FC<{ state: CheckState }> = ({ state }) => {
-  const tone = CHECK_TONE[state];
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        borderRadius: '4px',
-        padding: '3px 8px',
-        color: tone.color,
-        background: tone.bg,
-        fontFamily: 'var(--obs-heading)',
-        fontSize: '11px',
-        fontWeight: 600,
-        letterSpacing: '0.03em',
-        textTransform: 'uppercase',
-      }}
-    >
-      {tone.label}
-    </span>
-  );
-};
+const CheckPill: React.FC<{ state: CheckState }> = ({ state }) => (
+  <StateBadge tone={CHECK_TONE[state].tone}>{CHECK_TONE[state].label}</StateBadge>
+);
 
 const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
   return (
@@ -531,18 +514,9 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
         <h2 style={{ margin: 0, fontSize: 'inherit', lineHeight: 1 }}>
           <Eyebrow label="Readiness" />
         </h2>
-        <span
-          style={{
-            fontFamily: 'var(--obs-heading)',
-            fontSize: '11px',
-            fontWeight: 600,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            color: 'var(--obs-ink-3)',
-          }}
-        >
+        <SectionEyebrow tone="muted" dot={false}>
           Read only
-        </span>
+        </SectionEyebrow>
       </div>
       <div
         style={{
@@ -552,33 +526,28 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
         }}
       >
         {checks.map((check) => (
-          <div
+          <EvidenceCard
             key={check.id}
+            padding="compact"
             style={{
-              border: '1px solid var(--obs-card-border)',
-              borderRadius: '8px',
-              background: 'var(--obs-card-bg)',
-              padding: '14px 16px',
               minHeight: '126px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '9px',
+              gap: '10px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
               <CheckPill state={check.state} />
-              <span
-                style={{
-                  fontFamily: 'var(--obs-heading)',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.03em',
-                  textTransform: 'uppercase',
-                  color: 'var(--obs-ink-3)',
-                }}
-              >
+              <SectionEyebrow tone="muted" dot={false}>
                 {check.required ? 'Baseline' : 'Managed'}
-              </span>
+              </SectionEyebrow>
             </div>
             <h3
               style={{
@@ -602,7 +571,7 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
             >
               {check.detail}
             </p>
-          </div>
+          </EvidenceCard>
         ))}
       </div>
     </section>
@@ -616,30 +585,18 @@ const TraceStep: React.FC<{ label: string; detail: string; state: TraceStepState
 }) => {
   const tone = TRACE_TONE[state];
   return (
-    <div
+    <EvidenceCard
+      tone={tone.card}
+      padding="compact"
       style={{
-        border: `1px solid ${tone.border}`,
-        borderRadius: '8px',
-        background: tone.bg,
         minHeight: '96px',
-        padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
       }}
     >
-      <div
-        style={{
-          color: tone.color,
-          fontFamily: 'var(--obs-heading)',
-          fontSize: '11px',
-          fontWeight: 600,
-          letterSpacing: '0.03em',
-          textTransform: 'uppercase',
-          marginBottom: '8px',
-        }}
-      >
-        {tone.label}
+      <div style={{ marginBottom: '10px' }}>
+        <StateBadge tone={tone.card}>{tone.label}</StateBadge>
       </div>
       <div
         style={{
@@ -663,7 +620,7 @@ const TraceStep: React.FC<{ label: string; detail: string; state: TraceStepState
       >
         {detail}
       </div>
-    </div>
+    </EvidenceCard>
   );
 };
 
@@ -673,14 +630,13 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
 }) => {
   const tone = TRACE_TONE[receipt.state];
   return (
-    <article
+    <EvidenceCard
+      as="article"
+      tone={tone.card}
+      padding="compact"
       data-testid={`governance-receipt-${receipt.id}`}
       style={{
-        border: `1px solid ${tone.border}`,
-        borderRadius: '8px',
-        background: 'var(--obs-card-bg)',
         minHeight: '218px',
-        padding: '18px 20px',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -694,32 +650,8 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
           marginBottom: '18px',
         }}
       >
-        <span
-          style={{
-            color: 'var(--obs-red-1)',
-            fontFamily: 'var(--obs-heading)',
-            fontSize: '12px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-          }}
-        >
-          {receipt.label}
-        </span>
-        <span
-          style={{
-            borderRadius: '4px',
-            padding: '4px 8px',
-            color: tone.color,
-            background: tone.bg,
-            fontFamily: 'var(--obs-heading)',
-            fontSize: '11px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {tone.label}
-        </span>
+        <SectionEyebrow dot={false}>{receipt.label}</SectionEyebrow>
+        <StateBadge tone={tone.card}>{tone.label}</StateBadge>
       </div>
       <h3
         style={{
@@ -757,7 +689,7 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
         {receipt.evidence}
       </p>
       {children}
-    </article>
+    </EvidenceCard>
   );
 };
 
@@ -779,12 +711,12 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
   // the list above because it is the one line that answers "did Runtime run
   // the code I just packaged?" -- and because a stale build has to read as a
   // finding, not as another correlation id.
-  const buildTone =
+  const buildTone: { tone: ProofTone; label: string } =
     buildState === 'current'
-      ? { fg: 'var(--obs-status-ok-fg)', bg: 'var(--obs-status-ok-bg)', label: 'This checkout' }
+      ? { tone: 'ok', label: 'This checkout' }
       : buildState === 'stale'
-        ? { fg: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)', label: 'Older deployment' }
-        : { fg: 'var(--obs-status-neutral-fg)', bg: 'var(--obs-status-neutral-bg)', label: 'Not reported' };
+        ? { tone: 'attention', label: 'Older deployment' }
+        : { tone: 'neutral', label: 'Not reported' };
 
   return (
     <div
@@ -795,17 +727,10 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
         paddingTop: '14px',
       }}
     >
-      <div
-        style={{
-          color: 'var(--obs-ink-2)',
-          fontFamily: 'var(--obs-heading)',
-          fontSize: '11px',
-          fontWeight: 600,
-          marginBottom: '9px',
-          textTransform: 'uppercase',
-        }}
-      >
-        Managed trace correlation
+      <div style={{ marginBottom: '10px' }}>
+        <SectionEyebrow tone="muted" dot={false}>
+          Managed trace correlation
+        </SectionEyebrow>
       </div>
       <div
         data-testid="managed-build-fingerprint"
@@ -823,21 +748,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
         <span style={{ color: 'var(--obs-ink-3)', fontSize: '11px' }}>
           Executed revision
         </span>
-        <span
-          style={{
-            borderRadius: '4px',
-            padding: '2px 7px',
-            color: buildTone.fg,
-            background: buildTone.bg,
-            fontFamily: 'var(--obs-heading)',
-            fontSize: '11px',
-            fontWeight: 600,
-            letterSpacing: '0.03em',
-            textTransform: 'uppercase',
-          }}
-        >
-          {buildTone.label}
-        </span>
+        <StateBadge tone={buildTone.tone}>{buildTone.label}</StateBadge>
         <span
           className="font-mono"
           style={{ color: 'var(--obs-ink-2)', fontSize: '11px', overflowWrap: 'anywhere' }}
@@ -1077,17 +988,9 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
             Reconstruct one governed action.
           </h2>
         </div>
-        <span
-          className="font-mono"
-          style={{
-            color: 'var(--obs-ink-3)',
-            fontSize: '11px',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-          }}
-        >
+        <SectionEyebrow tone="muted" dot={false}>
           {receipt.present ? receipt.traceKind || 'managed receipt' : 'after SQL proof'}
-        </span>
+        </SectionEyebrow>
       </div>
       <div
         style={{
@@ -1155,18 +1058,22 @@ const ProofCardView: React.FC<{
 }) => {
   const lastUpdated = formatTimestamp(card.lastUpdated);
   return (
-  <article
+  <EvidenceCard
+    as="article"
     id={card.id}
     data-testid={`proof-card-${card.id}`}
     style={{
-      border: highlighted ? '1px solid var(--obs-red-1)' : '1px solid var(--obs-card-border)',
-      borderRadius: '8px',
-      background: highlighted ? 'color-mix(in srgb, var(--obs-card-bg) 86%, var(--obs-red-1) 14%)' : 'var(--obs-card-bg)',
-      padding: '22px 24px',
       scrollMarginTop: '80px',
-      boxShadow: highlighted
-        ? '0 0 0 3px color-mix(in srgb, var(--obs-red-1) 14%, transparent), 0 2px 10px rgba(45, 24, 16, 0.04)'
-        : '0 2px 10px rgba(45, 24, 16, 0.04)',
+      /* The highlighted card is the one a deep link landed on. It keeps the
+         card's own paper and gains a burgundy edge plus a ring, so "you are
+         here" is an outline rather than a different surface. */
+      ...(highlighted
+        ? {
+            borderColor: 'var(--obs-red-1)',
+            boxShadow:
+              '0 0 0 3px color-mix(in srgb, var(--obs-red-1) 14%, transparent), var(--gov-shadow-card)',
+          }
+        : null),
     }}
   >
     <div
@@ -1178,30 +1085,11 @@ const ProofCardView: React.FC<{
         marginBottom: '12px',
       }}
     >
-      <span
-        style={{
-          fontFamily: 'var(--obs-heading)',
-          fontSize: '11px',
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          color: 'var(--obs-red-1)',
-        }}
-      >
-        {cardLab(card)}
-      </span>
+      <SectionEyebrow dot={false}>{cardLab(card)}</SectionEyebrow>
       {statusPill(card.status)}
-      <span
-        style={{
-          fontFamily: 'var(--obs-heading)',
-          fontSize: '11px',
-          fontWeight: 600,
-          letterSpacing: '0.03em',
-          textTransform: 'uppercase',
-          color: 'var(--obs-ink-3)',
-        }}
-      >
+      <SectionEyebrow tone="muted" dot={false}>
         {card.required ? 'Baseline evidence' : 'Extension evidence'}
-      </span>
+      </SectionEyebrow>
     </div>
     <TitleTag
       style={{
@@ -1215,18 +1103,10 @@ const ProofCardView: React.FC<{
     >
       {card.title}
     </TitleTag>
-    <p
-      style={{
-        margin: '0 0 12px',
-        color: 'var(--obs-ink-3)',
-        fontFamily: 'var(--obs-heading)',
-        fontSize: '11px',
-        fontWeight: 600,
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
-      }}
-    >
-      {card.surface}
+    <p style={{ margin: '0 0 12px' }}>
+      <SectionEyebrow tone="muted" dot={false}>
+        {card.surface}
+      </SectionEyebrow>
     </p>
     <p
       style={{
@@ -1250,18 +1130,10 @@ const ProofCardView: React.FC<{
       >
         {card.evidenceSource && (
           <div>
-            <div
-              style={{
-                color: 'var(--obs-ink-3)',
-                fontFamily: 'var(--obs-heading)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                marginBottom: '4px',
-              }}
-            >
-              Evidence source
+            <div style={{ marginBottom: '5px' }}>
+              <SectionEyebrow tone="muted" dot={false}>
+                Evidence source
+              </SectionEyebrow>
             </div>
             <div
               style={{
@@ -1278,18 +1150,10 @@ const ProofCardView: React.FC<{
         )}
         {lastUpdated && (
           <div>
-            <div
-              style={{
-                color: 'var(--obs-ink-3)',
-                fontFamily: 'var(--obs-heading)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                marginBottom: '4px',
-              }}
-            >
-              Last updated
+            <div style={{ marginBottom: '5px' }}>
+              <SectionEyebrow tone="muted" dot={false}>
+                Last updated
+              </SectionEyebrow>
             </div>
             <div
               style={{
@@ -1320,18 +1184,10 @@ const ProofCardView: React.FC<{
       ))}
     </ul>
     <div style={{ marginBottom: '16px' }}>
-      <div
-        style={{
-          fontFamily: 'var(--obs-heading)',
-          fontSize: '11px',
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          color: 'var(--obs-ink-3)',
-          marginBottom: '7px',
-        }}
-      >
-        {card.fallback.label}
+      <div style={{ marginBottom: '8px' }}>
+        <SectionEyebrow tone="muted" dot={false}>
+          {card.fallback.label}
+        </SectionEyebrow>
       </div>
       <pre style={CODE_STYLE}>{card.fallback.command}</pre>
     </div>
@@ -1356,7 +1212,7 @@ const ProofCardView: React.FC<{
         </Link>
       ))}
     </div>
-  </article>
+  </EvidenceCard>
   );
 };
 
@@ -1408,18 +1264,9 @@ const ProofRail: React.FC<{
             {title}
           </h2>
         </div>
-        <span
-          style={{
-            color: 'var(--obs-ink-3)',
-            fontFamily: 'var(--obs-heading)',
-            fontSize: '11px',
-            fontWeight: 600,
-            letterSpacing: '0.03em',
-            textTransform: 'uppercase',
-          }}
-        >
+        <SectionEyebrow tone="muted" dot={false}>
           {cards.length} {cards.length === 1 ? 'card' : 'cards'}
-        </span>
+        </SectionEyebrow>
       </div>
       <p
         style={{
@@ -1444,18 +1291,9 @@ const ProofRail: React.FC<{
             }}
           >
             <Eyebrow label={lab} />
-            <span
-              style={{
-                color: 'var(--obs-ink-3)',
-                fontFamily: 'var(--obs-heading)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.03em',
-                textTransform: 'uppercase',
-              }}
-            >
+            <SectionEyebrow tone="muted" dot={false}>
               {labCards.length} {labCards.length === 1 ? 'card' : 'cards'}
-            </span>
+            </SectionEyebrow>
           </div>
           <div
             style={{
@@ -1488,16 +1326,13 @@ const PersistedTurnReceiptPanel: React.FC<{ receipt: PersistedTurnReceipt }> = (
   const toolAuditIds = receipt.tool_audit_ids ?? [];
   const policy = receipt.policy_events?.[0];
   return (
-    <section
+    <EvidenceCard
+      as="section"
+      quiet
+      padding="compact"
       aria-label="Persisted turn receipt"
       data-testid="persisted-turn-receipt"
-      style={{
-        border: '1px solid var(--obs-card-border)',
-        background: 'var(--obs-cream-2)',
-        borderRadius: '8px',
-        padding: '20px',
-        marginBottom: '28px',
-      }}
+      style={{ marginBottom: '28px' }}
     >
       <Eyebrow label="Persisted turn receipt" />
       <div
@@ -1585,7 +1420,7 @@ const PersistedTurnReceiptPanel: React.FC<{ receipt: PersistedTurnReceipt }> = (
           ))}
         </ul>
       )}
-    </section>
+    </EvidenceCard>
   );
 };
 
@@ -1736,7 +1571,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
           style={{
             border: '1px solid var(--obs-status-degraded-line)',
             background: 'var(--obs-status-degraded-bg)',
-            borderRadius: '8px',
+            borderRadius: 'var(--gov-radius-lg)',
             padding: '18px 20px',
             color: 'var(--obs-ink-1)',
             fontFamily: 'var(--obs-sans)',
@@ -1815,7 +1650,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
           style={{
             border: '1px solid var(--obs-status-attention-line)',
             background: 'var(--obs-status-attention-bg)',
-            borderRadius: '8px',
+            borderRadius: 'var(--gov-radius-lg)',
             padding: '14px 16px',
             color: 'var(--obs-status-attention-fg)',
             fontFamily: 'var(--obs-sans)',
@@ -1840,7 +1675,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
               role="alert"
               style={{
                 border: '1px solid var(--obs-card-border)',
-                borderRadius: '8px',
+                borderRadius: 'var(--gov-radius-lg)',
                 padding: '18px 20px',
                 color: 'var(--obs-ink-2)',
                 fontFamily: 'var(--obs-sans)',

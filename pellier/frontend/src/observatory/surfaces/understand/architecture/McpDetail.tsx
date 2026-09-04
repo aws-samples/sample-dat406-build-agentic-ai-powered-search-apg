@@ -13,6 +13,7 @@ import { useObservatoryData } from '../../../hooks/useObservatoryData';
 import type { ArchitectureConcept } from '../../../types';
 import { DetailLoadingState, DetailErrorState, DetailEmptyState } from './DetailStates';
 import { ARCHITECTURE_CODE_BLOCK } from './codeStyles';
+import { SectionEyebrow } from '../../../../shared';
 
 const McpDetail: React.FC = () => {
   const { data, loading, error, refetch } = useObservatoryData<ArchitectureConcept[]>({
@@ -138,17 +139,9 @@ const NodeCard: React.FC<{
           {name}
         </span>
       </div>
-      <span
-        style={{
-          fontFamily: 'var(--obs-mono)',
-          fontSize: 'var(--text-label)',
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
-          color: 'var(--obs-ink-4)',
-        }}
-      >
+      <SectionEyebrow tone="muted" dot={false}>
         {tag}
-      </span>
+      </SectionEyebrow>
       <p style={{ fontFamily: 'var(--obs-sans)', fontSize: '14px', lineHeight: 1.5, color: 'var(--obs-ink-1)', margin: 0 }}>
         {description}
       </p>
@@ -191,19 +184,11 @@ const McpNetworkDiagram: React.FC = () => (
 
 /* ---- Shared styles ---- */
 
+/* Same convergence as the sibling pages' SectionLabel: one label register. */
 const ConceptEyebrow: React.FC<{ label: string }> = ({ label }) => (
-  <span
-    style={{
-      fontFamily: 'var(--obs-mono)',
-      fontSize: 'var(--text-label)',
-      letterSpacing: '0.22em',
-      textTransform: 'uppercase',
-      color: 'var(--obs-ink-4)',
-      fontWeight: 500,
-    }}
-  >
+  <SectionEyebrow tone="muted" dot={false}>
     {label}
-  </span>
+  </SectionEyebrow>
 );
 
 const sectionTitleStyle: React.CSSProperties = {

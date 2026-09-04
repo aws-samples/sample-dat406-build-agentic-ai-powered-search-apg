@@ -22,40 +22,39 @@ import type {
   MemorySubstratePanel,
   MemoryItem,
 } from '../../types';
+import { StateBadge } from '../../../shared';
+import type { StateBadgeTone } from '../../../shared';
 
 /* -----------------------------------------------------------------------
  * Source pill
  * ----------------------------------------------------------------------- */
 
-const SOURCE_COPY: Record<MemorySubstratePanel['source'], { label: string; bg: string; fg: string }> = {
-  live: { label: 'Live', bg: 'var(--obs-status-shipped-bg)', fg: 'var(--obs-status-shipped-text)' },
-  settling: { label: 'Settling', bg: 'var(--obs-status-exercise-bg)', fg: 'var(--obs-status-exercise-text)' },
+/* Provenance, through the shared state badge. This was a mono 0.18em pill
+   with a bullet glyph prefixed to the label; `live` now carries the database
+   mark and `settling` the in-flight mark, so the two states differ by shape
+   as well as by colour. `Live` reads the substrate; `Settling` means the
+   asynchronous extraction has not landed yet, which is a state of the run
+   rather than a claim about where the data came from. */
+const SOURCE_TONE: Record<MemorySubstratePanel['source'], StateBadgeTone> = {
+  live: 'live',
+  settling: 'attention',
 };
 
-const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ source }) => {
-  const { label, bg, fg } = SOURCE_COPY[source];
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        padding: '2px 8px',
-        borderRadius: '999px',
-        background: bg,
-        color: fg,
-        fontFamily: 'var(--obs-mono)',
-        fontSize: 'var(--text-label)',
-        letterSpacing: '0.18em',
-        textTransform: 'uppercase',
-        fontWeight: 600,
-      }}
-    >
-      {source === 'live' ? '● ' : ''}
-      {label}
-    </span>
-  );
+const SOURCE_LABEL: Record<MemorySubstratePanel['source'], string> = {
+  live: 'Live',
+  settling: 'Settling',
 };
+
+const SOURCE_DESCRIPTION: Record<MemorySubstratePanel['source'], string> = {
+  live: 'Read from the substrate on this request.',
+  settling: 'Asynchronous extraction has not produced records yet.',
+};
+
+const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ source }) => (
+  <StateBadge tone={SOURCE_TONE[source]} description={SOURCE_DESCRIPTION[source]}>
+    {SOURCE_LABEL[source]}
+  </StateBadge>
+);
 
 /* -----------------------------------------------------------------------
  * Substrate panel
@@ -65,14 +64,18 @@ const SubstratePanel: React.FC<{ panel: MemorySubstratePanel }> = ({ panel }) =>
   <ExpCard>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {/* The substrate name is this card's title, so it is set as one:
+            sans, sentence case, at the card-title step. Mono uppercase at
+            0.22em said "identifier" about a phrase that is not one, and left
+            the store path below it with no way to look different. */}
         <span
           style={{
-            fontFamily: 'var(--obs-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
+            fontFamily: 'var(--obs-heading)',
+            fontSize: '16px',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.25,
             color: 'var(--obs-ink-1)',
-            fontWeight: 500,
           }}
         >
           {panel.label}
@@ -85,6 +88,9 @@ const SubstratePanel: React.FC<{ panel: MemorySubstratePanel }> = ({ panel }) =>
           fontSize: '12px',
           color: 'var(--obs-ink-2)',
           letterSpacing: '0.02em',
+          /* A store path has no spaces to break on. Without this it runs off
+             a 375px screen instead of wrapping. */
+          overflowWrap: 'anywhere',
         }}
       >
         {panel.store}
@@ -184,12 +190,28 @@ const SubstrateItem: React.FC<{ item: MemoryItem }> = ({ item }) => {
   );
 };
 
+/* The four substrates, two up. `1fr 1fr` was two things wrong at once: it
+   never collapsed, so a 375px screen got two 117px panels, and a `1fr` track's
+   automatic minimum is its content's min-content width, which is why a store
+   path ran off the page.
+
+   340px is chosen, not rounded: `auto-fit` fits
+   `floor((container + gap) / (min + gap))` tracks, so at the 1000px this grid
+   gets on a 1440px screen it resolves to two columns and keeps the intended
+   2x2, while a 300px floor would have made it three and left the fourth
+   substrate alone on its own row. Below about 700px it drops to one. */
+const SUBSTRATE_GRID: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+  gap: '18px',
+};
+
 /* -----------------------------------------------------------------------
  * Loading / error / empty states
  * ----------------------------------------------------------------------- */
 
 const LoadingState: React.FC = () => (
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px', padding: '24px 0' }}>
+  <div style={{ ...SUBSTRATE_GRID, padding: '24px 0' }}>
     {[0, 1, 2, 3].map((i) => (
       <div
         key={i}
@@ -381,9 +403,12 @@ const MemoryDashboard: React.FC = () => {
               alignItems: 'center',
               gap: '14px',
               margin: '20px 0 14px',
+              /* Mono stays: this line is a count and a principal name, which
+                 is what mono marks. Only the tracking converges -- 0.18em was
+                 a fourth value on a surface that documents one. */
               fontFamily: 'var(--obs-mono)',
               fontSize: '11px',
-              letterSpacing: '0.18em',
+              letterSpacing: '0.08em',
               textTransform: 'uppercase',
               color: 'var(--obs-ink-2)',
             }}
@@ -393,13 +418,7 @@ const MemoryDashboard: React.FC = () => {
             <span>Persona: {data.persona}</span>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '18px',
-            }}
-          >
+          <div style={SUBSTRATE_GRID}>
             <SubstratePanel panel={data.working} />
             <SubstratePanel panel={data.semantic} />
             <SubstratePanel panel={data.episodic} />

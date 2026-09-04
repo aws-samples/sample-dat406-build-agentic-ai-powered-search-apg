@@ -17,13 +17,34 @@ import {
   type OperatorClientRecord,
 } from '../../services/operator'
 import { imageSrc } from '../../utils/assetPath'
+import ResponsiveImage from '../../components/ResponsiveImage'
 import ClientAvatar from '../components/ClientAvatar'
 import OperatorConcierge from '../concierge/OperatorConcierge'
 import MembershipRung from '../components/MembershipRung'
 import OperatorSignInAction from '../components/OperatorSignInAction'
+import OperatorState from '../components/OperatorState'
 
 function money(value: number): string {
   return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+}
+
+/**
+ * The record head's plate.
+ *
+ * Only the three storefront-switchable heroes have a full-bleed photograph,
+ * and they get their OWN storefront hero: opening Marco's record shows the
+ * advisor the room Marco shops in, which is the whole reason this desk sits
+ * next to a shop rather than inside a CRM. An explicit map rather than
+ * `hero-${personaId}.png`, so an unrecognised persona degrades to the house
+ * ground instead of requesting an asset that does not exist.
+ *
+ * Everyone else gets the house ground: identical geometry, identical type,
+ * no photograph. One design, one of two grounds.
+ */
+const PERSONA_PLATES: Record<string, string> = {
+  marco: '/products/hero-marco.png',
+  anna: '/products/hero-anna.png',
+  theo: '/products/hero-theo.png',
 }
 
 function shortDate(iso: string | null): string {
@@ -89,53 +110,60 @@ const ClientRecord: React.FC = () => {
     const operatorRequired = error === 'operator_group_required'
     const unavailable = error === 'operator_unavailable'
     return (
-      <div className="operator-state" data-testid="operator-record-error">
-        <Link to="/operator" className="operator-back">
-          ← Clients
-        </Link>
-        <span className="operator-state-title">
-          {authenticationRequired
+      <OperatorState
+        data-testid="operator-record-error"
+        surface={authenticationRequired ? 'plate' : 'paper'}
+        eyebrow="Client record"
+        lead={
+          <Link to="/operator" className="operator-back">
+            ← Clients
+          </Link>
+        }
+        headline={
+          authenticationRequired
             ? 'Operator sign-in required'
             : operatorRequired
               ? 'Operator access required'
               : unavailable
                 ? 'Operator is temporarily unavailable'
-                : 'Record unavailable'}
-        </span>
-        {authenticationRequired ? (
-          <>
-            Sign in with the workshop operator account to read this client
-            record. No database request was attempted.
-          </>
-        ) : operatorRequired ? (
-          <>
-            This signed-in account is not a member of the operator group. No
-            database request was attempted.
-          </>
-        ) : unavailable ? (
-          <>
-            The governed service could not be reached for{' '}
-            <code>{customerId}</code>. No current client record was returned.
-          </>
-        ) : (
-          <>
-            The live database did not return a record for{' '}
-            <code>{customerId}</code>.
-          </>
-        )}
-        {authenticationRequired ? <OperatorSignInAction /> : null}
-        <div className="operator-receipt-key" style={{ marginTop: 10 }}>
-          {error}
-        </div>
-      </div>
+                : 'Record unavailable'
+        }
+        body={
+          authenticationRequired ? (
+            <>
+              Sign in with the workshop operator account to read this client
+              record. No database request was attempted.
+            </>
+          ) : operatorRequired ? (
+            <>
+              This signed-in account is not a member of the operator group. No
+              database request was attempted.
+            </>
+          ) : unavailable ? (
+            <>
+              The governed service could not be reached for{' '}
+              <code>{customerId}</code>. No current client record was returned.
+            </>
+          ) : (
+            <>
+              The live database did not return a record for{' '}
+              <code>{customerId}</code>.
+            </>
+          )
+        }
+        reason={error}
+        action={authenticationRequired ? <OperatorSignInAction /> : undefined}
+      />
     )
   }
 
   if (!record) {
     return (
-      <div className="operator-state" data-testid="operator-record-loading">
-        Reading the client record from Aurora…
-      </div>
+      <OperatorState
+        data-testid="operator-record-loading"
+        eyebrow="Client record"
+        headline="Reading the client record from Aurora…"
+      />
     )
   }
 
@@ -148,6 +176,7 @@ const ClientRecord: React.FC = () => {
   const membershipLabel = `${MEMBERSHIP[client.membership].label} \u00b7 ${
     MEMBERSHIP[client.membership].descriptor
   }`
+  const plate = client.personaId ? PERSONA_PLATES[client.personaId] : undefined
 
   return (
     // Two panes, both first class. The record keeps every field and interaction it
@@ -168,52 +197,81 @@ const ClientRecord: React.FC = () => {
         <span className="operator-crumb-id">{client.customerId}</span>
       </nav>
 
-      <div className="operator-record-head">
-        <ClientAvatar
-          customerId={client.customerId}
-          name={client.name}
-          personaId={client.personaId}
-          size="lg"
-        />
-        <div style={{ minWidth: 0 }}>
-          <h1 className="operator-title">{client.name}</h1>
-          <p className="operator-lede">{client.note}</p>
-          <p className="operator-hint">
-            {MEMBERSHIP[client.membership].label} &middot;{' '}
-            {MEMBERSHIP[client.membership].descriptor}. Earns{' '}
-            {MEMBERSHIP[client.membership].earns.toLowerCase()}.
-          </p>
-          {/* Said plainly on the surface where an operator is about to act:
-              standing shapes what the house offers, and decides nothing about
-              whether this action is permitted. */}
-          <p className="operator-hint">
-            Standing is business context. It may qualify this client for an
-            expedited replacement or a larger courtesy allowance, but AgentCore
-            Policy still decides whether the action is permitted and Aurora
-            still decides whether the data may be changed.
-          </p>
-        </div>
-
-        {/* Identity on the left, what the house owes them on the right. */}
-        <div className="operator-standing">
-          <MembershipRung membership={client.membership} describe />
-          <div className="operator-standing-row">
-            <span>Storefront</span>
-            <Link
-              to={
-                client.personaId
-                  ? `/?persona=${encodeURIComponent(client.personaId)}`
-                  : `/?clientPreview=${encodeURIComponent(client.customerId)}`
-              }
-              className="operator-back"
-              data-testid="operator-storefront-handoff"
-            >
-              {client.personaId
-                ? `Open ${client.name.split(' ')[0]}'s storefront`
-                : 'Preview client context'}
-            </Link>
+      {/* An editorial band, not a row of fields: portrait, name in the display
+          face, rung, and the one link back to the shop. The governance note
+          that used to sit inside it now follows on paper, where 13px prose is
+          legible and where it belongs — it is guidance for the operator, not
+          part of the client's identity. */}
+      <header
+        className="operator-record-head"
+        data-plate={plate ? 'persona' : 'house'}
+      >
+        {plate ? (
+          <ResponsiveImage
+            src={plate}
+            widths={[960, 1600]}
+            sizes="(max-width: 1080px) 100vw, 780px"
+            pictureClassName="operator-record-plate"
+            className="operator-record-plate-image"
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+          />
+        ) : null}
+        <div className="operator-record-head-inner">
+          <ClientAvatar
+            customerId={client.customerId}
+            name={client.name}
+            personaId={client.personaId}
+            size="lg"
+          />
+          {/* Name and rung on one line, the client's own note under it, the
+              handoff last. A right-hand standing column read as a second
+              layout the moment the band sat in the 52% record pane: the name
+              wrapped to two lines and the note broke into four. */}
+          <div className="operator-record-identity">
+            <div className="operator-record-headline">
+              <h1 className="operator-title">{client.name}</h1>
+              <MembershipRung membership={client.membership} describe />
+            </div>
+            <p className="operator-lede">{client.note}</p>
+            <div className="operator-standing">
+              <div className="operator-standing-row">
+                <span>Storefront</span>
+                <Link
+                  to={
+                    client.personaId
+                      ? `/?persona=${encodeURIComponent(client.personaId)}`
+                      : `/?clientPreview=${encodeURIComponent(client.customerId)}`
+                  }
+                  className="operator-back"
+                  data-testid="operator-storefront-handoff"
+                >
+                  {client.personaId
+                    ? `Open ${client.name.split(' ')[0]}'s storefront`
+                    : 'Preview client context'}
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
+      </header>
+
+      <div className="operator-record-context">
+        <p className="operator-hint">
+          {MEMBERSHIP[client.membership].label} &middot;{' '}
+          {MEMBERSHIP[client.membership].descriptor}. Earns{' '}
+          {MEMBERSHIP[client.membership].earns.toLowerCase()}.
+        </p>
+        {/* Said plainly on the surface where an operator is about to act:
+            standing shapes what the house offers, and decides nothing about
+            whether this action is permitted. */}
+        <p className="operator-hint">
+          Standing is business context. It may qualify this client for an
+          expedited replacement or a larger courtesy allowance, but AgentCore
+          Policy still decides whether the action is permitted and Aurora still
+          decides whether the data may be changed.
+        </p>
       </div>
 
       {currentRequest ? (
@@ -365,7 +423,13 @@ const ClientRecord: React.FC = () => {
                         />
                       </td>
                       <td className="operator-order-piece">
-                        {order.productName}
+                        {/* Move 3: the order history is a ledger of PIECES.
+                            The name takes the storefront's product register so
+                            an advisor recognises what the client owns rather
+                            than reading a string in a cell. */}
+                        <span className="operator-piece-name">
+                          {order.productName}
+                        </span>
                         <div className="operator-cell-note">{order.brand}</div>
                       </td>
                       <td className="operator-table-date operator-col-optional">

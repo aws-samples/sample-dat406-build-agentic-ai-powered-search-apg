@@ -46,24 +46,16 @@
      Instrument Serif reads poorly at prose sizes on this surface. */
   --dl-font-serif: var(--sans);
   --serif: var(--sans);
-  /* The Storefront remains warm and editorial. Observatory is the precision
-     instrument beside it: cooler neutral canvas, white working surfaces,
-     graphite hierarchy, and one restrained authority accent. */
-  --obs-canvas: #f2f5f3;
-  --obs-canvas-strong: #e9eeeb;
-  --obs-panel: #ffffff;
-  --obs-panel-muted: #f7f9f8;
-  --obs-cream-1: var(--obs-canvas);
-  --obs-cream-2: var(--obs-canvas-strong);
-  --obs-cream-elev: var(--obs-panel);
-  --obs-ink-1: #171b18;
-  --obs-ink-2: #343c37;
-  --obs-ink-3: #56615a;
-  --obs-ink-4: #717d75;
-  --obs-ink-5: #9aa49e;
-  --obs-rule-1: #dce3df;
-  --obs-rule-2: #c7d1cb;
-  --obs-rule-3: #aebbb4;
+  /* Surface and ink come from the warm-paper block further down this file,
+     which lists `.observatory-root` in its own selector at equal specificity
+     and later source order. A cool literal palette used to be declared here
+     first -- #f2f5f3 canvas, #ffffff panels, graphite ink -- and every one of
+     its fifteen declarations lost to that block, so the Observatory has been
+     rendering warm paper while reading as though it chose cool. Restoring the
+     cool set is a scoped override of the warm block, not a resurrection of
+     these lines: a custom property whose var() is invalid computes to
+     guaranteed-invalid and never falls back to a losing declaration, so they
+     were not a safety net either. */
   /* One accent per role, same roles the storefront documents in
      pellier-landing.css: burgundy is brand and authority, terracotta is
      "active or in flight", olive is verified. Burgundy is never a status and
@@ -71,7 +63,7 @@
      call sites: eyebrows, links, active tab rule, card accents), so it takes
      the storefront's burgundy rather than the Daylight terracotta it used to
      inherit — three different reds rendered on one surface before this. */
-  --obs-red-1: #70232e;
+  --obs-red-1: var(--pellier-burgundy);
   /* Named here because the same literals recurred across Workbench, Index and
      Labs stylesheets; a palette change now stays in one place. */
   --obs-red-deep: #8f1d16;
@@ -90,7 +82,8 @@
   --obs-serif: var(--sans);
   --obs-card-bg: var(--obs-panel);
   --obs-card-border: var(--obs-rule-1);
-  --obs-card-radius: 16px;
+  /* See observatory/styles/tokens.css: one card radius, `--gov-radius-lg`. */
+  --obs-card-radius: var(--gov-radius-lg);
   --obs-accent-2: #8b3b47;
   --obs-olive: #4f6f5a;
   --obs-olive-soft: #eaf2ed;
@@ -808,7 +801,11 @@
   font-size: 12px;
 }
 
-@media (max-width: 1120px) {
+/* The session replay rail stacks at the drawer breakpoint. It used to stack
+   at 1120px, forty pixels adrift of the breakpoint everything else on the
+   surface uses; between 1081 and 1120 the compact icon rail is showing, so
+   the two columns have about 1010px to share, which is more than they need. */
+@media (max-width: 1080px) {
   .observatory-session-replay-layout {
     flex-direction: column;
   }
@@ -1151,7 +1148,7 @@
 }
 
 /* --- Compact icon rail (tablet landscape / small laptop) --------------- */
-@media (max-width: 1279px) and (min-width: 1024px) {
+@media (max-width: 1440px) and (min-width: 1081px) {
   .observatory-frame {
     grid-template-columns: var(--obs-sidebar-width-compact) minmax(0, 1fr);
   }
@@ -1178,7 +1175,7 @@
 }
 
 /* --- Drawer (tablet portrait and below) -------------------------------- */
-@media (max-width: 1023px) {
+@media (max-width: 1080px) {
   .observatory-frame {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1218,7 +1215,7 @@
 }
 
 /* --- Phone ------------------------------------------------------------- */
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .observatory-surface {
     /* Respect the home-indicator inset so the last card is not clipped. */
     padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
@@ -1308,7 +1305,7 @@
   padding: 10px clamp(18px, 3vw, 44px);
   border-bottom: 1px solid var(--obs-rule-1);
   background: color-mix(in srgb, var(--obs-panel) 94%, transparent);
-  box-shadow: 0 8px 30px rgb(20 28 24 / 0.05);
+  box-shadow: 0 8px 30px rgb(60 40 10 / 0.05);
   backdrop-filter: saturate(125%) blur(16px) !important;
   -webkit-backdrop-filter: saturate(125%) blur(16px) !important;
 }
@@ -1464,7 +1461,7 @@
 .observatory-root .observatory-view-trigger[data-state='open'] {
   border-color: color-mix(in srgb, var(--obs-red-1) 34%, transparent);
   background: var(--obs-cream-elev);
-  box-shadow: 0 5px 14px rgba(68, 29, 36, 0.07);
+  box-shadow: 0 5px 14px rgb(60 40 10 / 0.08);
 }
 
 .observatory-root .observatory-view-trigger:focus-visible {
@@ -1512,7 +1509,7 @@
   border: 1px solid var(--obs-rule-2) !important;
   border-radius: 14px !important;
   background: var(--obs-panel) !important;
-  box-shadow: 0 24px 64px rgb(20 28 24 / 0.16) !important;
+  box-shadow: 0 24px 64px rgb(60 40 10 / 0.16) !important;
   transform-origin: var(--radix-dropdown-menu-content-transform-origin);
 }
 
@@ -1707,7 +1704,7 @@
   background: var(--obs-espresso-2);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1080px) {
   .observatory-topbar {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     gap: 10px;
@@ -1799,7 +1796,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .observatory-surface:not([data-workbench='true']) {
     padding: 20px 14px calc(28px + env(safe-area-inset-bottom, 0px));
   }
@@ -1898,7 +1895,7 @@
   border-radius: 999px;
   background: var(--obs-panel);
   color: var(--obs-red-1);
-  box-shadow: 0 7px 18px rgb(61 29 32 / 7%);
+  box-shadow: 0 7px 18px rgb(60 40 10 / 8%);
   font-family: var(--obs-sans);
   font-size: 11px;
   font-weight: 600;
@@ -1988,7 +1985,7 @@
   border-radius: 8px;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1080px) {
   .observatory-reading-page {
     padding: 28px 16px;
   }
@@ -2002,7 +1999,7 @@
   }
 }
 
-@media (max-width: 680px) {
+@media (max-width: 760px) {
   .observatory-reading-page {
     padding: 22px 0;
   }
@@ -2057,7 +2054,7 @@
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .labs-mode-banner {
     align-items: flex-start;
     flex-direction: column;
@@ -2065,7 +2062,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .observatory-surface:not([data-workbench='true'])::before {
     height: 340px;
     background-position: 38% top;
@@ -2085,7 +2082,7 @@
   display: none;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1080px) {
   .observatory-nav-toggle {
     display: inline-flex;
   }
@@ -2134,7 +2131,9 @@
   gap: 10px;
   padding: 12px;
   border: 1px solid var(--obs-rule-1);
-  border-radius: 12px;
+  /* One card radius. The rail used to sit at 12px between the 16px cards
+     above it and the 8px cards below. */
+  border-radius: var(--gov-radius-lg);
   background: var(--obs-panel);
   color: var(--obs-ink-2);
   text-align: left;
@@ -2149,7 +2148,9 @@
   border-color: color-mix(in srgb, var(--obs-red-1) 52%, var(--obs-rule-1));
   background: color-mix(in srgb, var(--obs-red-soft) 70%, var(--obs-panel));
   color: var(--obs-ink-1);
-  box-shadow: 0 12px 28px rgb(72 26 34 / 0.1);
+  /* The one warm shadow family. This was a burgundy-tinted literal, the last
+     shadow on the board that did not come from the shared tokens. */
+  box-shadow: var(--gov-shadow-card-raised);
 }
 
 .observatory-root .pellier-governed-proof-tab:hover {
@@ -2165,7 +2166,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--obs-rule-2);
-  border-radius: 9px;
+  border-radius: var(--gov-radius-md);
   background: var(--obs-panel-muted);
   color: var(--obs-red-1);
 }
@@ -2194,11 +2195,8 @@
 }
 
 .pellier-governed-proof-tab > small {
-  color: var(--obs-ink-3);
-  font-family: var(--obs-mono);
-  font-size: 12px;
-  line-height: 1.2;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
 }
 
 .pellier-governed-proof-panel {
@@ -2212,17 +2210,18 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--obs-ink-3);
-  font-family: var(--obs-heading);
-  font-size: 12px;
-  font-weight: 650;
   line-height: 1;
-  text-transform: uppercase;
 }
 
+/* The stage numeral is the one mono mark here: it is an index you can quote
+   back ("stage 03"). The title beside it is prose and takes the shared
+   section-label register. */
 .pellier-governed-proof-stage-label > span:first-child {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
 }
 
 /* The one question the stage puts to the reader. It is the most editorial
@@ -2255,7 +2254,7 @@
   gap: 8px;
   padding: 14px 16px;
   border: 1px solid color-mix(in srgb, var(--obs-red-1) 24%, var(--obs-card-border));
-  border-radius: 12px;
+  border-radius: var(--gov-radius-lg);
   background: color-mix(in srgb, var(--obs-red-soft) 32%, var(--obs-card-bg));
 }
 
@@ -2265,15 +2264,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-}
-
-.pellier-governed-proof-evidence-label > span {
-  color: var(--obs-red-1);
-  font-family: var(--obs-heading);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .pellier-governed-proof-evidence > .font-mono {
@@ -2309,7 +2299,7 @@
 /* On phones the checkpoint link chips, "Open checkpoint" and the managed
    trace links are the primary way between evidence views; give them a real
    touch target without changing their desktop footprint. */
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .observatory-root .proof-board-link-chip,
   .observatory-root .proof-board-trace-link,
   .observatory-root .pellier-governed-proof-evidence > a {
@@ -2323,13 +2313,13 @@
   margin-top: 2px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1080px) {
   .pellier-governed-proof-panel {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .pellier-governed-proof-rail {
     padding-bottom: 22px;
   }

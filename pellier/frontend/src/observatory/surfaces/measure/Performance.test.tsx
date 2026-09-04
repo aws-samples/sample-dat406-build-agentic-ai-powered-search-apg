@@ -162,4 +162,55 @@ describe('Performance · recall provenance', () => {
     });
     expect(screen.getAllByText(/cohere\.rerank-v3-5:0/i)).toHaveLength(2);
   });
+
+  /* Three tables shipped three header recipes on this page: sans 11/500,
+     mono 11/500 and mono 11/0.22em. Two of them are now the shared
+     DataTable; the third cannot be (its live results add a colSpan row), so
+     it carries the same recipe by hand. These pin the register, not the
+     markup, because the register is what made the page read as one surface.
+  */
+  it('sets the pgvector tables in the shared table register', () => {
+    const { container } = renderSurface();
+
+    const shared = container.querySelectorAll('.gov-data-table');
+    expect(shared.length).toBe(2);
+
+    for (const table of Array.from(shared)) {
+      for (const th of Array.from(table.querySelectorAll('thead th'))) {
+        const style = (th as HTMLElement).style;
+        expect(style.fontFamily).toBe('var(--obs-heading)');
+        expect(style.fontSize).toBe('11px');
+        expect(style.fontWeight).toBe('600');
+        expect(style.letterSpacing).toBe('0.08em');
+      }
+    }
+  });
+
+  it('right-aligns the quantities you compare down a column', () => {
+    const { container } = renderSurface();
+
+    const recall = Array.from(
+      container.querySelectorAll('.gov-data-table thead th'),
+    ).find((th) => th.textContent === 'Recall');
+    expect(recall).toHaveAttribute('data-align', 'numeric');
+
+    const numericCell = container.querySelector(
+      '.gov-data-table td[data-align="numeric"]',
+    ) as HTMLElement;
+    expect(numericCell.style.fontFamily).toBe('var(--obs-mono)');
+    expect(numericCell.style.fontVariantNumeric).toBe('tabular-nums');
+  });
+
+  it('keeps the hand-rolled strategy table on the same header recipe', () => {
+    const { container } = renderSurface();
+
+    const strategyHeader = Array.from(
+      container.querySelectorAll('table:not(.gov-data-table) thead th'),
+    ).find((th) => th.textContent === 'Recall@5') as HTMLElement | undefined;
+
+    expect(strategyHeader).toBeDefined();
+    expect(strategyHeader?.style.fontFamily).toBe('var(--obs-heading)');
+    expect(strategyHeader?.style.fontSize).toBe('11px');
+    expect(strategyHeader?.style.letterSpacing).toBe('0.08em');
+  });
 });

@@ -22,6 +22,7 @@ import {
 } from '../../services/operator'
 import ClientAvatar from '../components/ClientAvatar'
 import OperatorSignInAction from '../components/OperatorSignInAction'
+import OperatorState from '../components/OperatorState'
 
 /** Proposed actions in the operator's language, not the tool's. */
 const ACTION_LABELS: Record<string, string> = {
@@ -228,51 +229,56 @@ const ReviewQueue: React.FC = () => {
     const operatorRequired = error === 'operator_group_required'
     const unavailable = error === 'operator_unavailable'
     return (
-      <div className="operator-state" data-testid="operator-reviews-error">
-        <span className="operator-state-title">
-          {authenticationRequired
+      <OperatorState
+        data-testid="operator-reviews-error"
+        surface={authenticationRequired ? 'plate' : 'paper'}
+        eyebrow="Action queue"
+        headline={
+          authenticationRequired
             ? 'Operator sign-in required'
             : operatorRequired
               ? 'Operator access required'
               : unavailable
                 ? 'Operator is temporarily unavailable'
-                : 'The action queue is unavailable'}
-        </span>
-        {authenticationRequired ? (
-          <>
-            Sign in with the workshop operator account to read the action queue.
-            No database request was attempted.
-          </>
-        ) : operatorRequired ? (
-          <>
-            This signed-in account is not a member of the operator group. No
-            database request was attempted.
-          </>
-        ) : unavailable ? (
-          <>
-            The governed service could not be reached, so no current action
-            queue was returned.
-          </>
-        ) : (
-          <>
-            The live database did not return prepared actions. If this is a
-            fresh deployment, confirm migration{' '}
-            <code>020_operator_review.sql</code> has been applied.
-          </>
-        )}
-        {authenticationRequired ? <OperatorSignInAction /> : null}
-        <div className="operator-receipt-key" style={{ marginTop: 10 }}>
-          {error}
-        </div>
-      </div>
+                : 'The action queue is unavailable'
+        }
+        body={
+          authenticationRequired ? (
+            <>
+              Sign in with the workshop operator account to read the action
+              queue. No database request was attempted.
+            </>
+          ) : operatorRequired ? (
+            <>
+              This signed-in account is not a member of the operator group. No
+              database request was attempted.
+            </>
+          ) : unavailable ? (
+            <>
+              The governed service could not be reached, so no current action
+              queue was returned.
+            </>
+          ) : (
+            <>
+              The live database did not return prepared actions. If this is a
+              fresh deployment, confirm migration{' '}
+              <code>020_operator_review.sql</code> has been applied.
+            </>
+          )
+        }
+        reason={error}
+        action={authenticationRequired ? <OperatorSignInAction /> : undefined}
+      />
     )
   }
 
   if (!queue) {
     return (
-      <div className="operator-state" data-testid="operator-reviews-loading">
-        Reading the action queue from Aurora…
-      </div>
+      <OperatorState
+        data-testid="operator-reviews-loading"
+        eyebrow="Action queue"
+        headline="Reading the action queue from Aurora…"
+      />
     )
   }
 
@@ -343,18 +349,18 @@ const ReviewQueue: React.FC = () => {
         </div>
       </dl>
 
+      {/* A clean environment starts here: nothing seeds this table, so an empty
+          queue is the designed first impression rather than a failure to load.
+          Copy states the mechanism instead of instructing the reader, and stays
+          clear of the "all caught up" register - there is nothing to be caught
+          up on, and a celebration over an empty queue reads as filler. */}
       {pending.length === 0 ? (
-        <div className="operator-state" data-testid="operator-reviews-empty">
-          {/* A clean environment starts here: nothing seeds this table, so an empty
-              queue is the designed first impression rather than a failure to load.
-              Copy states the mechanism instead of instructing the reader, and stays
-              clear of the "all caught up" register - there is nothing to be caught up
-              on, and a celebration over an empty queue reads as filler. */}
-          <span className="operator-state-title">No actions waiting</span>
-          Consequential actions that Pellier prepares but may not take on its own
-          appear here for an operator to confirm. A shopper asking to return a
-          damaged piece is the usual source.
-        </div>
+        <OperatorState
+          data-testid="operator-reviews-empty"
+          eyebrow="Action queue"
+          headline="No actions waiting"
+          body="Consequential actions that Pellier prepares but may not take on its own appear here for an operator to confirm. A shopper asking to return a damaged piece is the usual source."
+        />
       ) : (
         <div className="operator-action-list" data-testid="operator-review-pending">
           {pending.map((review) => (

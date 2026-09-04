@@ -13,6 +13,13 @@ import {
   ExpCard,
   Eyebrow,
 } from '../../components';
+import {
+  DataTable,
+  EvidenceCard,
+  SectionEyebrow,
+  StateBadge,
+} from '../../../shared';
+import type { DataTableColumn } from '../../../shared';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
 import MicroEvalCard from './MicroEvalCard';
 import { CANONICAL_ANNA_QUERY } from '../../constants/canonicalQuery';
@@ -64,7 +71,9 @@ interface StatCardProps {
  * samples without the per-panel breakdowns (the live shape during the audit).
  */
 const UnrecordedPanel: React.FC<{ label: string; panel: string }> = ({ label, panel }) => (
-  <ExpCard>
+  /* `quiet`: recessed paper, no shadow. A panel with nothing to report should
+     not be lifted off the page like the recorded ones beside it. */
+  <EvidenceCard quiet>
     <Eyebrow label={label} variant="muted" />
     <p
       data-testid="performance-panel-unrecorded"
@@ -81,7 +90,7 @@ const UnrecordedPanel: React.FC<{ label: string; panel: string }> = ({ label, pa
       Not recorded in this window. Run a benchmark from the measure controls
       below to populate it.
     </p>
-  </ExpCard>
+  </EvidenceCard>
 );
 
 const StatCard: React.FC<StatCardProps> = ({ label, value, unit, detail }) => (
@@ -288,14 +297,14 @@ const LatencyBudgetTable: React.FC<LatencyBudgetProps> = ({ budget }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <span
                   style={{
-                    fontFamily: 'var(--obs-mono)',
+                    fontFamily: 'var(--obs-heading)',
                     fontSize: '11px',
-                    letterSpacing: '0.18em',
+                    letterSpacing: '0.08em',
                     textTransform: 'uppercase',
                     color,
                     backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
                     padding: '2px 6px',
-                    borderRadius: '4px',
+                    borderRadius: 'var(--gov-radius-sm)',
                     fontWeight: 600,
                     flexShrink: 0,
                   }}
@@ -372,100 +381,91 @@ interface PgvectorComparisonProps {
   strategies: PerformanceData['pgvectorComparison'];
 }
 
-const PgvectorComparison: React.FC<PgvectorComparisonProps> = ({ strategies }) => {
-  const headerStyle: React.CSSProperties = {
-    fontFamily: 'var(--obs-heading)',
-    fontSize: '11px',
-    letterSpacing: '0.05em',
-    textTransform: 'uppercase',
-    color: 'var(--obs-ink-2)',
-    fontWeight: 500,
-    padding: '8px 12px',
-    textAlign: 'left',
-    borderBottom: '1px solid var(--obs-card-border)',
-  };
+type PgvectorStrategy = PerformanceData['pgvectorComparison'][number];
 
-  const cellStyle: React.CSSProperties = {
-    fontFamily: 'var(--obs-mono)',
-    fontSize: '14px',
-    color: 'var(--obs-ink-2)',
-    padding: '10px 12px',
-    letterSpacing: '0.02em',
-  };
+/* Recall, QPS, build time and storage are quantities you compare down the
+   column, so they take the shared table's numeric register: mono, right
+   aligned, tabular figures. They were left aligned in a 14px mono before,
+   which is the one arrangement in which a column of numbers cannot be
+   compared by eye. */
+const PGVECTOR_COLUMNS: DataTableColumn<PgvectorStrategy>[] = [
+  {
+    key: 'strategy',
+    header: 'Strategy',
+    rowHeader: true,
+    render: (s) => (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          fontWeight: s.isShipped ? 600 : 400,
+          color: s.isShipped ? 'var(--obs-ink-1)' : 'inherit',
+        }}
+      >
+        {s.strategy}
+        {s.isShipped ? <StateBadge tone="ok">Shipped</StateBadge> : null}
+      </span>
+    ),
+  },
+  {
+    key: 'recall',
+    header: 'Recall',
+    align: 'numeric',
+    render: (s) => `${(s.recall * 100).toFixed(0)}%`,
+  },
+  {
+    key: 'qps',
+    header: 'QPS',
+    align: 'numeric',
+    render: (s) => s.qps.toLocaleString(),
+  },
+  {
+    key: 'buildTime',
+    header: 'Build time',
+    align: 'numeric',
+    render: (s) => s.buildTime,
+  },
+  {
+    key: 'storage',
+    header: 'Storage',
+    align: 'numeric',
+    render: (s) => s.storage,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (s) => (
+      <span
+        role="img"
+        aria-label={s.isShipped ? 'Shipped in this build' : 'Not shipped'}
+        title={s.isShipped ? 'Shipped in this build' : 'Not shipped'}
+        style={{
+          display: 'inline-block',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: s.isShipped ? 'var(--obs-green-1)' : 'var(--obs-ink-5)',
+        }}
+      />
+    ),
+  },
+];
 
-  return (
-    <ExpCard>
-      <Eyebrow label="pgvector index comparison" />
-      <div style={{ marginTop: '16px', overflowX: 'auto' }}>
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            borderSpacing: 0,
-          }}
-        >
-          <thead>
-            <tr>
-              <th style={headerStyle}>Strategy</th>
-              <th style={{ ...headerStyle, textAlign: 'right' }}>Recall</th>
-              <th style={{ ...headerStyle, textAlign: 'right' }}>QPS</th>
-              <th style={{ ...headerStyle, textAlign: 'right' }}>Build time</th>
-              <th style={{ ...headerStyle, textAlign: 'right' }}>Storage</th>
-              <th style={{ ...headerStyle, textAlign: 'center' }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {strategies.map((s) => {
-              const isShipped = s.isShipped;
-              const rowBg = isShipped ? 'color-mix(in srgb, var(--obs-green-1) 6%, transparent)' : 'transparent';
-
-              return (
-                <tr key={s.strategy} style={{ backgroundColor: rowBg }}>
-                  <td style={{ ...cellStyle, fontWeight: isShipped ? 600 : 400, color: isShipped ? 'var(--obs-ink-1)' : cellStyle.color }}>
-                    {s.strategy}
-                    {isShipped && (
-                      <span
-                        style={{
-                          marginLeft: '8px',
-                          fontFamily: 'var(--obs-mono)',
-                          fontSize: '11px',
-                          letterSpacing: '0.18em',
-                          textTransform: 'uppercase',
-                          color: 'var(--obs-green-1)',
-                          backgroundColor: 'color-mix(in srgb, var(--obs-green-1) 14%, transparent)',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        Shipped
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }}>{(s.recall * 100).toFixed(0)}%</td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }}>{s.qps.toLocaleString()}</td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }}>{s.buildTime}</td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }}>{s.storage}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: isShipped ? 'var(--obs-green-1)' : 'var(--obs-ink-5)',
-                      }}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </ExpCard>
-  );
-};
+const PgvectorComparison: React.FC<PgvectorComparisonProps> = ({ strategies }) => (
+  <ExpCard>
+    <Eyebrow label="pgvector index comparison" />
+    <div style={{ marginTop: '16px' }}>
+      <DataTable
+        ariaLabel="pgvector index comparison"
+        columns={PGVECTOR_COLUMNS}
+        rows={strategies}
+        rowKey={(s) => s.strategy}
+      />
+    </div>
+  </ExpCard>
+);
 
 /* -----------------------------------------------------------------------
  * Advanced pgvector Tuning — production knobs behind the simple benchmark
@@ -508,36 +508,62 @@ const usePgvectorVersion = (): string | null => {
   return version;
 };
 
-const STATUS_STYLES: Record<
-  PerformanceData['pgvectorTuning'][number]['status'],
-  { label: string; color: string }
-> = {
-  enabled: { label: 'Enabled', color: 'var(--obs-green-1)' },
-  available: { label: 'Available', color: 'var(--obs-red-1)' },
+type TuningRow = PerformanceData['pgvectorTuning'][number];
+
+/* Enabled and Available were an outlined mono pill in the accent colour --
+   burgundy on a status, which the palette reserves for brand and authority.
+   They are states, so they take the shared state badge and its status
+   family. */
+const STATUS_STYLES: Record<TuningRow['status'], { label: string; tone: 'ok' | 'neutral' }> = {
+  enabled: { label: 'Enabled', tone: 'ok' },
+  available: { label: 'Available', tone: 'neutral' },
 };
+
+const TUNING_COLUMNS: DataTableColumn<TuningRow>[] = [
+  {
+    key: 'capability',
+    header: 'Capability',
+    rowHeader: true,
+    render: (row) => (
+      <>
+        <div style={{ fontWeight: 600, color: 'var(--obs-ink-1)' }}>
+          {row.capability}
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--obs-sans)',
+            fontSize: '13px',
+            lineHeight: 1.45,
+            color: 'var(--obs-ink-2)',
+            marginTop: '4px',
+          }}
+        >
+          {row.productionUse}
+        </div>
+      </>
+    ),
+  },
+  {
+    key: 'knob',
+    header: 'Knob',
+    align: 'code',
+    render: (row) => <code>{row.knob}</code>,
+  },
+  { key: 'smoke', header: 'Smoke result', render: (row) => row.smokeResult },
+  { key: 'tradeoff', header: 'Tradeoff', render: (row) => row.tradeoff },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (row) => (
+      <StateBadge tone={STATUS_STYLES[row.status].tone}>
+        {STATUS_STYLES[row.status].label}
+      </StateBadge>
+    ),
+  },
+];
 
 const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
   const pgvectorVersion = usePgvectorVersion();
-  const headerStyle: React.CSSProperties = {
-    fontFamily: 'var(--obs-mono)',
-    fontSize: '11px',
-    letterSpacing: '0.22em',
-    textTransform: 'uppercase',
-    color: 'var(--obs-ink-2)',
-    fontWeight: 500,
-    padding: '8px 12px',
-    textAlign: 'left',
-    borderBottom: '1px solid var(--obs-card-border)',
-  };
-
-  const cellStyle: React.CSSProperties = {
-    fontFamily: 'var(--obs-mono)',
-    fontSize: '13px',
-    color: 'var(--obs-ink-2)',
-    padding: '12px',
-    lineHeight: 1.45,
-    verticalAlign: 'top',
-  };
 
   return (
     <ExpCard>
@@ -582,24 +608,19 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
               padding: '12px 14px',
             }}
           >
-            <div
-              style={{
-                fontFamily: 'var(--obs-mono)',
-                fontSize: 'var(--text-label)',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                color: 'var(--obs-ink-3)',
-              }}
-            >
+            <SectionEyebrow tone="muted" dot={false}>
               {label}
-            </div>
+            </SectionEyebrow>
             <div
               style={{
-                fontFamily: 'var(--obs-sans)',
-                fontSize: '22px',
+                fontFamily: 'var(--obs-display)',
+                fontSize: '24px',
                 fontWeight: 400,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1,
+                fontVariantNumeric: 'tabular-nums',
                 color: 'var(--obs-ink-1)',
-                marginTop: '6px',
+                marginTop: '8px',
               }}
             >
               {value}
@@ -608,79 +629,13 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
         ))}
       </div>
 
-      <div style={{ marginTop: '16px', overflowX: 'auto' }}>
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            borderSpacing: 0,
-          }}
-        >
-          <thead>
-            <tr>
-              <th style={headerStyle}>Capability</th>
-              <th style={headerStyle}>Knob</th>
-              <th style={headerStyle}>Smoke result</th>
-              <th style={headerStyle}>Tradeoff</th>
-              <th style={{ ...headerStyle, textAlign: 'center' }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tuning.map((row) => {
-              const status = STATUS_STYLES[row.status];
-              const isEnabled = row.status === 'enabled';
-              return (
-                <tr
-                  key={row.capability}
-                  style={{
-                    backgroundColor: isEnabled
-                      ? 'color-mix(in srgb, var(--obs-green-1) 6%, transparent)'
-                      : 'transparent',
-                  }}
-                >
-                  <td style={{ ...cellStyle, color: 'var(--obs-ink-1)' }}>
-                    <div style={{ fontWeight: 600 }}>{row.capability}</div>
-                    <div
-                      style={{
-                        fontFamily: 'var(--obs-sans)',
-                        fontSize: '13px',
-                        lineHeight: 1.45,
-                        color: 'var(--obs-ink-2)',
-                        marginTop: '4px',
-                      }}
-                    >
-                      {row.productionUse}
-                    </div>
-                  </td>
-                  <td style={cellStyle}>
-                    <code style={{ fontFamily: 'var(--obs-mono)', fontSize: '12px' }}>
-                      {row.knob}
-                    </code>
-                  </td>
-                  <td style={cellStyle}>{row.smokeResult}</td>
-                  <td style={cellStyle}>{row.tradeoff}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        fontFamily: 'var(--obs-mono)',
-                        fontSize: 'var(--text-label)',
-                        letterSpacing: '0.16em',
-                        textTransform: 'uppercase',
-                        color: status.color,
-                        border: `1px solid ${status.color}`,
-                        borderRadius: '999px',
-                        padding: '3px 8px',
-                      }}
-                    >
-                      {status.label}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div style={{ marginTop: '16px' }}>
+        <DataTable
+          ariaLabel="Advanced pgvector tuning"
+          columns={TUNING_COLUMNS}
+          rows={tuning}
+          rowKey={(row) => row.capability}
+        />
       </div>
 
       <div
@@ -786,12 +741,15 @@ const ExtractedFiltersStrip: React.FC<ExtractedFiltersStripProps> = ({
     color: 'var(--obs-ink-2)',
   };
 
+  /* The shared section-label register. Mono at 0.18em said "identifier" about
+     the word "Filter applied", which is prose. */
   const labelStyle: React.CSSProperties = {
-    fontFamily: 'var(--obs-mono)',
-    fontSize: 'var(--text-label)',
-    letterSpacing: '0.18em',
+    fontFamily: 'var(--obs-heading)',
+    fontSize: '11px',
+    fontWeight: 600,
+    letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: 'var(--obs-ink-3)',
+    color: 'var(--obs-ink-4)',
     marginRight: '8px',
   };
 
@@ -880,13 +838,14 @@ const ExtractedFiltersStrip: React.FC<ExtractedFiltersStripProps> = ({
         <span
           style={{
             display: 'inline-block',
-            fontFamily: 'var(--obs-mono)',
-            fontSize: 'var(--text-label)',
-            letterSpacing: '0.16em',
+            fontFamily: 'var(--obs-heading)',
+            fontSize: '11px',
+            fontWeight: 600,
+            letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: usedColor,
             border: `1px solid ${usedColor}`,
-            borderRadius: '999px',
+            borderRadius: 'var(--gov-radius-sm)',
             padding: '2px 8px',
           }}
         >
@@ -970,24 +929,33 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
     }
   };
 
+  /* The shared DataTable's register, applied by hand. This is the one table
+     on the surface that cannot use the primitive: its live results add a
+     second `colSpan={5}` row of product names under each strategy, and
+     DataTable renders one cell per declared column with no span. The header
+     and cell recipes below are DataTable's, verbatim, so the three tables on
+     this page still read as one; the primitive variant this needs is filed in
+     docs/superpowers/plans/handoff-wp6-observatory.md. */
   const headerStyle: React.CSSProperties = {
-    fontFamily: 'var(--obs-mono)',
+    fontFamily: 'var(--obs-heading)',
     fontSize: '11px',
-    letterSpacing: '0.22em',
+    fontWeight: 600,
+    letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: 'var(--obs-ink-2)',
-    fontWeight: 500,
-    padding: '8px 12px',
+    color: 'var(--obs-ink-4)',
+    whiteSpace: 'nowrap',
+    padding: '0 12px 9px 0',
     textAlign: 'left',
-    borderBottom: '1px solid var(--obs-card-border)',
   };
 
   const cellStyle: React.CSSProperties = {
     fontFamily: 'var(--obs-mono)',
-    fontSize: '14px',
+    fontSize: '13px',
+    fontVariantNumeric: 'tabular-nums',
     color: 'var(--obs-ink-2)',
-    padding: '10px 12px',
-    letterSpacing: '0.02em',
+    padding: '9px 12px 9px 0',
+    borderTop: '1px solid var(--obs-rule-1)',
+    verticalAlign: 'top',
   };
 
   return (
@@ -1110,9 +1078,10 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
         <>
           <p
             style={{
-              fontFamily: 'var(--obs-mono)',
+              fontFamily: 'var(--obs-heading)',
               fontSize: '11px',
-              letterSpacing: '0.12em',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
               textTransform: 'uppercase',
               color: 'var(--obs-green-1)',
               marginTop: '10px',
@@ -1193,22 +1162,8 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                         </span>
                       )}
                       {isShipped && (
-                        <span
-                          style={{
-                            marginLeft: '8px',
-                            fontFamily: 'var(--obs-mono)',
-                            fontSize: '11px',
-                            letterSpacing: '0.18em',
-                            textTransform: 'uppercase',
-                            color: 'var(--obs-green-1)',
-                            backgroundColor:
-                              'color-mix(in srgb, var(--obs-green-1) 14%, transparent)',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontWeight: 600,
-                          }}
-                        >
-                          Anna's path
+                        <span style={{ marginLeft: '8px' }}>
+                          <StateBadge tone="ok">Anna&apos;s path</StateBadge>
                         </span>
                       )}
                     </td>
@@ -1269,6 +1224,11 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'center' }}>
                       <span
+                        role="img"
+                        aria-label={
+                          isShipped ? 'Shipped in this build' : 'Not shipped'
+                        }
+                        title={isShipped ? 'Shipped in this build' : 'Not shipped'}
                         style={{
                           display: 'inline-block',
                           width: '8px',
@@ -1298,10 +1258,12 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                         >
                           <span
                             style={{
-                              letterSpacing: '0.18em',
+                              fontFamily: 'var(--obs-heading)',
+                              fontWeight: 600,
+                              letterSpacing: '0.08em',
                               textTransform: 'uppercase',
-                              fontSize: 'var(--text-label)',
-                              color: 'var(--obs-ink-3)',
+                              fontSize: '11px',
+                              color: 'var(--obs-ink-4)',
                             }}
                           >
                             Top 5 ·

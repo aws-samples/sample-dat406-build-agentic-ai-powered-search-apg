@@ -13,6 +13,7 @@ import { useObservatoryData } from '../../../hooks/useObservatoryData';
 import type { ArchitectureConcept } from '../../../types';
 import { DetailLoadingState, DetailErrorState, DetailEmptyState } from './DetailStates';
 import { ARCHITECTURE_CODE_BLOCK } from './codeStyles';
+import { SectionEyebrow } from '../../../../shared';
 
 const EvaluationsDetail: React.FC = () => {
   const { data, loading, error, refetch } = useObservatoryData<ArchitectureConcept[]>({
@@ -141,10 +142,21 @@ const ScorecardCard: React.FC<{
 
 const MetricCell: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-    <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--obs-ink-4)' }}>
+    <SectionEyebrow tone="muted" dot={false}>
       {label}
-    </span>
-    <span style={{ fontFamily: 'var(--obs-heading)', fontSize: '20px', fontWeight: 400, color: 'var(--obs-ink-1)', letterSpacing: '-0.02em' }}>
+    </SectionEyebrow>
+    {/* A measured value is a figure, and every figure on these surfaces is
+        set in the display face. */}
+    <span
+      style={{
+        fontFamily: 'var(--obs-display)',
+        fontSize: '22px',
+        fontWeight: 400,
+        color: 'var(--obs-ink-1)',
+        letterSpacing: '-0.02em',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
       {value}
     </span>
   </div>
@@ -152,10 +164,13 @@ const MetricCell: React.FC<{ label: string; value: string }> = ({ label, value }
 
 /* ---- Shared styles ---- */
 
+/* One label register on the surface. This was six identical copies of a mono
+   0.22em recipe, one per detail page; mono here marked prose, not an
+   identifier, which is the distinction the shared primitive restores. */
 const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
-  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
+  <SectionEyebrow tone="muted" dot={false}>
     {label}
-  </span>
+  </SectionEyebrow>
 );
 
 const titleStyle: React.CSSProperties = {

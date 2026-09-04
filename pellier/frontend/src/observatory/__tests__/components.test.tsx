@@ -163,37 +163,40 @@ describe('StatusDot', () => {
 // ---------------------------------------------------------------------------
 // Eyebrow
 // ---------------------------------------------------------------------------
+// `Eyebrow` is an adapter over `shared/SectionEyebrow`, so what is worth
+// pinning is that it resolves to the one shared register -- not the literal
+// values it used to set itself. It carried 12px and a 6px dot against the
+// primitive's 11px and 5px, which is the drift this convergence closed.
 describe('Eyebrow', () => {
-  it('renders uppercase label with burgundy dot and eyebrow typography', () => {
+  it('renders the shared section-label register', () => {
     render(<Eyebrow label="SESSIONS" />);
 
     const eyebrow = screen.getByText('SESSIONS');
-    expect(eyebrow).toBeTruthy();
-
     expect(eyebrow.style.fontFamily).toBe('var(--obs-heading)');
     expect(eyebrow.style.textTransform).toBe('uppercase');
-    expect(eyebrow.style.letterSpacing).toBe('var(--obs-eyebrow-tracking)');
-    expect(eyebrow.style.fontSize).toBe('var(--obs-eyebrow-size)');
+    expect(eyebrow.style.letterSpacing).toBe('0.08em');
+    expect(eyebrow.style.fontSize).toBe('11px');
+    expect(eyebrow.style.fontWeight).toBe('600');
   });
 
-  it('renders a burgundy dot before the label (default variant)', () => {
+  it('opens a section in the brand tone with a leading dot', () => {
     const { container } = render(<Eyebrow label="OBSERVE" />);
+
+    const eyebrow = screen.getByText('OBSERVE');
+    expect(eyebrow).toHaveAttribute('data-tone', 'brand');
+    expect(eyebrow.style.color).toBe('var(--pellier-burgundy)');
 
     const dot = container.querySelector('[aria-hidden="true"]') as HTMLElement;
     expect(dot).toBeTruthy();
-    expect(dot.style.backgroundColor).toBe('var(--obs-red-1)');
-    expect(dot.style.borderRadius).toBe('50%');
-    expect(dot.style.width).toBe('6px');
-    expect(dot.style.height).toBe('6px');
+    // The dot takes the label's own colour, so the two can never disagree.
+    expect(dot.style.background).toBe('currentcolor');
   });
 
   it('renders muted variant with ink-4 color', () => {
-    const { container } = render(<Eyebrow label="MUTED" variant="muted" />);
-
-    const dot = container.querySelector('[aria-hidden="true"]') as HTMLElement;
-    expect(dot.style.backgroundColor).toBe('var(--obs-ink-4)');
+    render(<Eyebrow label="MUTED" variant="muted" />);
 
     const label = screen.getByText('MUTED');
+    expect(label).toHaveAttribute('data-tone', 'muted');
     expect(label.style.color).toBe('var(--obs-ink-4)');
   });
 });

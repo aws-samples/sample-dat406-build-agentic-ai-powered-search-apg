@@ -13,6 +13,7 @@ import { useObservatoryData } from '../../../hooks/useObservatoryData';
 import type { ArchitectureConcept } from '../../../types';
 import { DetailLoadingState, DetailErrorState, DetailEmptyState } from './DetailStates';
 import { ARCHITECTURE_CODE_BLOCK } from './codeStyles';
+import { SectionEyebrow } from '../../../../shared';
 
 const RuntimeDetail: React.FC = () => {
   const { data, loading, error, refetch } = useObservatoryData<ArchitectureConcept[]>({
@@ -165,7 +166,7 @@ const RuntimeLayersDiagram: React.FC = () => (
           stroke={node.platform ? '#1f1410' : 'rgba(168,66,58,0.55)'}
         />
         <text x={node.x + 77} y="100" textAnchor="middle" fontFamily="Instrument Sans, sans-serif" fontSize="13" fill={node.platform ? 'var(--cream-warm)' : '#1f1410'}>{node.title}</text>
-        <text x={node.x + 77} y="121" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="9" fill={node.platform ? 'rgba(255,248,238,0.7)' : 'rgba(31,20,16,0.55)'}>{node.detail}</text>
+        <text x={node.x + 77} y="121" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="11" fill={node.platform ? 'rgba(255,248,238,0.7)' : 'rgba(31,20,16,0.55)'}>{node.detail}</text>
       </g>
     ))}
     <text x="450" y="188" textAnchor="middle" fontFamily="Instrument Sans, sans-serif" fontSize="12" fill="rgba(31,20,16,0.62)">
@@ -178,10 +179,13 @@ const RuntimeLayersDiagram: React.FC = () => (
 
 /* ---- Shared styles ---- */
 
+/* One label register on the surface. This was six identical copies of a mono
+   0.22em recipe, one per detail page; mono here marked prose, not an
+   identifier, which is the distinction the shared primitive restores. */
 const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
-  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
+  <SectionEyebrow tone="muted" dot={false}>
     {label}
-  </span>
+  </SectionEyebrow>
 );
 
 const titleStyle: React.CSSProperties = {

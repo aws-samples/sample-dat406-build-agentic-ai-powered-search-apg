@@ -36,7 +36,18 @@
    * warm paper values in index.css, so a handoff never looks like a jump into
    * a different application.
    */
-  --op-bg: var(--cream);
+  /*
+   * Three steps, not two. The page was `--cream` and a surface was
+   * `--cream-elev`, four RGB points apart, so nothing on the desk read as
+   * resting ON anything: every boundary had to be drawn with a 1px rule and
+   * the whole surface flattened into a grid of lines.
+   *
+   * Page recesses to the Daylight recessed paper, surfaces keep the raised
+   * paper, and the old page tone becomes the recess INSIDE a surface. The
+   * ladder now reads paper > inset > page, which is what lets a card carry a
+   * shadow instead of a border.
+   */
+  --op-bg: var(--cream-2);
   --op-paper: var(--cream-elev);
   --op-paper-2: var(--cream);
   --op-rule: var(--rule-1);
@@ -44,8 +55,24 @@
   --op-ink: var(--ink);
   --op-ink-2: var(--ink-soft);
   --op-muted: var(--ink-4);
-  /* The Daylight muted ink remains legible for the small labels that use it. */
+  /*
+   * Identifiers only: customer ids, SKUs, durations, breadcrumb slugs, the
+   * separator glyphs. It used to serve labels, crumbs and IDs alike, which is
+   * why every small thing on the desk arrived at the same weight.
+   *
+   * It resolves to the SAME swatch as `--op-muted` and that is deliberate:
+   * `--dl-faint` measures 2.8:1 on raised paper and would fail the contrast
+   * floor. The tier below body ink is one colour; what separates an identifier
+   * from a caption here is the mono face, not a fainter grey.
+   */
   --op-faint: var(--dl-muted);
+  /*
+   * Tracked-uppercase structural labels: column heads, axis names, figure
+   * captions, definition terms. These carry the rhythm of the whole desk, and
+   * at 11px in the same grey as the prose under them they read as fade rather
+   * than as structure. Body ink is the tier that makes them a hierarchy.
+   */
+  --op-label: var(--ink-soft);
   --op-accent: var(--accent);
   --op-authority: var(--accent);
   /* Decorative case-story color. Kept separate from provenance greens so the
@@ -81,12 +108,29 @@
      softens the ladder without weakening the warm-paper family. */
   --op-descriptor: #6e6a62;
 
-  --op-radius: 12px;
+  /* 14px, the shared `EvidenceCard` radius. The desk sat at 12 for no reason
+     other than that it was written on a different day, which is exactly how a
+     surface ends up reading as a different product from the one beside it. */
+  --op-radius: 14px;
+
+  /* One warm resting shadow for every raised container on the desk. Daylight's
+     own paper shadow, so a card here and a card on the storefront are lit from
+     the same place. Elevation is not decoration: only a container that rests
+     on the page takes it, and nothing on this surface lifts on hover unless it
+     is pressable. */
+  --op-shadow-paper: var(--dl-sh-paper);
+
+  /* Type on the photographic record band. Both are warm neutrals derived from
+     the paper family, never grey: at the 0.66 scrim floor the cream measures
+     6.5:1 and the muted tone 4.8:1 over the brightest pixel in the plate. */
+  --op-band-ink: var(--dl-paper);
+  --op-band-muted: #ded5c8;
+  --op-band-rule: rgb(251 248 242 / 0.24);
 
   /* One tracking value for display type, taken from the storefront. */
   --op-display-track: -0.012em;
   /* One tracking value for the small letterspaced data labels. */
-  --op-label-track: 0.1em;
+  --op-label-track: 0.08em;
 }
 
 /* ---------------------------------------------------------------- shell */
@@ -114,7 +158,11 @@
   content: '';
   background: var(--pellier-atmosphere-image) center 42% / cover no-repeat;
   filter: saturate(0.86) contrast(1.02);
-  opacity: 0.16;
+  /* 0.16 over a page four points from the paper was a smudge: the photograph
+     was legible as texture and not as an object. Doubling it on a page that is
+     now genuinely recessed makes the still life read, and the mask below still
+     hands the page back to paper before any content sits on it. */
+  opacity: 0.32;
   pointer-events: none;
   mask-image: linear-gradient(
     to bottom,
@@ -130,6 +178,16 @@
     rgb(0 0 0 / 0.28) 78%,
     transparent 100%
   );
+}
+
+/*
+ * The desk's atmosphere band and the signed-out plate are the same photograph.
+ * Shown together they read as one image printed twice at two scales, which
+ * looks like a mistake rather than a motif, so the page band steps aside when
+ * a plate is on screen.
+ */
+.operator-root:has(.operator-state[data-surface='plate'])::before {
+  opacity: 0;
 }
 
 /* Browser surfaces. These ship with defaults that belong to no design
@@ -202,7 +260,7 @@
 }
 
 .operator-topbar-context {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -232,7 +290,7 @@
   background: transparent;
   color: var(--op-muted);
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
 }
@@ -251,7 +309,7 @@
   gap: 8px;
   min-height: 44px;
   padding: 7px 14px;
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
 }
@@ -268,6 +326,16 @@
 
 /* ---------------------------------------------------------------- modal */
 
+/*
+ * The sign-in moment is the first thing anyone sees of this desk, and it used
+ * to be a blurred grey rectangle. It is now the house photograph behind an
+ * espresso scrim, with the sheet resting on it.
+ *
+ * The blur stays on the OVERLAY, where it softens the desk underneath; the
+ * plate sits above it and stays sharp, because a photograph you cannot read is
+ * texture, not an image. The base colour survives as the fallback if the plate
+ * ever fails to load.
+ */
 .operator-signin-overlay {
   position: fixed;
   z-index: 70;
@@ -280,8 +348,47 @@
   -webkit-backdrop-filter: blur(12px) saturate(0.84);
 }
 
+.operator-signin-plate {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+}
+
+.operator-signin-plate-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 30% 45%;
+  /* Held back a touch so the plaster reads as plaster and not as a filter.
+     No blur: the point is that it is a photograph. */
+  filter: saturate(0.9);
+}
+
+/*
+ * The scrim. No cream text sits on the photograph — every word in this moment
+ * is inside the opaque sheet — so the gradient is free to open up on the right
+ * where the plaster is empty, and the plate reads as a room rather than as a
+ * darkened wall.
+ */
+.operator-signin-overlay::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  content: '';
+  background: linear-gradient(
+    105deg,
+    rgb(31 20 16 / 0.7) 0%,
+    rgb(31 20 16 / 0.42) 48%,
+    rgb(31 20 16 / 0.18) 100%
+  );
+  pointer-events: none;
+}
+
 .operator-signin-dialog {
   position: relative;
+  z-index: 1;
   width: min(100%, 468px);
   padding: clamp(30px, 5vw, 42px);
   overflow: hidden;
@@ -294,9 +401,11 @@
       transparent 32%
     ),
     var(--cream-elev);
+  /* The one warm tint the whole system uses. The sheet floats on a
+     photograph now, so the alphas are heavier than the resting card's. */
   box-shadow:
-    0 28px 84px rgb(45 24 16 / 0.3),
-    0 6px 18px rgb(45 24 16 / 0.16),
+    0 28px 84px rgb(60 40 10 / 0.42),
+    0 6px 18px rgb(60 40 10 / 0.22),
     inset 0 1px 0 rgb(255 255 255 / 0.72);
   color: var(--ink);
   text-align: left;
@@ -365,16 +474,31 @@
   stroke-width: 1.7;
 }
 
+/*
+ * Layout only. The label itself is the shared `SectionEyebrow` primitive,
+ * which owns the family, size, weight, tracking and colour. It was mono at a
+ * wider tracking here, and mono on these surfaces means an identifier.
+ */
 .operator-signin-eyebrow {
   position: relative;
-  margin: 28px 0 8px;
-  color: var(--ink-4);
-  font-family: var(--mono);
-  /* 11px is the floor for this surface; the wider tracking, not a smaller
-     size, is what separates an eyebrow from body text. */
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+  margin: 26px 0 8px;
+}
+
+/*
+ * The dialog mounts outside `.operator-root`, so the desk's focus ring never
+ * reached it and every control in the sign-in moment fell back to the
+ * browser's blue default — the one browser surface most reliably left
+ * undesigned.
+ */
+.operator-signin-overlay :focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.operator-signin-overlay ::selection {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--ink);
 }
 
 .operator-signin-dialog h2 {
@@ -394,7 +518,7 @@
   max-width: 37ch;
   margin: 16px 0 0;
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.65;
 }
 
@@ -413,7 +537,7 @@
   background: var(--ink);
   color: var(--cream-elev);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -447,7 +571,7 @@
   position: relative;
   margin: 18px 0 0;
   color: var(--ink-4);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -455,6 +579,17 @@
   .operator-signin-overlay {
     align-items: end;
     padding: 12px;
+  }
+
+  /*
+   * The sheet already comes up from the bottom here, so a full-bleed plate
+   * behind it would be a 60px sliver of photograph. It becomes a band across
+   * the top instead: the image is the header of the screen, the sheet is the
+   * screen's content.
+   */
+  .operator-signin-plate {
+    inset: 0 0 auto;
+    height: 180px;
   }
 
   .operator-signin-dialog {
@@ -472,6 +607,13 @@
     background: rgb(38 29 25 / 0.72);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  /* Atmosphere is the first thing to go when a reader has asked for less of
+     it. The solid ground replaces both the plate and its gradient. */
+  .operator-signin-plate,
+  .operator-signin-overlay::after {
+    display: none;
   }
 }
 
@@ -516,7 +658,10 @@
 .operator-title {
   font-family: var(--display);
   font-weight: 400;
-  font-size: clamp(28px, 3.4vw, 38px);
+  /* The shared section step, so the desk's page title and the Observatory's
+     are the same size rather than two values that happen to land near each
+     other. */
+  font-size: var(--text-section);
   line-height: 1.08;
   letter-spacing: var(--op-display-track);
   margin: 0;
@@ -525,17 +670,23 @@
 }
 
 .operator-lede {
-  /* Spans the full content measure. A 68ch cap left this sitting at under half
-     the 1184px content width, which under a 38px display heading read as an
-     unfinished column rather than a deliberate one. `pretty` carries the cost:
-     it balances the last lines so a full-width paragraph does not end on an
-     orphan. */
-  max-width: none;
+  /*
+   * 76ch, which is the top of the 65-75ch reading band plus a character. An
+   * earlier revision removed the cap entirely because a 68ch column under a
+   * 38px heading looked unfinished; at 14px on an 1184px page that produced
+   * 140-character lines, and a line that long is not a deliberate column, it
+   * is an unreadable one. The fix for "looks unfinished" is the heading and
+   * the band beneath it doing more work, not the paragraph doing less.
+   *
+   * `pretty` balances the last lines so the paragraph does not end on an
+   * orphan.
+   */
+  max-width: 76ch;
   margin: 10px 0 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.7;
   text-wrap: pretty;
-  color: var(--op-muted);
+  color: var(--op-ink-2);
 }
 
 .operator-case-entry {
@@ -558,7 +709,9 @@
       color-mix(in srgb, var(--op-case-sage) 7%, var(--op-paper)) 67%,
       color-mix(in srgb, var(--op-case-sage) 13%, var(--op-paper)) 100%
     );
-  box-shadow: 0 16px 38px rgba(34, 29, 35, 0.08);
+  /* The one promoted entry on the surface, so it takes the lift rather than
+     the resting shadow. Warm tint, same family as every other elevation. */
+  box-shadow: var(--dl-sh-lift);
 }
 
 .operator-case-entry-copy {
@@ -586,7 +739,7 @@
 .operator-case-entry p {
   margin: 3px 0 0;
   color: var(--op-muted);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .operator-case-entry-action {
@@ -619,7 +772,8 @@
 /* A client's own note is one short sentence, not a surface introduction, so it
    keeps a reading measure rather than stretching across the record header. */
 .operator-record-head .operator-lede {
-  max-width: 74ch;
+  max-width: 58ch;
+  margin-top: 6px;
 }
 
 .operator-summary {
@@ -637,7 +791,7 @@
   align-items: baseline;
   gap: 10px;
   margin-bottom: 18px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .operator-crumb a {
@@ -708,10 +862,29 @@
  * Maison is solid espresso; the other two are outlines in their own tone. Only
  * the top rung earns a fill.
  */
+/*
+ * Move 6: the desk's one ornament. Maison is the house's own name, so it is
+ * the house's own face — Fraunces, small caps, not the tracked sans the other
+ * two pills share. Everything else on this surface earns its emphasis from
+ * size and weight; this is the single place a different voice is allowed, and
+ * it is allowed because the top rung is the only rung that changes what the
+ * house owes a client.
+ *
+ * `text-transform: none` is required: uppercase already flattens every letter,
+ * and small caps over it renders nothing.
+ */
 .operator-rung[data-rung='maison'] {
   background: var(--op-rank-maison);
   border-color: var(--op-rank-maison);
   color: var(--cream-elev);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.1;
+  text-transform: none;
+  font-variant-caps: small-caps;
+  letter-spacing: var(--op-label-track);
+  padding: 3px 12px;
 }
 
 /*
@@ -739,17 +912,30 @@
   flex: 0 0 auto;
 }
 
-/* Section header: the mark once, with the benefit it carries. */
+/*
+ * Section header: the mark once, with the benefit it carries.
+ *
+ * Two jobs, two treatments. Inside the book it divides one sheet, so it is a
+ * recessed strip. On the action queue it introduces a sheet from the page, so
+ * it is a plain label — a recessed strip floating between two rounded sheets
+ * read as a third, broken container.
+ */
 .operator-section {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  margin: 30px 0 10px;
+  padding: 0 2px;
+}
+
+.operator-book > .operator-section {
+  margin: 0;
   padding: 14px 24px 13px;
   background: var(--op-paper-2);
 }
 
 .operator-section-descriptor {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-descriptor);
   white-space: nowrap;
 }
@@ -757,7 +943,7 @@
 /* A generous gap, not a dot, divides identity from benefit. */
 .operator-section-earns {
   margin-left: 20px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-muted);
 }
 
@@ -769,7 +955,7 @@
 .operator-section-count {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-faint);
   white-space: nowrap;
 }
@@ -780,14 +966,20 @@
  * between them. Without this the pills are jargon: an operator can read
  * "Maison" and still not know what the house owes that client.
  */
+/*
+ * One sheet of paper divided by hairlines, not three tiles floating on a grey
+ * grid. The 1px gap trick was how every container on this desk was built, and
+ * three of them stacked read as graph paper: the rules described the container
+ * rather than the division inside it.
+ */
 .operator-ladder {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
   margin: 22px 0 26px;
-  background: var(--op-rule);
+  background: var(--op-paper);
   border: 1px solid var(--op-rule);
   border-radius: var(--op-radius);
+  box-shadow: var(--op-shadow-paper);
   overflow: hidden;
 }
 
@@ -799,15 +991,26 @@
 .operator-ladder-cell {
   display: grid;
   grid-template-rows: auto auto 1fr;
+  /* 2px of top padding is the rung rule below. */
   padding: 15px 18px 16px;
   background: var(--op-paper);
   border: 0;
+  /* Move 6: the rung tone rides the top edge of its own column. This is the
+     desk's single ornament, and it is load-bearing — the pill, the section
+     header and this rule all resolve the same `--rung-tone`, so a filtered
+     column and its pills can never disagree. */
+  border-top: 2px solid var(--rung-tone, transparent);
   width: 100%;
   text-align: left;
   font: inherit;
   color: inherit;
   cursor: pointer;
   transition: background 140ms ease-out;
+}
+
+/* Hairline division inside one sheet, replacing the 1px grid gap. */
+.operator-ladder-cell + .operator-ladder-cell {
+  border-left: 1px solid var(--op-rule);
 }
 
 .operator-ladder-cell:hover {
@@ -840,7 +1043,7 @@
 
 .operator-ladder-descriptor {
   /* 1.5px below body copy (13.5px), in one warm tone on every card. */
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-descriptor);
   white-space: nowrap;
 }
@@ -850,7 +1053,7 @@
      all three cards share one right margin. */
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--op-ink-2);
 }
 
@@ -858,16 +1061,16 @@
   display: block;
   margin-top: 10px;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--op-faint);
 }
 
 .operator-ladder-earns {
   display: block;
   margin-top: 5px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
-  color: var(--op-muted);
+  color: var(--op-ink-2);
 }
 
 /* The filter's own state line. A filtered list that does not say it is
@@ -877,7 +1080,7 @@
   align-items: center;
   gap: 12px;
   margin: -8px 0 14px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--op-muted);
 }
 
@@ -896,10 +1099,10 @@
 
 .operator-book {
   display: grid;
-  gap: 1px;
-  background: var(--op-rule);
+  background: var(--op-paper);
   border: 1px solid var(--op-rule);
   border-radius: var(--op-radius);
+  box-shadow: var(--op-shadow-paper);
   overflow: hidden;
 }
 
@@ -925,6 +1128,41 @@
 
 .operator-book-row:hover {
   background: var(--op-paper-2);
+}
+
+/*
+ * Move 8, the first of the desk's two authored moments: the book writing
+ * itself out. Fifteen client records arriving at once is the moment the
+ * surface has something to say, and it is the only entrance on the desk.
+ *
+ * `backwards`, never `both`. The hidden state belongs to the animation's
+ * `from`, not to the element: the row's resting style is visible, so if the
+ * animation never runs — reduced motion below, a browser that drops it, a
+ * printed page — the book is simply there. An entrance that can hide content
+ * on failure is not an entrance, it is a bug waiting for a slow machine.
+ *
+ * The stagger is capped in `ClientBook.tsx` rather than here, because the cap
+ * is about how long the last row waits, which is a count, not a style.
+ */
+@keyframes operator-book-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
+.operator-book > * {
+  animation: operator-book-row-in 300ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--op-row-index, 0) * 26ms);
+}
+
+/*
+ * The division between entries, drawn once between them rather than as a grey
+ * grid showing through 1px gaps. Placed after `.operator-book-row`, which sets
+ * `border: 0` at the same specificity, so source order decides.
+ */
+.operator-book > * + * {
+  border-top: 1px solid var(--op-rule);
 }
 
 .operator-avatar {
@@ -965,7 +1203,7 @@
   margin-top: 5px;
   font-size: 13px;
   line-height: 1.45;
-  color: var(--op-muted);
+  color: var(--op-ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -976,16 +1214,26 @@
    cells get their own wrapping variant. */
 .operator-cell-note {
   margin-top: 3px;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.45;
-  color: var(--op-muted);
+  color: var(--op-ink-2);
   white-space: normal;
 }
 
+/*
+ * Move 4: a figure is set in the display face. Spend and order count are the
+ * two things an advisor reads across the whole book, and in 13.5px mono they
+ * were the same weight as the note above them. Fraunces here also ties the
+ * book row to the record's standing quad and the queue's counters, which were
+ * already display type; the desk now has one voice for money.
+ */
 .operator-figure {
-  font-family: var(--mono);
-  font-size: 13.5px;
-  color: var(--op-ink-2);
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: var(--op-display-track);
+  color: var(--op-ink);
   text-align: right;
   white-space: nowrap;
 }
@@ -996,9 +1244,9 @@
   font-family: var(--sans);
   font-size: var(--text-label);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 /* --------------------------------------------------- the standing quad */
@@ -1011,17 +1259,26 @@
 .operator-quad {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
   margin: 0 0 18px;
-  background: var(--op-rule);
+  background: var(--op-paper);
   border: 1px solid var(--op-rule);
   border-radius: var(--op-radius);
+  box-shadow: var(--op-shadow-paper);
   overflow: hidden;
 }
 
 .operator-quad-cell {
-  padding: 16px 18px 15px;
+  padding: 18px 20px 17px;
   background: var(--op-paper);
+}
+
+/* Hairlines between the four figures, drawn inside one sheet. */
+.operator-quad-cell:nth-child(n + 3) {
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-quad-cell:nth-child(even) {
+  border-left: 1px solid var(--op-rule);
 }
 
 .operator-quad-label {
@@ -1029,7 +1286,7 @@
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-quad-value {
@@ -1052,9 +1309,9 @@
 
 .operator-quad-note {
   margin-top: 6px;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.4;
-  color: var(--op-muted);
+  color: var(--op-ink-2);
 }
 
 /* A live service request is the reason an advisor opened the record, so it
@@ -1062,14 +1319,20 @@
    one full-width evidence band, not another card in the record grid. */
 .operator-service-request {
   margin: 0 0 18px;
-  padding: 17px 18px 18px;
-  border-top: 1px solid var(--op-rule-strong);
-  border-bottom: 1px solid var(--op-rule-strong);
-  background: color-mix(in srgb, var(--op-warn) 5%, var(--op-paper));
+  padding: 19px 22px 20px;
+  border: 1px solid color-mix(in srgb, var(--op-warn) 26%, var(--op-rule));
+  border-radius: var(--op-radius);
+  box-shadow: var(--op-shadow-paper);
+  background: color-mix(in srgb, var(--op-warn) 6%, var(--op-paper));
 }
 
+/* A hairline tick across the top edge, the mark the Pellier section frame has
+   always used. A thick coloured bar down one side turns every panel into an
+   alert. */
 .operator-service-request[data-conflict='true'] {
-  box-shadow: inset 3px 0 0 var(--op-warn);
+  box-shadow:
+    inset 0 2px 0 var(--op-warn),
+    var(--op-shadow-paper);
 }
 
 .operator-service-request-head {
@@ -1138,14 +1401,14 @@
   gap: 6px;
   font-size: var(--text-label);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-service-request-evidence dd {
   margin: 5px 0 0;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--op-ink-2);
   overflow-wrap: anywhere;
@@ -1157,7 +1420,7 @@
   gap: 7px;
   margin-top: 14px;
   color: var(--op-accent);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   text-decoration: none;
 }
@@ -1175,36 +1438,177 @@
   align-items: start;
 }
 
+/*
+ * Move 2. The record head is the desk's one product-forward moment.
+ *
+ * It was a portrait, a heading and four paragraphs stacked over paper, and it
+ * read like the top of a form. It is now an editorial band: a 120px portrait,
+ * the client's name in the display face at the shared section size, the rung,
+ * and one link back to the shop, over the client's OWN storefront hero where
+ * one exists.
+ *
+ * Colour is retoned through the token layer rather than by overriding every
+ * descendant: five `--op-*` names are redeclared here, so the title, the note,
+ * the standing labels and the back link all follow without a single selector
+ * naming them. That is the whole reason the desk aliases its palette.
+ *
+ * The scrim floor is 0.70 and it is measured. Over the brightest pixel in each
+ * of the three hero plates (a near-white specular in all of them) a 0.70
+ * espresso scrim resolves to #625a56: cream reads 6.3:1 and `--op-band-muted`
+ * 4.6:1, both clearing AA for body text at the worst point in the plate rather
+ * than at its average.
+ */
 .operator-record-head {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border-radius: var(--op-radius);
+  background: var(--op-ink);
+  box-shadow: var(--op-shadow-paper);
+
+  --op-ink: var(--op-band-ink);
+  --op-ink-2: var(--op-band-muted);
+  --op-muted: var(--op-band-muted);
+  --op-faint: var(--op-band-muted);
+  --op-label: var(--op-band-muted);
+  --op-rule: var(--op-band-rule);
+  color: var(--op-band-ink);
+}
+
+.operator-record-plate {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+}
+
+.operator-record-plate-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 38%;
+  filter: saturate(0.9);
+}
+
+/*
+ * The house ground, for the twelve clients who are not storefront personas,
+ * and the scrim for the three who are.
+ *
+ * `::after`, not `::before`. A `::before` is generated as the element's FIRST
+ * child, so at equal stacking level the plate that follows it in the DOM
+ * paints on top and the scrim does nothing at all — which is exactly what
+ * happened, and it looked like a weak gradient rather than an inert one.
+ */
+.operator-record-head::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: '';
+  background: linear-gradient(
+    118deg,
+    color-mix(in srgb, var(--op-authority) 34%, var(--op-ink)) 0%,
+    var(--op-ink) 62%,
+    color-mix(in srgb, var(--op-case-sage) 16%, var(--op-ink)) 100%
+  );
+  pointer-events: none;
+}
+
+/* Deeper on the left, where the name is, and never below 0.70 anywhere. */
+.operator-record-head[data-plate='persona']::after {
+  background:
+    linear-gradient(
+      105deg,
+      rgb(31 20 16 / 0.3) 0%,
+      rgb(31 20 16 / 0.12) 55%,
+      rgb(31 20 16 / 0) 100%
+    ),
+    rgb(31 20 16 / 0.7);
+}
+
+.operator-record-head-inner {
+  position: relative;
+  z-index: 2;
   display: flex;
-  gap: 20px;
+  gap: 26px;
+  align-items: center;
+  min-height: 200px;
+  padding: 28px 30px;
+}
+
+.operator-record-identity {
+  min-width: 0;
+}
+
+/* The name and the rung read as one line of identity. */
+.operator-record-headline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.operator-record-head .operator-standing {
+  margin: 14px 0 0;
   align-items: flex-start;
-  padding-bottom: 22px;
-  border-bottom: 1px solid var(--op-rule);
-  margin-bottom: 24px;
+  text-align: left;
+}
+
+/* The governance note, on paper where 13px prose is actually legible. */
+.operator-record-context {
+  margin: 0 0 22px;
+  padding: 0 2px;
+  max-width: 78ch;
+}
+
+.operator-record-context .operator-hint:first-child {
+  margin-top: 0;
 }
 
 .operator-portrait {
-  width: 88px;
-  height: 88px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   object-fit: cover;
   flex: 0 0 auto;
   background: var(--op-paper-2);
+  box-shadow: 0 0 0 1px rgb(251 248 242 / 0.28);
 }
 
 .operator-monogram-lg {
   display: grid;
   place-items: center;
-  width: 88px;
-  height: 88px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   flex: 0 0 auto;
-  background: color-mix(in srgb, var(--op-authority) 12%, var(--op-paper-2));
-  color: var(--op-authority);
+  background: rgb(251 248 242 / 0.12);
+  color: var(--op-band-ink);
+  box-shadow: 0 0 0 1px rgb(251 248 242 / 0.28);
   font-family: var(--display);
-  font-size: 31px;
+  font-size: 40px;
   line-height: 1;
+}
+
+/*
+ * On the band the rung tones (espresso, olive, taupe) are unreadable, so the
+ * pill inverts: cream on all three, and Maison keeps its fill. The tone cue is
+ * the one thing that goes; the label never was optional, so nothing that was
+ * carried by colour alone is lost.
+ */
+.operator-record-head .operator-rung {
+  border-color: rgb(251 248 242 / 0.42);
+  background: rgb(251 248 242 / 0.1);
+  color: var(--op-band-ink);
+}
+
+.operator-record-head .operator-rung[data-rung='maison'] {
+  border-color: var(--op-band-ink);
+  background: var(--op-band-ink);
+  color: var(--dl-ink);
+}
+
+.operator-record-head .operator-back:hover {
+  color: var(--op-band-ink);
 }
 
 /* The standing strip sits opposite the name: identity on the left, what the
@@ -1224,7 +1628,7 @@
   align-items: center;
   gap: 10px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-ink-2);
 }
 
@@ -1232,17 +1636,18 @@
   font-family: var(--sans);
   font-size: var(--text-label);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-card {
   background: var(--op-paper);
   border: 1px solid var(--op-rule);
   border-radius: var(--op-radius);
-  padding: 18px 20px 20px;
-  margin-bottom: 18px;
+  box-shadow: var(--op-shadow-paper);
+  padding: 22px 24px 24px;
+  margin-bottom: 20px;
 }
 
 /* More space above a heading than below it. */
@@ -1296,9 +1701,9 @@
   text-align: left;
   font-size: var(--text-label);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
   padding: 0 12px 9px 0;
   border-bottom: 1px solid var(--op-rule);
 }
@@ -1329,15 +1734,39 @@
   white-space: nowrap;
 }
 
+/*
+ * The piece name in the storefront's product register (`.product-name`,
+ * index.css:284): Fraunces italic. This is the one place on the desk where a
+ * product appears as a product rather than as a row of facts, and the order
+ * history is where an advisor recognises what the client actually owns.
+ *
+ * Sized from the desk's own scale rather than inheriting the storefront's
+ * 1024px step to 22px: the record is 52% of the two-pane workbench, and a
+ * 22px italic in a six-column table forces the wrapper to scroll.
+ */
+.operator-piece-name {
+  display: block;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: var(--op-display-track);
+  color: var(--op-ink);
+  text-wrap: pretty;
+}
+
 /* Product thumbs match the book's portrait presence rather than shrinking to a
    list icon: a client row shows a 72px portrait, so an order row showing the
    same piece at 36px read as a different, lesser surface. 4:5 because that is
-   the catalog's committed aspect ratio — a square crop cuts the pieces. */
+   the catalog's committed aspect ratio — a square crop cuts the pieces.
+   88px at 8px corners: the order history is a ledger of PIECES, and the piece
+   has to be the largest thing in its own row. */
 .operator-thumb {
-  width: 72px;
-  height: 90px;
+  width: 88px;
+  height: 110px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--op-paper-2);
   display: block;
 }
@@ -1348,12 +1777,12 @@
 .operator-thumb-fallback {
   display: grid;
   place-items: center;
-  width: 72px;
-  height: 90px;
-  border-radius: 4px;
+  width: 88px;
+  height: 110px;
+  border-radius: 8px;
   background: linear-gradient(
     160deg,
-    color-mix(in srgb, var(--op-authority) 10%, var(--op-paper-2)),
+    color-mix(in srgb, var(--op-authority) 16%, var(--op-paper-2)),
     var(--op-paper-2)
   );
   color: var(--op-authority);
@@ -1368,7 +1797,7 @@
   border-radius: 999px;
   font-size: var(--text-label);
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
   border: 1px solid var(--op-rule-strong);
   color: var(--op-muted);
@@ -1399,7 +1828,7 @@
   background: var(--op-ink);
   color: var(--cream-elev);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -1430,9 +1859,9 @@
 
 .operator-hint {
   margin: 11px 0 0;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--op-muted);
+  color: var(--op-ink-2);
 }
 
 /* ------------------------------------------------------------- receipts */
@@ -1443,7 +1872,7 @@
   border-radius: 8px;
   border: 1px solid var(--op-rule-strong);
   background: var(--op-paper-2);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
   color: var(--op-ink-2);
 }
@@ -1465,7 +1894,7 @@
 
 .operator-receipt-head {
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
   font-size: var(--text-label);
   margin-bottom: 7px;
@@ -1506,7 +1935,7 @@
 
 .operator-receipt-rows dd {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--op-ink-2);
   min-width: 0;
@@ -1521,7 +1950,27 @@
   background: color-mix(in srgb, var(--op-warn) 8%, var(--op-paper));
 }
 
-@media (max-width: 640px) {
+@media (max-width: 560px) {
+  /*
+   * The book row gives up its columns. At 420px the middle column was 140px
+   * wide, so a client's note ellipsised after about twenty characters and the
+   * spend label was wider than the figure it labelled. Identity, note and the
+   * one figure that drives triage stack instead, each on its own line.
+   */
+  .operator-book-row {
+    grid-template-columns: 56px minmax(0, 1fr);
+    row-gap: 10px;
+  }
+
+  .operator-book-row > .operator-figure {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .operator-client-note {
+    white-space: normal;
+  }
+
   .operator-receipt-rows > div {
     grid-template-columns: minmax(0, 1fr);
     gap: 3px;
@@ -1530,43 +1979,150 @@
 
 /* -------------------------------------------------------------- states */
 
+/*
+ * Move 7. The container; the contents are the shared `EmptyState` primitive,
+ * so an absence reads the same on the desk as it does in the Observatory.
+ *
+ * Left-aligned, not centred. A centred grey paragraph in a bordered box is
+ * what a browser error page looks like; a left-aligned statement with a label
+ * above it is what a designed answer looks like, and every one of these is an
+ * answer rather than a gap.
+ */
 .operator-state {
-  padding: 46px 22px;
-  text-align: center;
+  position: relative;
+  overflow: hidden;
+  padding: 40px 32px 42px;
   border: 1px solid var(--op-rule);
   border-radius: var(--op-radius);
   background: var(--op-paper);
-  color: var(--op-muted);
+  box-shadow: var(--op-shadow-paper);
+  color: var(--op-ink-2);
   font-size: 13px;
   line-height: 1.65;
 }
 
-.operator-state-title {
+.operator-state-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.operator-state-lead {
+  margin-bottom: 14px;
+}
+
+/*
+ * The signed-out desk, over the house plate. This is the same photograph and
+ * the same espresso scrim as the sign-in dialog behind it, because they are
+ * one moment: the surface saying who it is and asking who you are.
+ *
+ * The scrim floor is 0.70 everywhere, and it is measured, not guessed. Over
+ * the brightest pixel in `hero-fresh-2` (a near-white specular at 255,255,251)
+ * a 0.70 espresso scrim resolves to #625a56: cream reads 6.3:1 and the band's
+ * muted tone 4.6:1, so both clear AA for body text at the worst point in the
+ * plate rather than at its average.
+ */
+.operator-state[data-surface='plate'] {
+  display: flex;
+  min-height: 340px;
+  flex-direction: column;
+  justify-content: center;
+  border-color: rgb(31 20 16 / 0.5);
+  background: var(--op-ink);
+  /* EmptyState sets its colours inline, so they are unreachable from here by
+     any selector. They resolve through these three custom properties, which
+     are not: redefining them on the container retones the primitive without a
+     single `!important`. */
+  --obs-ink-1: var(--op-band-ink);
+  --obs-ink-3: var(--op-band-muted);
+  --obs-ink-4: var(--op-band-muted);
+}
+
+.operator-state-plate {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
   display: block;
-  margin-bottom: 8px;
-  font-family: var(--display);
-  font-weight: 400;
-  font-size: 20px;
-  letter-spacing: var(--op-display-track);
-  color: var(--op-ink);
+}
+
+.operator-state-plate-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 30% 45%;
+  filter: saturate(0.9);
+}
+
+.operator-state[data-surface='plate']::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  content: '';
+  background:
+    linear-gradient(
+      105deg,
+      rgb(31 20 16 / 0.3) 0%,
+      rgb(31 20 16 / 0.12) 55%,
+      rgb(31 20 16 / 0) 100%
+    ),
+    rgb(31 20 16 / 0.7);
+  pointer-events: none;
+}
+
+.operator-state[data-surface='plate'] .operator-state-lead a,
+.operator-state[data-surface='plate'] .operator-back {
+  color: var(--op-band-muted);
+}
+
+.operator-state[data-surface='plate'] .operator-state-lead a:hover,
+.operator-state[data-surface='plate'] .operator-back:hover {
+  color: var(--op-band-ink);
 }
 
 .operator-state-signin {
-  /* A block-level control so it always sits on its own line under the
-     sentence; auto margins on an inline-flex button did nothing and the pill
-     shared a line with the prose on phones. */
-  display: flex;
-  width: max-content;
-  margin: 18px auto 0;
+  /* Inline-flex inside EmptyState's action slot, which owns the spacing. */
+  display: inline-flex;
+  margin: 0;
+}
+
+/* The recovery control on the plate. Higher specificity than
+   `.pellier-account-pill:hover`, which would otherwise paint espresso on
+   espresso. */
+.operator-state[data-surface='plate'] .operator-state-signin {
+  border-color: rgb(251 248 242 / 0.42);
+  background: rgb(251 248 242 / 0.1);
+  color: var(--op-band-ink);
+}
+
+.operator-state[data-surface='plate'] .operator-state-signin:hover {
+  border-color: var(--op-band-ink);
+  background: var(--op-band-ink);
+  color: var(--op-ink);
 }
 
 .operator-state code {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 11px;
   padding: 1px 5px;
   border-radius: 4px;
   background: var(--op-paper-2);
   color: var(--op-ink-2);
+}
+
+.operator-state[data-surface='plate'] code {
+  background: rgb(251 248 242 / 0.12);
+  color: var(--op-band-ink);
+}
+
+/* A photograph is atmosphere, and atmosphere is the first thing to go when a
+   reader has asked for less of it. */
+@media (prefers-reduced-transparency: reduce) {
+  .operator-state-plate {
+    display: none;
+  }
+
+  .operator-state[data-surface='plate']::after {
+    background: rgb(38 29 25 / 0.94);
+  }
 }
 
 .operator-back {
@@ -1574,7 +2130,7 @@
   min-height: 44px;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-muted);
   text-decoration: none;
 }
@@ -1593,7 +2149,7 @@
   align-items: center;
   gap: 7px;
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.01em;
   color: var(--op-ink-2);
   text-decoration: none;
@@ -1643,7 +2199,7 @@
   font-family: var(--sans);
   font-size: var(--text-label);
   font-weight: 650;
-  letter-spacing: 0.045em;
+  letter-spacing: var(--op-label-track);
   line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1669,18 +2225,17 @@
   display: grid;
   grid-template-columns: minmax(140px, 0.65fr) minmax(140px, 0.65fr) minmax(220px, 1.7fr);
   margin: 24px 0 28px;
-  border-top: 1px solid var(--op-rule);
-  border-bottom: 1px solid var(--op-rule);
+  background: var(--op-paper);
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  box-shadow: var(--op-shadow-paper);
+  overflow: hidden;
 }
 
 .operator-queue-summary > div {
   min-width: 0;
-  padding: 15px 20px 16px;
+  padding: 17px 22px 18px;
   border-right: 1px solid var(--op-rule);
-}
-
-.operator-queue-summary > div:first-child {
-  padding-left: 0;
 }
 
 .operator-queue-summary > div:last-child {
@@ -1695,7 +2250,7 @@
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-queue-summary dd {
@@ -1717,13 +2272,16 @@
 .operator-queue-summary .operator-queue-boundary {
   padding-top: 4px;
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 }
 
 .operator-action-list {
-  border-top: 1px solid var(--op-rule-strong);
-  border-bottom: 1px solid var(--op-rule-strong);
+  background: var(--op-paper);
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  box-shadow: var(--op-shadow-paper);
+  overflow: hidden;
 }
 
 /* One operational row, not a card inside another framed list. */
@@ -1735,7 +2293,7 @@
   align-items: center;
   gap: 20px;
   width: 100%;
-  padding: 20px 4px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--op-rule);
   background: var(--op-paper);
   text-align: left;
@@ -1774,7 +2332,7 @@
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-muted);
 }
 
 .operator-review-action-cell,
@@ -1785,7 +2343,7 @@
 }
 
 .operator-review-cell-value {
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--op-ink);
 }
@@ -2008,13 +2566,13 @@
 
 .operator-review-decision-summary strong {
   font-family: var(--display);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 400;
   line-height: 1.3;
 }
 
 .operator-review-decision-summary span span {
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--op-muted);
 }
 
@@ -2035,7 +2593,7 @@
 
 .operator-review-audit-identity summary {
   width: fit-content;
-  font-size: 11.5px;
+  font-size: 13px;
   cursor: pointer;
   text-decoration: underline;
   text-decoration-color: var(--op-rule-strong);
@@ -2062,7 +2620,7 @@
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-review-audit-identity dd {
@@ -2079,7 +2637,7 @@
   padding: 11px 12px;
   background: color-mix(in srgb, var(--op-warn) 9%, var(--op-paper-2));
   color: var(--op-ink-2);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -2090,7 +2648,7 @@
 
 .operator-review-live-status strong {
   color: var(--op-ink);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -2149,7 +2707,7 @@
 .operator-handoff-heading p {
   max-width: 64ch;
   margin: 7px 0 0;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.55;
   color: var(--op-muted);
 }
@@ -2180,7 +2738,7 @@
 .operator-handoff-request p {
   margin: 0;
   font-family: var(--display);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 400;
   line-height: 1.45;
   color: var(--op-ink);
@@ -2211,14 +2769,14 @@
   gap: 6px;
   font-size: var(--text-label);
   font-weight: 600;
-  color: var(--op-faint);
+  color: var(--op-label);
   text-transform: uppercase;
 }
 
 .operator-handoff-route dd {
   margin: 5px 0 0;
   overflow-wrap: anywhere;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--op-ink-2);
 }
@@ -2230,7 +2788,7 @@
 .operator-handoff-transcript summary {
   width: fit-content;
   color: var(--op-accent);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -2255,13 +2813,13 @@
 .operator-handoff-transcript li > span {
   font-size: var(--text-label);
   font-weight: 600;
-  color: var(--op-faint);
+  color: var(--op-label);
   text-transform: uppercase;
 }
 
 .operator-handoff-transcript li p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.55;
   color: var(--op-ink-2);
 }
@@ -2282,7 +2840,7 @@
 
 .operator-handoff[data-compact='true'] .operator-handoff-request p {
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
@@ -2320,7 +2878,7 @@
 
 .operator-assurance-caption {
   margin: 0 0 14px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--op-muted);
 }
@@ -2332,19 +2890,42 @@
 .operator-assurance-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
   margin: 0;
-  background: var(--op-rule);
+  background: var(--op-paper-2);
   border: 1px solid var(--op-rule);
-  border-radius: 8px;
+  border-radius: var(--gov-radius-md, 8px);
   overflow: hidden;
 }
 
+/*
+ * Move 8, the second of the desk's two authored moments. The four axes arrive
+ * one at a time as a real request resolves, so the change of state is the only
+ * thing worth animating here: colour over `--gov-motion-base`, the glyph swaps
+ * immediately, and nothing scales. A scale would read as celebration, and one
+ * of these four states is a refusal.
+ *
+ * The token collapses to 0ms under `prefers-reduced-motion`
+ * (governed-tokens.css), so the end state is reached instantly and is never
+ * skipped.
+ */
 .operator-assurance-axis {
   background: var(--op-paper-2);
-  padding: 13px 14px 14px;
+  padding: 15px 16px 16px;
   min-width: 0;
-  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    background-color var(--gov-motion-base, 200ms)
+      var(--gov-motion-ease, ease-out),
+    color var(--gov-motion-base, 200ms) var(--gov-motion-ease, ease-out);
+}
+
+.operator-assurance-state {
+  transition: color var(--gov-motion-base, 200ms)
+    var(--gov-motion-ease, ease-out);
+}
+
+/* Hairline division inside one sheet, replacing the 1px grid gap. */
+.operator-assurance-axis + .operator-assurance-axis {
+  border-left: 1px solid var(--op-rule);
 }
 
 .operator-assurance-label {
@@ -2354,7 +2935,7 @@
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-assurance-state {
@@ -2421,6 +3002,14 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .operator-assurance-axis:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .operator-assurance-axis:nth-child(n + 3) {
+    border-top: 1px solid var(--op-rule);
+  }
+
   .operator-review-row {
     grid-template-columns: 56px minmax(0, 1fr) 18px;
     align-items: start;
@@ -2456,20 +3045,22 @@
     grid-row: auto;
   }
 
-  .operator-record-head {
+  .operator-record-head-inner {
     flex-wrap: wrap;
+    gap: 20px;
+    padding: 24px;
   }
 
+  /*
+   * `row-reverse` used to right-align the label against the standing column's
+   * right edge. The standing block now sits under the client's note at the
+   * left, so reversing it printed "Open Anna's storefront STOREFRONT".
+   */
   .operator-standing {
     margin-left: 0;
     align-items: flex-start;
     text-align: left;
     width: 100%;
-  }
-
-  .operator-standing-row {
-    flex-direction: row-reverse;
-    justify-content: flex-end;
   }
 }
 
@@ -2480,13 +3071,26 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   /* Auto layout is kept on purpose. Fixed layout gave every column an equal
      share and broke product names into four lines; the wrapping cell note is
      what actually removed the overflow, so the columns keep their natural
      proportions. */
   .operator-shell {
     padding: 22px 16px 44px;
+  }
+
+  /* The sheets keep their inset, scaled to a 16px gutter. */
+  .operator-card {
+    padding: 18px 16px 20px;
+  }
+
+  .operator-review-row {
+    padding: 18px 16px;
+  }
+
+  .operator-quad-cell {
+    padding: 16px 16px 15px;
   }
 
   .operator-case-entry {
@@ -2611,11 +3215,7 @@
   }
 
   .operator-queue-summary > div {
-    padding: 14px 16px;
-  }
-
-  .operator-queue-summary > div:first-child {
-    padding-left: 0;
+    padding: 15px 16px 16px;
   }
 
   .operator-queue-summary > div:nth-child(2) {
@@ -2624,7 +3224,6 @@
 
   .operator-queue-summary > div:last-child {
     grid-column: 1 / -1;
-    padding-left: 0;
     border-top: 1px solid var(--op-rule);
   }
 
@@ -2644,16 +3243,40 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* One column, so the hairline that divided the pair becomes the hairline
+     that divides the stack. */
+  .operator-quad-cell:nth-child(even) {
+    border-left: 0;
+  }
+
+  .operator-quad-cell + .operator-quad-cell {
+    border-top: 1px solid var(--op-rule);
+  }
+
   /* Five columns cannot stay legible here, so the row keeps identity,
      standing, and the one figure that drives triage. */
   .operator-ladder {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .operator-ladder-cell + .operator-ladder-cell {
+    border-left: 0;
+  }
+
   .operator-avatar,
   .operator-monogram {
     width: 56px;
     height: 56px;
+  }
+
+  .operator-portrait,
+  .operator-monogram-lg {
+    width: 84px;
+    height: 84px;
+  }
+
+  .operator-monogram-lg {
+    font-size: 28px;
   }
 
   .operator-book-row {
@@ -2688,6 +3311,13 @@
   .operator-book-row,
   .operator-button {
     transition: none;
+  }
+
+  /* The end state, reached immediately. The rule removes the animation rather
+     than zeroing its duration, so the row keeps its own visible resting
+     style. */
+  .operator-book > * {
+    animation: none;
   }
 }
 
@@ -2748,8 +3378,8 @@
       color-mix(in srgb, var(--op-paper) 86%, transparent)
     );
   box-shadow:
-    0 24px 60px rgba(34, 29, 35, 0.09),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    var(--gov-shadow-card-raised),
+    inset 0 1px 0 rgb(255 255 255 / 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
@@ -2783,7 +3413,7 @@
 
 .operator-concierge-sub {
   margin: 8px 0 0;
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--op-muted);
   text-wrap: pretty;
@@ -2828,13 +3458,13 @@
 
 .operator-concierge-scope-name {
   font-family: var(--display);
-  font-size: 16px;
+  font-size: 17px;
   color: var(--op-ink);
 }
 
 .operator-concierge-scope-meta {
-  font-size: 12px;
-  color: var(--op-faint);
+  font-size: 11px;
+  color: var(--op-muted);
 }
 
 /* ------------------------------------------------------ eyebrow */
@@ -2844,9 +3474,9 @@
   display: block;
   font-size: var(--text-label);
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 /* -------------------------------------------------- capability */
@@ -2884,7 +3514,7 @@
   border: 0;
   background: none;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--op-accent);
   cursor: pointer;
   text-decoration: underline;
@@ -2908,7 +3538,7 @@
   gap: 16px;
   padding: 7px 0;
   border-bottom: 1px solid var(--op-rule);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .operator-concierge-capability dt {
@@ -2918,7 +3548,7 @@
 .operator-concierge-capability dd {
   margin: 0;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--op-faint);
 }
 
@@ -2964,7 +3594,7 @@
 .operator-concierge-empty-lede {
   margin: 0;
   max-width: 46ch;
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.7;
   color: var(--op-muted);
   text-wrap: pretty;
@@ -3014,9 +3644,9 @@
   grid-area: group;
   font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-label);
-  letter-spacing: 0.14em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-concierge-suggestion-label {
@@ -3030,7 +3660,7 @@
 
 .operator-concierge-suggestion-why {
   grid-area: why;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.55;
   color: var(--op-muted);
   text-wrap: pretty;
@@ -3095,7 +3725,7 @@
 
 .operator-concierge-request-body {
   margin: 6px 0 0;
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.6;
   color: var(--op-ink);
 }
@@ -3106,7 +3736,7 @@
 
 .operator-concierge-turnstate-copy {
   margin: 5px 0 0;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--op-muted);
 }
 
@@ -3224,7 +3854,7 @@
   align-items: start;
   padding: 8px 0;
   border-bottom: 1px solid var(--op-rule);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--op-ink-2);
 }
 
@@ -3253,7 +3883,7 @@
 
 .operator-concierge-step-result {
   overflow-wrap: anywhere;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--op-muted);
 }
@@ -3265,13 +3895,43 @@
   padding-top: 1px;
 }
 
+/*
+ * Move 5. Provenance is the one place the desk is allowed to use colour, and
+ * it was spending it at 100% on 11px mono text and nowhere else — six system
+ * tones that read as six slightly different greys on a warm page.
+ *
+ * It is now a badge in the shared `StateBadge` shape: 4px, sans 11/600/0.08em,
+ * the tone at FULL strength on a 10% tint of itself. Every one of the six
+ * clears 4.5:1 on that tint over raised paper (database 4.81, memory 5.26,
+ * model 5.24, control 4.74, graph 6.40, handoff 4.89), and the icon plus the
+ * system name are both still required, which is what the tones were declared
+ * for.
+ *
+ * It is a treatment here rather than a call to the primitive because
+ * `StateBadge` carries a closed set of state and provenance tones with a fixed
+ * glyph each; these six identify a SYSTEM and each brings its own mark. The
+ * request to extend the primitive is filed in
+ * docs/superpowers/plans/handoff-wp6-operator.md.
+ */
 .operator-concierge-step-source {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--mono, ui-monospace, monospace);
+  padding: 3px 7px;
+  border: 1px solid
+    color-mix(in srgb, var(--op-source-tone, var(--op-faint)) 32%, transparent);
+  border-radius: var(--chip-radius, 4px);
+  background: color-mix(
+    in srgb,
+    var(--op-source-tone, var(--op-faint)) 10%,
+    var(--op-paper)
+  );
+  font-family: var(--sans);
   font-size: var(--text-label);
-  color: var(--op-faint);
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-source-tone, var(--op-faint));
   white-space: nowrap;
 }
 
@@ -3281,34 +3941,31 @@
   color: var(--op-faint);
 }
 
-.operator-concierge-step[data-source-tone='database']
-  .operator-concierge-step-source {
-  color: var(--op-source-database);
+/* Six one-line declarations replacing six duplicated colour rules: the badge
+   above reads `--op-source-tone` for its foreground, border and tint at once,
+   so a tone can never disagree with itself. */
+.operator-concierge-step[data-source-tone='database'] {
+  --op-source-tone: var(--op-source-database);
 }
 
-.operator-concierge-step[data-source-tone='memory']
-  .operator-concierge-step-source {
-  color: var(--op-source-memory);
+.operator-concierge-step[data-source-tone='memory'] {
+  --op-source-tone: var(--op-source-memory);
 }
 
-.operator-concierge-step[data-source-tone='model']
-  .operator-concierge-step-source {
-  color: var(--op-source-model);
+.operator-concierge-step[data-source-tone='model'] {
+  --op-source-tone: var(--op-source-model);
 }
 
-.operator-concierge-step[data-source-tone='control']
-  .operator-concierge-step-source {
-  color: var(--op-source-control);
+.operator-concierge-step[data-source-tone='control'] {
+  --op-source-tone: var(--op-source-control);
 }
 
-.operator-concierge-step[data-source-tone='graph']
-  .operator-concierge-step-source {
-  color: var(--op-source-graph);
+.operator-concierge-step[data-source-tone='graph'] {
+  --op-source-tone: var(--op-source-graph);
 }
 
-.operator-concierge-step[data-source-tone='handoff']
-  .operator-concierge-step-source {
-  color: var(--op-source-handoff);
+.operator-concierge-step[data-source-tone='handoff'] {
+  --op-source-tone: var(--op-source-handoff);
 }
 
 .operator-concierge-graph {
@@ -3351,7 +4008,7 @@
   border: 1px solid var(--op-rule);
   border-radius: 8px;
   background: color-mix(in srgb, var(--op-paper) 84%, transparent);
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--op-ink-2);
 }
 
@@ -3429,7 +4086,7 @@
   background: var(--op-ink);
   color: var(--op-paper);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -3502,7 +4159,7 @@
   min-height: 74px;
   padding: 14px 12px;
   color: var(--op-muted);
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -3538,7 +4195,7 @@
 .operator-concierge-human-checkpoint-items legend,
 .operator-concierge-human-checkpoint-reason > span {
   margin-bottom: 8px;
-  color: var(--op-faint);
+  color: var(--op-label);
   font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: var(--op-label-track);
@@ -3629,7 +4286,7 @@
   background: var(--op-ink);
   color: var(--op-paper);
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 650;
   cursor: pointer;
   transition:
@@ -3655,7 +4312,7 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .operator-concierge-guided-next {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
@@ -3682,7 +4339,13 @@
     border-left: 0;
   }
 }
-.operator-concierge-step[data-step-status='failed'] .operator-concierge-step-source,
+/* A failed step overrides the SYSTEM tone rather than just the source text's
+   colour, so the badge's border and tint move with it. Recolouring only the
+   word would have left a red label sitting on a green Aurora tint. */
+.operator-concierge-step[data-step-status='failed'] {
+  --op-source-tone: var(--op-err);
+}
+
 .operator-concierge-step[data-step-status='failed'] .operator-concierge-step-status,
 .operator-concierge-step[data-step-status='unavailable']
   .operator-concierge-step-status {
@@ -3733,9 +4396,9 @@
 
 .operator-concierge-evidence-row dt {
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-concierge-evidence-row dd {
@@ -3764,8 +4427,8 @@
 /* Nuance, not alarm. */
 .operator-concierge-evidence-caveat {
   margin: 10px 0 0;
-  font-size: 12px;
-  color: var(--op-faint);
+  font-size: 13px;
+  color: var(--op-ink-2);
 }
 
 /* --------------------------------------------------- composer */
@@ -3794,7 +4457,7 @@
   background: var(--op-paper);
   color: var(--op-ink);
   font: inherit;
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.5;
   resize: vertical;
 }
@@ -3824,9 +4487,9 @@
 
 .operator-concierge-composer-note {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.5;
-  color: var(--op-faint);
+  color: var(--op-muted);
 }
 
 .operator-concierge-ask {
@@ -3841,7 +4504,7 @@
   background: var(--op-ink);
   color: var(--op-paper);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   cursor: pointer;
   transition:
     border-color 160ms ease-out,
@@ -3871,7 +4534,7 @@
 
 /* Below this the two columns would each be ~400px, which serves neither.
    Stack deliberately: the record first, the Concierge beneath it. */
-@media (max-width: 1120px) {
+@media (max-width: 1080px) {
   .operator-workbench {
     grid-template-columns: minmax(0, 1fr);
     gap: 30px;
@@ -3951,9 +4614,9 @@
 .operator-concierge-primary-note {
   margin: 2px 0 0;
   max-width: 52ch;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
-  color: var(--op-faint);
+  color: var(--op-ink-2);
   text-wrap: pretty;
 }
 
@@ -3964,7 +4627,7 @@
 .operator-concierge-section-body {
   margin: 6px 0 0;
   max-width: 62ch;
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.65;
   color: var(--op-ink-2);
   text-wrap: pretty;
@@ -4029,14 +4692,14 @@
 .operator-concierge-prior-kind {
   margin: 0;
   font-family: var(--sans);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--op-ink);
 }
 
 .operator-concierge-prior-axes {
   margin: 3px 0 0;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--op-ink-2);
 }
@@ -4067,13 +4730,13 @@
 .operator-concierge-prior-meta a {
   text-transform: none;
   letter-spacing: 0;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 400;
 }
 
 .operator-concierge-prior-retrieval {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.55;
   color: var(--op-muted);
   max-width: 62ch;
@@ -4128,9 +4791,9 @@
 .operator-concierge-proposal-rows dt {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-label);
-  letter-spacing: 0.12em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
 }
 
 .operator-concierge-proposal-rows dd {
@@ -4160,9 +4823,9 @@
 .operator-concierge-proposal-note {
   margin: 3px 0 0;
   max-width: 58ch;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.55;
-  color: var(--op-faint);
+  color: var(--op-ink-2);
   text-wrap: pretty;
 }
 
@@ -4187,7 +4850,7 @@
 .operator-concierge-proposal-link {
   justify-self: start;
   margin-top: 6px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--op-authority);
   text-decoration: none;
   border-bottom: 1px solid color-mix(in srgb, var(--op-authority) 35%, transparent);
@@ -4258,24 +4921,28 @@
   min-width: 0;
 }
 
+/* The same register as the order ledger and the storefront card: a piece is
+   named in Fraunces italic wherever it appears. */
 .operator-concierge-product-name {
   margin: 2px 0 0;
   font-family: var(--display);
+  font-style: italic;
   font-weight: 400;
-  font-size: 16.5px;
+  font-size: 17px;
   line-height: 1.25;
+  letter-spacing: var(--op-display-track);
   color: var(--op-ink);
 }
 
 .operator-concierge-product-meta {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--op-muted);
 }
 
 .operator-concierge-product-price {
   margin: 3px 0 0;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--op-ink);
   font-variant-numeric: tabular-nums;
 }
@@ -4286,7 +4953,7 @@
 
 .operator-concierge-product-availability p {
   margin: 3px 0 0;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--op-ink-2);
 }
@@ -4312,9 +4979,9 @@
 
 .operator-concierge-product-note {
   margin: 4px 0 0;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.55;
-  color: var(--op-faint);
+  color: var(--op-ink-2);
   text-wrap: pretty;
 }
 
@@ -4329,7 +4996,7 @@
 }
 
 .operator-concierge-product-fit li {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
   color: var(--op-muted);
 }
@@ -4343,7 +5010,7 @@
   margin-top: 9px;
   font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-label);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   color: var(--op-faint);
 }
 
@@ -4390,21 +5057,21 @@
 .operator-concierge-retrieval dt {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-label);
-  letter-spacing: 0.12em;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-faint);
+  color: var(--op-label);
   padding-top: 2px;
 }
 
 .operator-concierge-retrieval dd {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--op-ink-2);
   text-wrap: pretty;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1080px) {
   /* Stacked, the pane has the full content measure, so the cards can breathe. */
   .operator-concierge-product {
     grid-template-columns: 132px 1fr;
@@ -4422,7 +5089,7 @@
   margin: 6px 0 0;
   font-family: var(--display);
   font-weight: 400;
-  font-size: 16.5px;
+  font-size: 17px;
   line-height: 1.5;
   color: var(--op-ink);
   text-wrap: pretty;
@@ -4451,7 +5118,7 @@
   display: flex;
   gap: 10px;
   align-items: baseline;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .operator-concierge-source-name {
@@ -4480,21 +5147,23 @@
   max-width: 360px;
   margin: 22px 0 18px;
   font-family: var(--sans);
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-muted);
+  color: var(--op-label);
 }
 
 .operator-search input {
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0;
   text-transform: none;
   color: var(--op-ink);
+  min-height: 44px;
   padding: 9px 12px;
   border: 1px solid var(--op-rule-strong);
-  border-radius: 4px;
+  border-radius: var(--dl-r-md, 10px);
   background: var(--op-paper, var(--dl-paper));
 }
 
@@ -4519,16 +5188,27 @@
   padding: 6px 12px;
   border: 1px solid var(--op-rule-strong);
   border-radius: 4px;
-  background: transparent;
-  color: var(--op-muted);
+  /* Paper, because the page is recessed now: a transparent control on a
+     recessed ground reads as disabled rather than as available. */
+  background: var(--op-paper);
+  color: var(--op-ink-2);
   font-family: var(--sans);
   font-size: 13px;
   cursor: pointer;
+  transition:
+    border-color var(--gov-motion-fast, 120ms) ease-out,
+    color var(--gov-motion-fast, 120ms) ease-out;
+}
+
+.operator-outcome-filter:hover {
+  border-color: var(--op-ink);
+  color: var(--op-ink);
 }
 
 .operator-outcome-filter[aria-pressed='true'] {
   border-color: var(--op-ink);
-  color: var(--op-ink);
+  background: var(--op-ink);
+  color: var(--cream-elev);
 }
 
 .operator-outcome-filter .operator-review-outcome-glyph {
@@ -4538,6 +5218,6 @@
 
 .operator-outcome-filter-count {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--op-muted);
 }
