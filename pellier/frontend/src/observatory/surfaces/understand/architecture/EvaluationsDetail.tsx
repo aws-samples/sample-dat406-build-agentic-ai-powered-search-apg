@@ -141,7 +141,7 @@ const ScorecardCard: React.FC<{
 
 const MetricCell: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-    <span style={{ fontFamily: 'var(--obs-mono)', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--obs-ink-4)' }}>
+    <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--obs-ink-4)' }}>
       {label}
     </span>
     <span style={{ fontFamily: 'var(--obs-heading)', fontSize: '20px', fontWeight: 400, color: 'var(--obs-ink-1)', letterSpacing: '-0.02em' }}>
@@ -153,7 +153,7 @@ const MetricCell: React.FC<{ label: string; value: string }> = ({ label, value }
 /* ---- Shared styles ---- */
 
 const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
-  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
+  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
     {label}
   </span>
 );

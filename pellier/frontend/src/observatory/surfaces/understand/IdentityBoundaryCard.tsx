@@ -106,7 +106,7 @@ const mono: React.CSSProperties = {
 
 const label: React.CSSProperties = {
   fontFamily: 'var(--obs-mono)',
-  fontSize: '10px',
+  fontSize: 'var(--text-label)',
   letterSpacing: 'var(--obs-label-track)',
   textTransform: 'uppercase',
   color: 'var(--obs-ink-4)',
@@ -164,7 +164,7 @@ function AttemptRow({ attempt }: { attempt: IdentityAttempt }) {
               color: tone,
               /* Decision is never encoded by colour alone — the word is the
                  signal and the colour only reinforces it. */
-              fontWeight: 700,
+              fontWeight: 600,
             }}
           >
             {attempt.decision}
@@ -322,7 +322,7 @@ const IdentityBoundaryCard: React.FC = () => {
                       style={{
                         ...label,
                         color: run.complete ? 'var(--obs-olive)' : 'var(--obs-ink-4)',
-                        fontWeight: 700,
+                        fontWeight: 600,
                       }}
                     >
                       {run.complete ? 'matrix held' : 'matrix incomplete'}

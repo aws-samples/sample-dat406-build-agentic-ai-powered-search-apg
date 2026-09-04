@@ -596,7 +596,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
             <span
               style={{
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '10px',
+                fontSize: 'var(--text-label)',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 color: 'var(--obs-cream-1)',
@@ -958,7 +958,7 @@ const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }
                   <span
                     style={{
                       fontFamily: 'var(--obs-mono)',
-                      fontSize: '10px',
+                      fontSize: 'var(--text-label)',
                       letterSpacing: '0.16em',
                       textTransform: 'uppercase',
                       color: 'var(--obs-red-1)',
@@ -997,7 +997,7 @@ const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }
               <div
                 style={{
                   fontFamily: 'var(--obs-mono)',
-                  fontSize: '10px',
+                  fontSize: 'var(--text-label)',
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   color: 'var(--obs-ink-4)',

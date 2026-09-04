@@ -442,7 +442,7 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
             <span>{activeStage.number}</span>
             <span>{activeStage.title}</span>
           </div>
-          <h2>{activeStage.question}</h2>
+          <h2 className="font-display">{activeStage.question}</h2>
           <p>{activeStage.description}</p>
         </div>
         <div className="pellier-governed-proof-evidence">
@@ -674,7 +674,7 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
             color: 'var(--obs-red-1)',
             fontFamily: 'var(--obs-heading)',
             fontSize: '12px',
-            fontWeight: 700,
+            fontWeight: 600,
             textTransform: 'uppercase',
           }}
         >
@@ -688,7 +688,7 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
             background: tone.bg,
             fontFamily: 'var(--obs-heading)',
             fontSize: '11px',
-            fontWeight: 700,
+            fontWeight: 600,
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
           }}
@@ -775,7 +775,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
           color: 'var(--obs-ink-2)',
           fontFamily: 'var(--obs-heading)',
           fontSize: '11px',
-          fontWeight: 700,
+          fontWeight: 600,
           marginBottom: '9px',
           textTransform: 'uppercase',
         }}
@@ -1039,13 +1039,14 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
         <div>
           <Eyebrow label="Three receipts" />
           <h2
+            className="font-display"
             style={{
               margin: '7px 0 0',
               color: 'var(--obs-ink-1)',
-              fontFamily: 'var(--obs-heading)',
-              fontSize: '24px',
-              fontWeight: 600,
+              fontSize: 'var(--text-sub)',
+              fontWeight: 400,
               lineHeight: 1.15,
+              letterSpacing: 'var(--tracking-display)',
             }}
           >
             Reconstruct one governed action.
@@ -1369,13 +1370,14 @@ const ProofRail: React.FC<{
         <div>
           <Eyebrow label={eyebrow} />
           <h2
+            className="font-display"
             style={{
               margin: '6px 0 0',
               color: 'var(--obs-ink-1)',
-              fontFamily: 'var(--obs-heading)',
-              fontSize: '24px',
-              fontWeight: 600,
+              fontSize: 'var(--text-sub)',
+              fontWeight: 400,
               lineHeight: 1.15,
+              letterSpacing: 'var(--tracking-display)',
             }}
           >
             {title}

@@ -108,4 +108,40 @@
   --obs-serif:   var(--dl-font-serif);
   --obs-sans:    var(--dl-font-sans);
   --obs-mono:    var(--dl-font-mono);
+
+  /* ---- One type scale, measured from the storefront ------------------
+     The storefront reads as one system and the operator surfaces did not,
+     and the difference was never a palette or a font -- all three already
+     share Fraunces, Instrument Sans and JetBrains Mono. It was that the
+     storefront has a scale and the Observatory had 614 inline font sizes.
+     These are the values the storefront actually renders, named so the
+     other surfaces can resolve to them instead of choosing per element.
+
+     The rule the names encode: size and family carry hierarchy, weight
+     does not. The storefront never renders above 650; the Observatory was
+     reaching 800 on tracked uppercase, which is why it read as louder
+     while using identical colours. */
+  --text-display:  clamp(40px, 4.2vw, 49px);  /* page title, Fraunces 400 */
+  --text-section:  clamp(30px, 3vw, 38px);    /* section head, Fraunces 400 */
+  --text-sub:      24px;                      /* sub-section, Fraunces 400 */
+  --text-card:     20px;                      /* card title, sans 500 */
+  --text-body:     15px;                      /* running text, sans 400 */
+  --text-meta:     13px;                      /* secondary, sans 400/500 */
+  --text-data:     12px;                      /* IDs and values, mono 400 */
+  --text-label:    11px;                      /* eyebrow, sans 600 upper */
+  --text-min:      11px;                      /* nothing renders below this */
+
+  --tracking-display: -0.012em;
+  --tracking-label:   0.08em;
+
+  --weight-body:   400;
+  --weight-medium: 500;
+  --weight-strong: 600;   /* the ceiling, deliberately */
+
+  /* Controls: a radius is a family name. Pills are things you press;
+     4px is things you read. Mixing them is what made one surface feel
+     like a different product from the surface next to it. */
+  --control-radius: 999px;
+  --chip-radius:    4px;
+  --control-height: 44px;
 }

@@ -58,21 +58,26 @@
   line-height: 1.5;
 }
 
+/* The surface's primary action. It took a 12px radius and its own weight while
+   the storefront's primary two clicks earlier was a pill -- same burgundy, same
+   role, different family, so the two read as different products. A radius is a
+   family name: pills are things you press, 4px is things you read. This adopts
+   `.pellier-action`'s geometry so the shopper and operator sides agree. */
 .labs-catalog-hero-copy > a {
   grid-column: 2;
   display: inline-flex;
-  min-height: 44px;
+  min-height: var(--control-height);
   width: fit-content;
   align-items: center;
-  gap: 14px;
-  padding: 6px 8px 6px 18px;
-  border: 1px solid var(--obs-ink-1);
-  border-radius: 12px;
-  background: var(--obs-ink-1);
-  color: var(--obs-panel) !important;
-  box-shadow: 0 12px 28px rgb(20 28 24 / 0.14);
-  font-size: 13px;
-  font-weight: 700;
+  gap: 10px;
+  padding: 0 24px;
+  border: 1px solid var(--obs-red-1);
+  border-radius: var(--control-radius);
+  background: var(--obs-red-1);
+  color: var(--cream) !important;
+  font-size: 13.5px;
+  font-weight: var(--weight-strong);
+  letter-spacing: 0.01em;
   transition:
     background 160ms ease,
     border-color 160ms ease,
@@ -154,14 +159,14 @@
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
   text-transform: uppercase;
 }
 
 .labs-catalog-contact-sheet figcaption strong {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -284,7 +289,7 @@
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -318,7 +323,7 @@
   margin-top: 18px;
   color: var(--obs-red-1);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lab-status-mark {
@@ -381,7 +386,7 @@
   color: var(--obs-ink-2);
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.1;
 }
 
@@ -459,7 +464,7 @@
   border: 1px solid currentColor !important;
   border-radius: 4px !important;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lab-detail {
@@ -554,7 +559,7 @@
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -586,7 +591,7 @@
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -623,7 +628,7 @@
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lab-exercise-rail-copy {
@@ -718,7 +723,7 @@
   padding: 0 12px;
   color: var(--obs-ink-2);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lab-workflow-list li + li {
@@ -772,7 +777,7 @@
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -805,7 +810,7 @@
   color: #8d4328;
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lab-unavailable-note {
@@ -846,7 +851,7 @@
   background: var(--obs-ink-1);
   color: var(--obs-cream-1) !important;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lab-action-primary:hover {
@@ -871,7 +876,7 @@
   align-items: center;
   color: var(--obs-red-1) !important;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lab-evidence-rail {
@@ -905,7 +910,7 @@
   color: #74551c;
   font-family: var(--obs-mono);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .lab-classification[data-contradiction='true'] .lab-classification-code {

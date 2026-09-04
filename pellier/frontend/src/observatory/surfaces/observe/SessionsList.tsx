@@ -153,7 +153,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, onClick }) => (
             backgroundColor: 'var(--obs-red-soft)',
             color: 'var(--obs-red-1)',
             fontFamily: 'var(--obs-mono)',
-            fontSize: '9px',
+            fontSize: 'var(--text-label)',
             fontWeight: 600,
             letterSpacing: '0.1em',
             textTransform: 'uppercase',

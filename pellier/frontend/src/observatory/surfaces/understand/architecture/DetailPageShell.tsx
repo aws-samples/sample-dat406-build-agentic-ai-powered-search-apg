@@ -107,7 +107,7 @@ const CheatSheetStrip: React.FC<{ items: CheatSheetItem[] }> = ({ items }) => {
             <span
               style={{
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '9px',
+                fontSize: 'var(--text-label)',
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
                 color: 'var(--obs-ink-4)',
@@ -153,7 +153,7 @@ const LiveStateCallout: React.FC<LiveStateCalloutProps> = ({ label, values }) =>
           <span
             style={{
               fontFamily: 'var(--obs-mono)',
-              fontSize: '9px',
+              fontSize: 'var(--text-label)',
               letterSpacing: '0.22em',
               textTransform: 'uppercase',
               color: 'var(--obs-red-1)',
@@ -200,7 +200,7 @@ const LiveStateCallout: React.FC<LiveStateCalloutProps> = ({ label, values }) =>
               <span
                 style={{
                   fontFamily: 'var(--obs-mono)',
-                  fontSize: '9px',
+                  fontSize: 'var(--text-label)',
                   letterSpacing: '0.18em',
                   textTransform: 'uppercase',
                   color: 'var(--obs-ink-4)',
@@ -283,7 +283,7 @@ const DetailPageShell: React.FC<DetailPageShellProps> = ({
         <span
           style={{
             fontFamily: 'var(--obs-mono)',
-            fontSize: '9px',
+            fontSize: 'var(--text-label)',
             letterSpacing: '0.22em',
             textTransform: 'uppercase',
             color: 'var(--obs-ink-4)',

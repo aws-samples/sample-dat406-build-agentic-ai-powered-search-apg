@@ -359,7 +359,7 @@
 .operator-case-entry-kicker {
   display: block;
   color: var(--op-authority);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -384,7 +384,7 @@
   min-height: 44px;
   padding: 10px 18px;
   border: 1px solid var(--op-ink);
-  border-radius: var(--dl-r-md);
+  border-radius: var(--control-radius);
   background: var(--op-ink);
   color: var(--op-paper);
   font: inherit;
@@ -462,7 +462,7 @@
   border-radius: 999px;
   border: 1px solid var(--op-rule-strong);
   background: var(--op-paper-2);
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -785,7 +785,7 @@
   display: block;
   margin-bottom: 3px;
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -816,7 +816,7 @@
 }
 
 .operator-quad-label {
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -874,7 +874,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -927,7 +927,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1021,7 +1021,7 @@
 
 .operator-standing-row span:first-child {
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1044,7 +1044,7 @@
   gap: 12px;
   margin: 0 0 14px;
   font-family: var(--sans);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -1085,7 +1085,7 @@
 
 .operator-table th {
   text-align: left;
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1157,7 +1157,7 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1186,7 +1186,7 @@
   min-height: 44px;
   padding: 10px 18px;
   border: 1px solid var(--op-ink);
-  border-radius: var(--dl-r-md);
+  border-radius: var(--control-radius);
   background: var(--op-ink);
   color: var(--cream-elev);
   font-family: var(--sans);
@@ -1258,14 +1258,14 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-size: 9.5px;
+  font-size: var(--text-label);
   margin-bottom: 7px;
   color: var(--op-ink);
 }
 
 .operator-receipt-key {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--op-muted);
   word-break: break-all;
 }
@@ -1288,7 +1288,7 @@
 
 .operator-receipt-rows dt {
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -1432,7 +1432,7 @@
   background: var(--op-ink);
   color: var(--cream-elev);
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 650;
   letter-spacing: 0.045em;
   line-height: 1;
@@ -1482,7 +1482,7 @@
 .operator-review-cell-label {
   display: block;
   margin: 0 0 6px;
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -1561,7 +1561,7 @@
   display: block;
   margin: 0;
   font-family: var(--sans);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -1849,7 +1849,7 @@
 }
 
 .operator-review-audit-identity dt {
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -1952,7 +1952,7 @@
   flex: 0 0 auto;
   color: var(--op-source-handoff);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   white-space: nowrap;
 }
 
@@ -2000,7 +2000,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
   color: var(--op-faint);
   text-transform: uppercase;
@@ -2044,7 +2044,7 @@
 }
 
 .operator-handoff-transcript li > span {
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
   color: var(--op-faint);
   text-transform: uppercase;
@@ -2141,7 +2141,7 @@
 .operator-assurance-label {
   margin: 0 0 6px;
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -2588,7 +2588,7 @@
   margin-top: 14px;
   color: var(--op-faint);
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10px;
+  font-size: var(--text-label);
 }
 
 .operator-concierge-path > span:not(.operator-concierge-path-label) {
@@ -2633,7 +2633,7 @@
 .operator-concierge-eyebrow,
 .operator-concierge-state-eyebrow {
   display: block;
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2804,7 +2804,7 @@
 .operator-concierge-suggestion-group {
   grid-area: group;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--op-faint);
@@ -3061,14 +3061,14 @@
   align-items: center;
   gap: 5px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--op-faint);
   white-space: nowrap;
 }
 
 .operator-concierge-step-duration {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   color: var(--op-faint);
 }
 
@@ -3120,7 +3120,7 @@
   flex-wrap: wrap;
   gap: 6px 14px;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   color: var(--op-source-graph);
 }
 
@@ -3173,7 +3173,7 @@
 .operator-concierge-checkpoint {
   margin: 10px 0 0;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   color: var(--op-faint);
   text-transform: lowercase;
 }
@@ -3194,7 +3194,7 @@
 .operator-concierge-guided-next span {
   color: var(--op-accent);
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -3330,7 +3330,7 @@
 .operator-concierge-human-checkpoint-reason > span {
   margin-bottom: 8px;
   color: var(--op-faint);
-  font-size: 10px;
+  font-size: var(--text-label);
   font-weight: 700;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -3381,7 +3381,7 @@
 .operator-concierge-human-checkpoint-items small {
   color: var(--op-faint);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
 }
 
 .operator-concierge-human-checkpoint-reason {
@@ -3543,7 +3543,7 @@
 
 .operator-concierge-evidence-meta {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--op-faint);
 }
 
@@ -3808,7 +3808,7 @@
   left: 14px;
   top: 13px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   color: var(--op-descriptor);
 }
 
@@ -3848,7 +3848,7 @@
   gap: 10px;
   margin: 8px 0 0;
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
@@ -3918,7 +3918,7 @@
 
 .operator-concierge-proposal-rows dt {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--op-faint);
@@ -4133,7 +4133,7 @@
 .operator-concierge-product-sku {
   margin-top: 9px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.06em;
   color: var(--op-faint);
 }
@@ -4180,7 +4180,7 @@
 
 .operator-concierge-retrieval dt {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--op-faint);
@@ -4252,7 +4252,7 @@
 
 .operator-concierge-source-detail {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--op-faint);
 }
 

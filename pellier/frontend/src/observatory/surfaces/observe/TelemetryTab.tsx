@@ -484,7 +484,7 @@ const TimelinePanelCard: React.FC<TimelinePanelProps> = ({
               title={`${panel.evidenceRef.kind}:${panel.evidenceRef.id}`}
               style={{
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '10px',
+                fontSize: 'var(--text-label)',
                 color: 'var(--obs-ink-4)',
                 overflowWrap: 'anywhere',
               }}
@@ -1623,7 +1623,7 @@ const TelemetryTab: React.FC = () => {
                       style={{
                         display: 'block',
                         fontFamily: 'var(--obs-mono)',
-                        fontSize: '10px',
+                        fontSize: 'var(--text-label)',
                         color:
                           check.status === 'satisfied'
                             ? 'var(--obs-green-1)'

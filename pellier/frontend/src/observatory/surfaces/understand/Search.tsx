@@ -157,7 +157,7 @@ const StagePanel: React.FC<{ stage: SearchStage; index: number }> = ({
                       fontWeight: 600,
                       letterSpacing: '0.06em',
                       textTransform: 'uppercase',
-                      fontSize: '10px',
+                      fontSize: 'var(--text-label)',
                       whiteSpace: 'nowrap',
                     }}
                   >

@@ -75,7 +75,7 @@
 .labs-turns-group-heading span {
   font-family: var(--pl-sans);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -225,7 +225,7 @@
   color: var(--pl-muted);
   font-family: var(--pl-sans);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.1em;
   line-height: 1.3;
   text-align: center;
@@ -261,7 +261,7 @@
   color: var(--pl-accent-2);
   font-family: var(--pl-sans);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -284,7 +284,7 @@
   color: var(--obs-paper-bright);
   font-family: var(--pl-sans);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.2;
   text-decoration: none;
   box-shadow: 0 6px 16px rgba(var(--pl-accent-rgb), 0.2);
@@ -403,7 +403,7 @@
   color: var(--pl-accent-2);
   font-family: var(--pl-sans);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: var(--pl-label-track);
   text-transform: uppercase;
 }
@@ -412,7 +412,7 @@
   color: var(--pl-faint);
   font-family: var(--pl-sans);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -445,7 +445,7 @@
   color: var(--pl-ink);
   font-family: var(--pl-sans);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.16em;
   text-overflow: ellipsis;
   text-transform: uppercase;

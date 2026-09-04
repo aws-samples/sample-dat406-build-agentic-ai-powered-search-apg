@@ -215,7 +215,7 @@ const ActionLink: React.FC<LinkItem & { primary?: boolean }> = ({
         className="font-mono"
         style={{
           color: 'var(--obs-ink-3)',
-          fontSize: '10px',
+          fontSize: 'var(--text-label)',
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
           lineHeight: 1.35,
@@ -245,7 +245,7 @@ const PillarCard: React.FC<PillarItem> = ({ verb, title, description }) => (
     <div
       style={{
         fontFamily: 'var(--obs-mono)',
-        fontSize: '10px',
+        fontSize: 'var(--text-label)',
         letterSpacing: '0.18em',
         textTransform: 'uppercase',
         color: 'var(--obs-red-1)',

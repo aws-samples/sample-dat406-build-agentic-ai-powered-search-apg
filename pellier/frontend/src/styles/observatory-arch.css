@@ -41,7 +41,7 @@
 }
 .arch-node-key {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   color: var(--red-1);
   font-weight: 500;
@@ -68,7 +68,7 @@
 }
 .arch-live-row-head {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -77,7 +77,7 @@
 }
 .arch-live-stamp {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-4);
 }
 .arch-live-tool {
@@ -94,7 +94,7 @@
 }
 .arch-live-ms {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-4);
   text-align: right;
 }
@@ -159,7 +159,7 @@
 }
 .mcp-edges-eyebrow {
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-weight: 500;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -237,7 +237,7 @@
 }
 .mcp-tool-version {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   color: var(--ink-4);
 }
 .mcp-tool-headline {
@@ -260,7 +260,7 @@
   display: flex;
   justify-content: space-between;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-4);
 }
 
@@ -321,7 +321,7 @@
 }
 .tr-gated-tag {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--cream-1);
@@ -336,7 +336,7 @@
   flex-direction: column;
   gap: 3px;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-4);
 }
 .tr-detail-stats .arch-num {
@@ -354,7 +354,7 @@
 }
 .tr-grants-label {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -441,7 +441,7 @@
 }
 .mem-tier-tag {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--red-1);
@@ -473,7 +473,7 @@
 }
 .mem-tier-stat-label {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--text-label);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -557,7 +557,7 @@
   align-items: center;
   gap: 6px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--red-1);
@@ -614,7 +614,7 @@
 }
 .mem-live-cell-tag {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--red-1);
@@ -636,7 +636,7 @@
 }
 .mem-live-turn {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   color: var(--ink-4);
   flex-shrink: 0;
   width: 44px;
@@ -666,7 +666,7 @@
 }
 .mem-ltm-sim {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   color: var(--red-1);
   flex-shrink: 0;
   width: 44px;
@@ -719,7 +719,7 @@
 .rt-layer-card-total .rt-layer-num {
   color: rgba(250, 243, 232, 0.65);
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   font-style: normal;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -816,7 +816,7 @@
 .rt-seq-name em { font-style: italic; }
 .rt-seq-layer-tag {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--red-1);
@@ -869,7 +869,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--cream-1);
   border-right: 1px solid rgba(250, 243, 232, 0.15);
   min-width: 0;
@@ -913,7 +913,7 @@
 }
 .rt-waterfall-ms {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-4);
 }
 .rt-waterfall-totals {
@@ -933,7 +933,7 @@
 .rt-waterfall-total-label {
   font-family: var(--sans);
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -970,7 +970,7 @@
   border-bottom: 1px solid var(--rule-1);
   background: var(--cream-2);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -1018,7 +1018,7 @@
 .sm-tbl-name em { font-style: italic; }
 .sm-tbl-tag {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -1050,7 +1050,7 @@
 .sm-tbl-col {}
 .sm-tbl-type {
   color: var(--ink-4);
-  font-size: 10.5px;
+  font-size: var(--text-label);
 }
 .sm-tbl-flag {
   font-family: var(--mono);
@@ -1078,7 +1078,7 @@
   padding: 8px 14px;
   background: var(--cream-2);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   color: var(--ink-4);
   border-top: 1px solid var(--rule-1);
 }
@@ -1098,7 +1098,7 @@
 }
 .sm-tbl-note-label {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--red-1);
@@ -1126,7 +1126,7 @@
 }
 .sm-rel-key {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   color: var(--red-1);
   font-weight: 500;
@@ -1172,7 +1172,7 @@
 .sm-live-row:last-child { border-bottom: none; }
 .sm-live-row-head {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -1181,7 +1181,7 @@
 }
 .sm-op {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.2em;
   font-weight: 500;
   padding: 3px 8px;
@@ -1206,7 +1206,7 @@
 }
 .sm-live-query {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   line-height: 1.55;
   color: var(--ink-3);
   word-break: break-word;
@@ -1217,7 +1217,7 @@
 }
 .sm-live-ms {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-4);
   text-align: right;
 }
@@ -1255,7 +1255,7 @@
 }
 .ev-tri-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 2px;
   font-weight: 500;
 }
@@ -1300,7 +1300,7 @@
 }
 .ev-tri-key {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   color: var(--accent);
   font-weight: 500;
@@ -1373,7 +1373,7 @@
 
 .ev-axis-key {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   font-weight: 500;
   margin-bottom: 6px;
@@ -1429,7 +1429,7 @@
 .ev-meter-fill-telemetry { background: var(--amber-1); }
 .ev-meter-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   color: var(--ink-3);
   letter-spacing: 0.05em;
 }
@@ -1440,7 +1440,7 @@
 
 .ev-axis-section-label {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -1517,7 +1517,7 @@
 }
 .ev-to-versus {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -1578,7 +1578,7 @@
 }
 .ev-score-tag {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   font-weight: 500;
@@ -1605,7 +1605,7 @@
 }
 .ev-score-delta {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   font-weight: 500;
   color: var(--green-1);
 }
@@ -1627,7 +1627,7 @@
 }
 .ev-score-row-val {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-1);
   font-weight: 500;
 }
@@ -1658,7 +1658,7 @@
 }
 .gt-canvas-label {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -1666,7 +1666,7 @@
 }
 .gt-canvas-meta {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-3);
 }
 .gt-canvas-num {
@@ -1694,7 +1694,7 @@
 }
 .gt-inflow-label {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   color: rgba(250, 243, 232, 0.65);
   font-weight: 500;
@@ -1762,14 +1762,14 @@
 }
 .gt-lane-num {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   color: var(--ink-4);
   font-weight: 500;
 }
 .gt-lane-status {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   padding: 3px 8px;
@@ -1852,7 +1852,7 @@
   justify-content: space-between;
   align-items: baseline;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   color: var(--ink-4);
   letter-spacing: 0.05em;
 }
@@ -1949,7 +1949,7 @@
 
 .gt-rd-key {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   font-weight: 500;
   margin-bottom: 6px;
@@ -1984,7 +1984,7 @@
 }
 .gt-rd-section-label {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -2058,7 +2058,7 @@
 }
 .gt-queue-eyebrow {
   font-family: var(--sans);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: rgba(250, 243, 232, 0.65);
@@ -2087,7 +2087,7 @@
 }
 .gt-queue-meta {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: rgba(250, 243, 232, 0.65);
 }
 
@@ -2111,7 +2111,7 @@
 }
 .gt-q-row-head span {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -2122,7 +2122,7 @@
 }
 .gt-q-stamp {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-3);
 }
 .gt-q-tool {
@@ -2139,7 +2139,7 @@
 }
 .gt-q-age {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-3);
 }
 .gt-q-age-urgent {
@@ -2148,7 +2148,7 @@
 }
 .gt-q-status {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 4px 8px;
@@ -2203,7 +2203,7 @@
 }
 .gt-audit-row-head span {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-4);
@@ -2214,12 +2214,12 @@
 }
 .gt-audit-stamp {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-3);
 }
 .gt-audit-lane {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--text-label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 2px 7px;
@@ -2241,7 +2241,7 @@
 }
 .gt-audit-verdict {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 500;
@@ -2264,7 +2264,7 @@
 }
 .gt-audit-ms {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--accent);
   text-align: right;
   font-weight: 500;

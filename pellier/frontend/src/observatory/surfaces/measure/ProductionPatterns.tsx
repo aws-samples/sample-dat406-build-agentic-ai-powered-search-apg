@@ -59,7 +59,7 @@ const StatusPill: React.FC<{ shipped: boolean }> = ({ shipped }) => {
       style={{
         display: 'inline-block',
         fontFamily: 'var(--obs-mono)',
-        fontSize: '10px',
+        fontSize: 'var(--text-label)',
         letterSpacing: '0.18em',
         textTransform: 'uppercase',
         color,
@@ -103,7 +103,7 @@ const PatternHeader: React.FC<{ pattern: ProductionPattern }> = ({ pattern }) =>
         <span
           style={{
             fontFamily: 'var(--obs-mono)',
-            fontSize: '10px',
+            fontSize: 'var(--text-label)',
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
             color: tone.color,
@@ -197,7 +197,7 @@ const CrossLinkStrip: React.FC<{ links: { label: string; to: string }[] }> = ({
       <span
         style={{
           fontFamily: 'var(--obs-mono)',
-          fontSize: '10px',
+          fontSize: 'var(--text-label)',
           letterSpacing: '0.18em',
           textTransform: 'uppercase',
           color: 'var(--obs-ink-3)',
@@ -259,7 +259,7 @@ const IdentityCard: React.FC<{ pattern: IdentityPattern }> = ({ pattern }) => (
           <div
             style={{
               fontFamily: 'var(--obs-mono)',
-              fontSize: '10px',
+              fontSize: 'var(--text-label)',
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
               color: 'var(--obs-ink-3)',
@@ -282,7 +282,7 @@ const IdentityCard: React.FC<{ pattern: IdentityPattern }> = ({ pattern }) => (
           <div
             style={{
               fontFamily: 'var(--obs-mono)',
-              fontSize: '10px',
+              fontSize: 'var(--text-label)',
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
               color: 'var(--obs-ink-3)',
@@ -540,7 +540,7 @@ const MultitenancyCard: React.FC<{ pattern: MultitenancyPattern }> = ({ pattern 
             <div
               style={{
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '10px',
+                fontSize: 'var(--text-label)',
                 letterSpacing: '0.18em',
                 textTransform: 'uppercase',
                 color: 'var(--obs-ink-3)',

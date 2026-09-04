@@ -192,7 +192,7 @@ const ColdStartHistogram: React.FC<HistogramProps> = ({ histogram }) => {
                   textAnchor="middle"
                   style={{
                     fontFamily: 'var(--obs-mono)',
-                    fontSize: '10px',
+                    fontSize: 'var(--text-label)',
                     fill: 'var(--obs-ink-2)',
                   }}
                 >
@@ -205,7 +205,7 @@ const ColdStartHistogram: React.FC<HistogramProps> = ({ histogram }) => {
                   textAnchor="middle"
                   style={{
                     fontFamily: 'var(--obs-mono)',
-                    fontSize: '10px',
+                    fontSize: 'var(--text-label)',
                     fill: bucket.type === 'warm' ? 'var(--obs-green-1)' : 'var(--obs-red-1)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.12em',
@@ -583,7 +583,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
             <div
               style={{
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '10px',
+                fontSize: 'var(--text-label)',
                 letterSpacing: '0.2em',
                 textTransform: 'uppercase',
                 color: 'var(--obs-ink-3)',
@@ -662,7 +662,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
                       style={{
                         display: 'inline-block',
                         fontFamily: 'var(--obs-mono)',
-                        fontSize: '10px',
+                        fontSize: 'var(--text-label)',
                         letterSpacing: '0.16em',
                         textTransform: 'uppercase',
                         color: status.color,
@@ -786,7 +786,7 @@ const ExtractedFiltersStrip: React.FC<ExtractedFiltersStripProps> = ({
 
   const labelStyle: React.CSSProperties = {
     fontFamily: 'var(--obs-mono)',
-    fontSize: '10px',
+    fontSize: 'var(--text-label)',
     letterSpacing: '0.18em',
     textTransform: 'uppercase',
     color: 'var(--obs-ink-3)',
@@ -879,7 +879,7 @@ const ExtractedFiltersStrip: React.FC<ExtractedFiltersStripProps> = ({
           style={{
             display: 'inline-block',
             fontFamily: 'var(--obs-mono)',
-            fontSize: '10px',
+            fontSize: 'var(--text-label)',
             letterSpacing: '0.16em',
             textTransform: 'uppercase',
             color: usedColor,
@@ -1172,7 +1172,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                             display: 'block',
                             marginTop: '5px',
                             fontFamily: 'var(--obs-mono)',
-                            fontSize: '10px',
+                            fontSize: 'var(--text-label)',
                             fontWeight: 500,
                             letterSpacing: '0.04em',
                             color:
@@ -1238,7 +1238,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                             style={{
                               display: 'block',
                               color: 'var(--obs-ink-3)',
-                              fontSize: '10px',
+                              fontSize: 'var(--text-label)',
                               textTransform: 'uppercase',
                             }}
                           >
@@ -1253,7 +1253,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                         style={{
                           display: 'block',
                           color: 'var(--obs-ink-3)',
-                          fontSize: '10px',
+                          fontSize: 'var(--text-label)',
                           textTransform: 'uppercase',
                         }}
                       >
@@ -1296,7 +1296,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                             style={{
                               letterSpacing: '0.18em',
                               textTransform: 'uppercase',
-                              fontSize: '10px',
+                              fontSize: 'var(--text-label)',
                               color: 'var(--obs-ink-3)',
                             }}
                           >

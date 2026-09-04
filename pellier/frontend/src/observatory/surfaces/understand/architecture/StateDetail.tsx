@@ -211,7 +211,7 @@ const StateFlowDiagram: React.FC = () => (
 /* ---- Shared styles ---- */
 
 const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
-  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
+  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
     {label}
   </span>
 );

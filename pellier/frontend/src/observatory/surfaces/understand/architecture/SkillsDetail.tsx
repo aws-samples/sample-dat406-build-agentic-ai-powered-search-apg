@@ -132,7 +132,7 @@ const SkillCard: React.FC<{
         {name}
       </span>
       <div>
-        <span style={{ fontFamily: 'var(--obs-mono)', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--obs-ink-4)' }}>
+        <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--obs-ink-4)' }}>
           Triggers on
         </span>
         <p style={{ fontFamily: 'var(--obs-sans)', fontSize: '14px', lineHeight: 1.5, color: 'var(--obs-ink-1)', margin: '4px 0 0 0' }}>
@@ -162,7 +162,7 @@ const SkillCard: React.FC<{
 /* ---- Shared styles ---- */
 
 const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
-  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: '9px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
+  <span style={{ fontFamily: 'var(--obs-mono)', fontSize: 'var(--text-label)', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--obs-ink-4)', fontWeight: 500 }}>
     {label}
   </span>
 );

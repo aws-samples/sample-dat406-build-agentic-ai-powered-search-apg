@@ -146,7 +146,7 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
           <div
             style={{
               fontFamily: 'var(--obs-mono)',
-              fontSize: '9px',
+              fontSize: 'var(--text-label)',
               fontWeight: 500,
               letterSpacing: '0.22em',
               textTransform: 'uppercase',
@@ -163,7 +163,7 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
           <span
             style={{
               fontFamily: 'var(--obs-mono)',
-              fontSize: '9px',
+              fontSize: 'var(--text-label)',
               fontWeight: 500,
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
@@ -230,7 +230,7 @@ const StatChip: React.FC<StatChipProps> = ({ label, value }) => (
     <span
       style={{
         fontFamily: 'var(--obs-mono)',
-        fontSize: '9px',
+        fontSize: 'var(--text-label)',
         fontWeight: 500,
         letterSpacing: '0.22em',
         textTransform: 'uppercase',
@@ -454,7 +454,7 @@ const Settings: React.FC = () => {
                 fontWeight: 500,
                 letterSpacing: '0.18em',
                 textTransform: 'uppercase',
-                fontSize: '9px',
+                fontSize: 'var(--text-label)',
                 marginRight: '8px',
               }}
             >

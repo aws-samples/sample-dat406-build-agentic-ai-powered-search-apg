@@ -45,7 +45,7 @@ const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ sour
         background: bg,
         color: fg,
         fontFamily: 'var(--obs-mono)',
-        fontSize: '9px',
+        fontSize: 'var(--text-label)',
         letterSpacing: '0.18em',
         textTransform: 'uppercase',
         fontWeight: 600,

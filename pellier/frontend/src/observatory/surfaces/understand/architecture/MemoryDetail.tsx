@@ -43,7 +43,7 @@ const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ sour
         background: bg,
         color: fg,
         fontFamily: 'var(--obs-mono)',
-        fontSize: '9px',
+        fontSize: 'var(--text-label)',
         letterSpacing: '0.18em',
         textTransform: 'uppercase',
         fontWeight: 600,
@@ -99,7 +99,7 @@ const SubstratePanel: React.FC<SubstratePanelProps> = ({ panel }) => (
         <span
           style={{
             fontFamily: 'var(--obs-mono)',
-            fontSize: '9px',
+            fontSize: 'var(--text-label)',
             letterSpacing: '0.22em',
             textTransform: 'uppercase',
             color: 'var(--obs-ink-4)',
@@ -243,7 +243,7 @@ const TierCard: React.FC<TierCardProps> = ({
         <span
           style={{
             fontFamily: 'var(--obs-mono)',
-            fontSize: '9px',
+            fontSize: 'var(--text-label)',
             letterSpacing: '0.22em',
             textTransform: 'uppercase',
             color: 'var(--obs-ink-4)',
@@ -466,7 +466,7 @@ GROUP BY tool;`}
             <span
               style={{
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '9px',
+                fontSize: 'var(--text-label)',
                 letterSpacing: '0.22em',
                 textTransform: 'uppercase',
                 color: 'var(--obs-red-1)',

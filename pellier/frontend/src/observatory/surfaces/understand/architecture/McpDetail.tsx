@@ -141,7 +141,7 @@ const NodeCard: React.FC<{
       <span
         style={{
           fontFamily: 'var(--obs-mono)',
-          fontSize: '9px',
+          fontSize: 'var(--text-label)',
           letterSpacing: '0.18em',
           textTransform: 'uppercase',
           color: 'var(--obs-ink-4)',
@@ -195,7 +195,7 @@ const ConceptEyebrow: React.FC<{ label: string }> = ({ label }) => (
   <span
     style={{
       fontFamily: 'var(--obs-mono)',
-      fontSize: '9px',
+      fontSize: 'var(--text-label)',
       letterSpacing: '0.22em',
       textTransform: 'uppercase',
       color: 'var(--obs-ink-4)',
