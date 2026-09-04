@@ -103,6 +103,12 @@ FKs.
 44. **`044_operator_lifecycle_ledger.sql`** — adds the durable Operator
     review and governed-execution lifecycle to that projection. The shopper
     turn remains terminal before the later human and execution events appear.
+45. **`045_persona_blurbs.sql`** — refines the concise persona descriptions
+    shown in the participant-facing storefront.
+46. **`046_retrieval_citation_snapshots.sql`** — stores a hashed, ordered
+    catalog citation snapshot with each retrieval receipt and makes retrieval
+    receipts append-only, so a later catalog edit cannot rewrite prior turn
+    evidence.
 
 ## Run
 
@@ -158,7 +164,9 @@ for migration in \
     041_align_theo_pairing_preview.sql \
     042_align_anna_guided_previews.sql \
     043_evidence_ledger.sql \
-    044_operator_lifecycle_ledger.sql
+    044_operator_lifecycle_ledger.sql \
+    045_persona_blurbs.sql \
+    046_retrieval_citation_snapshots.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \

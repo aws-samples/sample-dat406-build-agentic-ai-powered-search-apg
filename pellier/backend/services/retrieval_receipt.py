@@ -86,6 +86,41 @@ def query_hash(query: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+def citation_snapshot_hash(snapshots: List[Dict[str, Any]]) -> str:
+    """Hash the ordered catalog evidence captured for one retrieval turn."""
+    canonical = json.dumps(
+        snapshots,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _citation_snapshot(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Capture bounded catalog evidence before returning the product."""
+    value = row.get("product_id", row.get("productId"))
+    if value is None or not str(value).strip():
+        return None
+    product_id = str(value)
+    name = " ".join(str(row.get("name") or product_id).split())
+    description = " ".join(str(row.get("description") or "").split())
+    quote = f"{name}: {description}".rstrip(":").strip()[:280]
+    updated_at = row.get("updated_at")
+    revision = (
+        updated_at.isoformat()
+        if hasattr(updated_at, "isoformat")
+        else str(updated_at).strip() or None
+    )
+    return {
+        "entity_id": product_id,
+        "source_uri": f"aurora://pellier/product_catalog/{product_id}",
+        "revision": revision,
+        "quote": quote,
+    }
+
+
 @dataclass
 class RetrievalReceipt:
     """One retrieval turn's evidence, ready to persist.
@@ -110,10 +145,11 @@ class RetrievalReceipt:
     rerank_scores: Dict[str, Any] = field(default_factory=dict)
     merchandising_rules: List[Dict[str, Any]] = field(default_factory=list)
     memory_record_ids_used: List[Any] = field(default_factory=list)
-    # ``citation_ids`` remains the retrieval-stage product selection. The
-    # participant-facing governed receipt resolves those IDs to structured
-    # catalog citations; a product id is not itself a citation.
+    # Citation snapshots are captured at retrieval time. Resolving product IDs
+    # against the live catalog later would make an old receipt mutable.
     citation_ids: List[Any] = field(default_factory=list)
+    citation_snapshots: List[Dict[str, Any]] = field(default_factory=list)
+    citation_snapshot_hash: Optional[str] = None
     latency_breakdown: Dict[str, Any] = field(default_factory=dict)
     modeled_cost_usd: Optional[float] = None
     trace_id: Optional[str] = None
@@ -145,6 +181,8 @@ class RetrievalReceipt:
             "merchandising_rules": self.merchandising_rules,
             "memory_record_ids_used": self.memory_record_ids_used,
             "citation_ids": self.citation_ids,
+            "citation_snapshots": self.citation_snapshots,
+            "citation_snapshot_hash": self.citation_snapshot_hash,
             "latency_breakdown": self.latency_breakdown,
             "modeled_cost_usd": self.modeled_cost_usd,
             "trace_id": self.trace_id,
@@ -158,6 +196,7 @@ def build_receipt(
     plan: Any,
     candidates: Optional[List[Dict[str, Any]]] = None,
     ordered: Optional[List[Dict[str, Any]]] = None,
+    citation_rows: Optional[List[Dict[str, Any]]] = None,
     merchandising_rules: Optional[List[Dict[str, Any]]] = None,
     **extra: Any,
 ) -> RetrievalReceipt:
@@ -169,7 +208,9 @@ def build_receipt(
         candidates: The fused candidate pool. Rows may carry ``vec_rank``,
             ``fts_rank``, and ``rrf_score``, which the explained hybrid
             path already produces.
-        ordered: The final reranked list. Rows may carry ``rerank_score``.
+        ordered: The reranked list. Rows may carry ``rerank_score``.
+        citation_rows: The final product rows returned to the shopper. Defaults
+            to ``ordered`` for callers without a later post-rerank filter.
         merchandising_rules: Any declared ranking rules that fired.
         **extra: Passed through to :class:`RetrievalReceipt` (session id,
             models, trace id, rail, latency, cost).
@@ -208,10 +249,19 @@ def build_receipt(
         pid = _pid(row)
         if pid is None:
             continue
-        citation_ids.append(pid)
         score = row.get("rerank_score")
         if score is not None:
             rerank_scores[pid] = float(score)
+
+    snapshots: List[Dict[str, Any]] = []
+    for row in citation_rows if citation_rows is not None else ordered:
+        pid = _pid(row)
+        if pid is None:
+            continue
+        citation_ids.append(pid)
+        snapshot = _citation_snapshot(row)
+        if snapshot is not None:
+            snapshots.append(snapshot)
 
     return RetrievalReceipt(
         query=query,
@@ -222,6 +272,8 @@ def build_receipt(
         rrf_scores=rrf_scores,
         rerank_scores=rerank_scores,
         citation_ids=citation_ids,
+        citation_snapshots=snapshots,
+        citation_snapshot_hash=citation_snapshot_hash(snapshots) if snapshots else None,
         merchandising_rules=merchandising_rules or [],
         **extra,
     )
@@ -235,14 +287,14 @@ _INSERT_SQL = """
         index_parameters, candidate_product_ids, vector_ranks,
         lexical_ranks, rrf_scores, rerank_scores, merchandising_rules,
         memory_record_ids_used, citation_ids, latency_breakdown,
-        modeled_cost_usd, trace_id, rail
+        citation_snapshots, citation_snapshot_hash, modeled_cost_usd, trace_id, rail
     ) VALUES (
         %s, %s, %s, %s, %s,
         %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
         %s::jsonb, %s, %s, %s::jsonb,
         %s::jsonb, %s::jsonb, %s::jsonb,
         %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
-        %s::jsonb, %s::jsonb, %s::jsonb,
+        %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s,
         %s, %s, %s
     )
 """
@@ -263,6 +315,7 @@ _JSON_COLUMNS = (
     "merchandising_rules",
     "memory_record_ids_used",
     "citation_ids",
+    "citation_snapshots",
     "latency_breakdown",
 )
 
@@ -289,6 +342,8 @@ _COLUMN_ORDER = (
     "merchandising_rules",
     "memory_record_ids_used",
     "citation_ids",
+    "citation_snapshots",
+    "citation_snapshot_hash",
     "latency_breakdown",
     "modeled_cost_usd",
     "trace_id",

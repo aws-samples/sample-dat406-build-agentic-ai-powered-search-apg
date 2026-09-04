@@ -2027,14 +2027,13 @@ async def compare_search_strategies(query: str):
          No reranker pass. Kept as a teaching foil — pure lexical
          loses on conversational queries with this corpus.
       3. **hybrid + rerank** — same as #2 plus Cohere Rerank v3.5.
-      4. **agentic (Sonnet → filter → vector → rerank)** — Anna's
+      4. **agentic (Sonnet → filter → hybrid → rerank)** — Anna's
          shipped path. Sonnet 4.6 extracts {categories, tags,
-         price_max, in_stock, soft_signal}; pgvector cosine
-         runs over the filtered candidate set with
-         ``hnsw.iterative_scan = 'relaxed_order'`` so filtered recall
-         doesn't silently collapse; Cohere Rerank reorders the pool
-         using the soft_signal phrase (not the raw query) so
-         structured constraints don't pollute the rerank score.
+         price_max, in_stock, soft_signal}; those hard constraints
+         are compiled into both pgvector and FTS branches before RRF;
+         Cohere Rerank then orders only that valid pool using the
+         soft_signal phrase (not the raw query), so structured
+         constraints do not pollute the rerank score.
 
     Returns:
       {
@@ -2058,7 +2057,10 @@ async def compare_search_strategies(query: str):
     from services.embeddings import EmbeddingService
     from services.vector_search import VectorSearch
     from services.hybrid_search import HybridSearch
-    from services.rerank import get_rerank_service
+    from services.planned_hybrid_retrieval import (
+        rerank_hybrid_candidates,
+        retrieve_planned_hybrid,
+    )
     from services.search_plan import build_plan
     from services.structured_extract import get_structured_extractor
 
@@ -2115,41 +2117,23 @@ async def compare_search_strategies(query: str):
         query_embedding=query_embedding,
         top_n=settings.HYBRID_TOP_N,
     )
-    documents = [
-        f"{r.get('name','')} — {(r.get('description','') or '')[:200]} ({r.get('category','')})"
-        for r in rerank_pool
-    ]
-    rerank_service = get_rerank_service()
-    rerank_results = rerank_service.rerank(query=q, documents=documents, top_n=5)
+    reranked_pool, rerank_results = rerank_hybrid_candidates(
+        rerank_pool, query=q, top_n=5
+    )
     rerank_ms = int((time.perf_counter() - t0) * 1000)
-    if rerank_results:
-        rerank_products = [
-            {
-                "name": rerank_pool[r["index"]].get("name", ""),
-                "productId": rerank_pool[r["index"]].get("product_id"),
-            }
-            for r in rerank_results
-        ]
-    else:
-        rerank_products = [
-            {"name": r.get("name", ""), "productId": r.get("product_id")}
-            for r in rerank_pool[:5]
-        ]
+    rerank_products = [
+        {"name": r.get("name", ""), "productId": r.get("product_id")}
+        for r in reranked_pool[:5]
+    ]
 
-    # Strategy 4: agentic — Sonnet-extracted filters → filtered vector
-    # → rerank with soft_signal. The boto3 calls are synchronous, so
-    # they run on a worker thread to keep the event loop responsive.
+    # Strategy 4: agentic — Sonnet-extracted constraints → planned hybrid
+    # candidate generation → rerank with soft_signal. The boto3 call is
+    # synchronous, so it runs on a worker thread to keep the event loop
+    # responsive.
     t0 = time.perf_counter()
     extractor = get_structured_extractor()
     extracted = await asyncio.to_thread(extractor.extract, q)
     soft_signal = extracted.get("soft_signal") or q
-    # Re-embed only when the soft_signal differs from the raw query —
-    # a wasted embed on identical text would just inflate the cost
-    # number without changing the ranking.
-    if soft_signal != q:
-        soft_embedding = embed.embed_query(soft_signal)
-    else:
-        soft_embedding = query_embedding
 
     # Compile the model's extraction into a typed plan, then walk that
     # plan's relaxation ladder. The ladder widens *preferences* only:
@@ -2163,13 +2147,11 @@ async def compare_search_strategies(query: str):
     agentic_pool: List[Dict[str, Any]] = []
     plan_used = plan
     for rung in plan.relaxation_ladder():
-        clauses, clause_params = rung.compile_predicates()
-        agentic_pool = await vec.vector_search_planned(
-            embedding=soft_embedding,
-            limit=settings.HYBRID_TOP_N,
-            ef_search=settings.VECTOR_EF_SEARCH_DEFAULT,
-            predicates=clauses,
-            predicate_params=clause_params,
+        agentic_pool = await retrieve_planned_hybrid(
+            db,
+            query=q,
+            query_embedding=query_embedding,
+            plan=rung,
         )
         plan_used = rung
         if len(agentic_pool) >= AGENTIC_MIN_POOL:
@@ -2177,27 +2159,14 @@ async def compare_search_strategies(query: str):
     filter_used = (
         plan_used.relaxations[-1].step if plan_used.relaxations else "strict"
     )
-    agentic_docs = [
-        f"{r.get('name','')} — {(r.get('description','') or '')[:200]} ({r.get('category','')})"
-        for r in agentic_pool
-    ]
-    agentic_rerank = rerank_service.rerank(
-        query=soft_signal, documents=agentic_docs, top_n=5,
+    agentic_ordered, agentic_rerank = rerank_hybrid_candidates(
+        agentic_pool, query=soft_signal, top_n=5
     )
     agentic_ms = int((time.perf_counter() - t0) * 1000)
-    if agentic_rerank:
-        agentic_products = [
-            {
-                "name": agentic_pool[r["index"]].get("name", ""),
-                "productId": agentic_pool[r["index"]].get("product_id"),
-            }
-            for r in agentic_rerank
-        ]
-    else:
-        agentic_products = [
-            {"name": r.get("name", ""), "productId": r.get("product_id")}
-            for r in agentic_pool[:5]
-        ]
+    agentic_products = [
+        {"name": r.get("name", ""), "productId": r.get("product_id")}
+        for r in agentic_ordered[:5]
+    ]
 
     return {
         "query": q,
@@ -2244,7 +2213,7 @@ async def compare_search_strategies(query: str):
                 },
             },
             {
-                "strategy": "agentic (Sonnet → filter → vector → rerank)",
+                "strategy": "agentic (Sonnet → filter → hybrid → rerank)",
                 "observedMs": agentic_ms,
                 "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["agentic"],
                 "products": agentic_products,
@@ -2254,7 +2223,7 @@ async def compare_search_strategies(query: str):
                     "candidates": len(agentic_pool),
                     "returned": len(agentic_rerank),
                     "fallbackOrder": (
-                        None if agentic_rerank else "planned-vector"
+                        None if agentic_rerank else "planned-hybrid-rrf"
                     ),
                 },
                 "extractedFilters": {

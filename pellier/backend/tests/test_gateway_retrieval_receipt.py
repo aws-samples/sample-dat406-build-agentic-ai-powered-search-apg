@@ -50,8 +50,10 @@ def _candidate_rows() -> list[dict[str, Any]]:
     return [
         {
             "productId": "P-1",
+            "name": "Linen Camp Shirt",
             "product_description": "Linen Camp Shirt",
             "category_name": "Resort",
+            "updated_at": "2026-08-01T00:00:00+00:00",
             "price": 128.0,
             "stars": 4.8,
             "vector_rank": 1,
@@ -60,8 +62,10 @@ def _candidate_rows() -> list[dict[str, Any]]:
         },
         {
             "productId": "P-2",
+            "name": "Linen Trouser",
             "product_description": "Linen Trouser",
             "category_name": "Resort",
+            "updated_at": "2026-08-02T00:00:00+00:00",
             "price": 148.0,
             "stars": 4.9,
             "vector_rank": 2,
@@ -142,6 +146,10 @@ def test_gateway_hybrid_search_persists_actual_ranking_evidence(
     assert json.loads(values["lexical_ranks"]) == {"P-1": 2, "P-2": 1}
     assert json.loads(values["rrf_scores"]) == {"P-1": 0.0325, "P-2": 0.0324}
     assert json.loads(values["rerank_scores"]) == {"P-2": 0.92, "P-1": 0.81}
+    snapshots = json.loads(values["citation_snapshots"])
+    assert [snapshot["entity_id"] for snapshot in snapshots] == ["P-2", "P-1"]
+    assert snapshots[0]["quote"] == "Linen Trouser: Linen Trouser"
+    assert len(values["citation_snapshot_hash"]) == 64
     plan = json.loads(values["search_plan"])
     assert plan["source"] == "agentcore-gateway-lambda"
     assert plan["hard_constraints"] == {"in_stock": True, "max_price": 175}

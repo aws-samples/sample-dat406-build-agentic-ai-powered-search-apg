@@ -672,7 +672,8 @@ setup_database() {
             042_align_anna_guided_previews.sql \
             043_evidence_ledger.sql \
             044_operator_lifecycle_ledger.sql \
-            045_persona_blurbs.sql
+            045_persona_blurbs.sql \
+            046_retrieval_citation_snapshots.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."

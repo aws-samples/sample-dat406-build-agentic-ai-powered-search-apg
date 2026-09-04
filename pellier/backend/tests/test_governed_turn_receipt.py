@@ -8,11 +8,30 @@ from datetime import datetime, timezone
 from typing import Any
 
 from services.governed_turn_receipt import (
+    _receipt_citations,
     get_turn_receipt,
     get_visible_tool_audit,
     persist_turn_receipt,
 )
 from services.managed_policy import recent_decisions
+from services.retrieval_receipt import citation_snapshot_hash
+
+
+def _citation_snapshots() -> list[dict[str, Any]]:
+    return [
+        {
+            "entity_id": "P-2",
+            "source_uri": "aurora://pellier/product_catalog/P-2",
+            "revision": "2026-08-02T00:00:00+00:00",
+            "quote": "Linen Camp Shirt: Breathable resort shirt",
+        },
+        {
+            "entity_id": "P-1",
+            "source_uri": "aurora://pellier/product_catalog/P-1",
+            "revision": "2026-08-01T00:00:00+00:00",
+            "quote": "Linen Trouser: Lightweight travel layer",
+        },
+    ]
 
 
 class _ReceiptDB:
@@ -28,6 +47,10 @@ class _ReceiptDB:
                 "rerank_model": "cohere.rerank-v3-5:0",
                 "retrieval_config": {"rrf_k": 60},
                 "citation_ids": ["P-2", "P-1"],
+                "citation_snapshots": _citation_snapshots(),
+                "citation_snapshot_hash": citation_snapshot_hash(
+                    _citation_snapshots()
+                ),
             }
         if "FROM pellier.governed_turn_receipts" in query:
             assert params == ("turn-persisted", "principal-1")
@@ -67,28 +90,14 @@ class _ReceiptDB:
             assert params == ("turn-persisted",)
             return []
         if "FROM pellier.product_catalog" in query:
-            assert params == (["P-2", "P-1"],)
-            return [
-                {
-                    "product_id": "P-1",
-                    "name": "Linen Trouser",
-                    "description": "Lightweight travel layer",
-                    "updated_at": datetime(2026, 8, 1, tzinfo=timezone.utc),
-                },
-                {
-                    "product_id": "P-2",
-                    "name": "Linen Camp Shirt",
-                    "description": "Breathable resort shirt",
-                    "updated_at": datetime(2026, 8, 2, tzinfo=timezone.utc),
-                },
-            ]
+            raise AssertionError("turn receipts must not reread mutable catalog rows")
         return []
 
     async def execute_query(self, *args: Any) -> None:
         self.calls.append(args)
 
 
-def test_persisted_receipt_uses_catalog_evidence_not_product_card_count() -> None:
+def test_persisted_receipt_uses_captured_catalog_evidence_not_live_catalog() -> None:
     db = _ReceiptDB()
 
     receipt = asyncio.run(
@@ -133,6 +142,16 @@ def test_persisted_receipt_uses_catalog_evidence_not_product_card_count() -> Non
     trace = json.loads(insert[11])
     assert trace["traceId"] == "trace-1"
     assert "spans" not in trace
+
+
+def test_invalid_citation_snapshot_hash_suppresses_citations() -> None:
+    citations = _receipt_citations(
+        retrieval_receipt_id=42,
+        citation_snapshots=_citation_snapshots(),
+        expected_snapshot_hash="not-the-captured-hash",
+    )
+
+    assert citations == []
 
 
 def test_explicit_governed_policy_event_wins_over_absence() -> None:

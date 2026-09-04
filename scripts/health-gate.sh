@@ -218,6 +218,15 @@ if $managed_required; then
     ok=false
   fi
 
+  retrieval_snapshot_columns="$(_psql "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'pellier' AND table_name = 'retrieval_receipts' AND column_name IN ('citation_snapshots', 'citation_snapshot_hash');" || echo '')"
+  if [[ "${retrieval_snapshot_columns:-0}" =~ ^[0-9]+$ ]] \
+      && (( retrieval_snapshot_columns == 2 )); then
+    pass "Retrieval citation snapshot schema is installed"
+  else
+    fail "Retrieval citation snapshot schema missing. Apply scripts/migrations/046_retrieval_citation_snapshots.sql."
+    ok=false
+  fi
+
   governed_turn_receipts_table="$(_psql "SELECT to_regclass('pellier.governed_turn_receipts');" || echo '')"
   if [[ "$governed_turn_receipts_table" == "pellier.governed_turn_receipts" ]]; then
     pass "Governed turn receipt schema is installed"

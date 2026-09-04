@@ -160,7 +160,7 @@ def test_governed_bootstrap_restores_all_participant_starters() -> None:
 def test_governed_reset_restores_participant_starters_before_health_gate() -> None:
     reset = RESET_GOVERNED.read_text(encoding="utf-8")
     command = '"$PYTHON" "$REPO/scripts/reset_participant_exercises.py"'
-    health_gate = 'bash "$REPO/scripts/health-gate.sh"'
+    health_gate = "_run_health_gate || exit 1"
     assert command in reset
     assert reset.index(command) < reset.index(health_gate)
 
@@ -403,6 +403,7 @@ def _run_health_gate(
     order_count: int = 20,
     audit_count: int = 1,
     retrieval_receipts_exists: bool = True,
+    retrieval_citation_snapshot_schema_ready: bool = True,
     governed_turn_receipts_exists: bool = True,
     evidence_ledger_schema_exists: bool = True,
     commerce_schema_exists: bool = True,
@@ -468,6 +469,7 @@ case "$*" in
   *orders*) printf '{order_count}\n' ;;
   *tool_audit*) printf '{audit_count}\n' ;;
   *"to_regclass('pellier.retrieval_receipts')"*) printf '{"pellier.retrieval_receipts" if retrieval_receipts_exists else ""}\n' ;;
+  *"column_name IN ('citation_snapshots', 'citation_snapshot_hash')"*) printf '{"2" if retrieval_citation_snapshot_schema_ready else "0"}\n' ;;
   *"to_regclass('pellier.governed_turn_receipts')"*) printf '{"pellier.governed_turn_receipts" if governed_turn_receipts_exists else ""}\n' ;;
   *"to_regclass('pellier.model_invocation_receipts')"*) printf '{"pellier.model_invocation_receipts" if evidence_ledger_schema_exists else ""}\n' ;;
   *"to_regclass('pellier.evidence_ledger_event_refs')"*) printf '{"pellier.evidence_ledger_event_refs" if evidence_ledger_schema_exists else ""}\n' ;;
@@ -616,6 +618,10 @@ def test_governed_health_gate_rejects_incomplete_managed_receipt(
         (
             {"retrieval_receipts_exists": False},
             "Retrieval receipt schema missing",
+        ),
+        (
+            {"retrieval_citation_snapshot_schema_ready": False},
+            "Retrieval citation snapshot schema missing",
         ),
         (
             {"governed_turn_receipts_exists": False},

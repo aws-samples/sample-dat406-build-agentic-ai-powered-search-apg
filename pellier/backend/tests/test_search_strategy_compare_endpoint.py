@@ -65,8 +65,10 @@ class _VectorSearch:
 class _HybridSearch:
     def __init__(self, db: Any) -> None:
         self.db = db
+        self.search_calls: list[dict[str, Any]] = []
 
     async def search(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        self.search_calls.append(kwargs)
         return [
             {
                 "name": f"Hybrid {index}",
@@ -108,17 +110,16 @@ class _Extractor:
         }
 
 
-class _EmptyPoolVectorSearch(_VectorSearch):
+class _EmptyPoolHybridSearch(_HybridSearch):
     """Every planned attempt comes back empty, forcing the full ladder."""
 
     def __init__(self, db: Any) -> None:
         super().__init__(db)
-        self.attempts: list[list[str]] = []
 
-    async def vector_search_planned(
+    async def search(
         self, *args: Any, **kwargs: Any
     ) -> list[dict[str, Any]]:
-        self.attempts.append(list(kwargs.get("predicates") or []))
+        self.search_calls.append(kwargs)
         return []
 
 
@@ -195,7 +196,7 @@ def test_comparison_discloses_rerank_fallback_instead_of_reusing_the_label(
     }
     agentic_rerank = body["strategies"][3]["rerank"]
     assert agentic_rerank["status"] == "fallback"
-    assert agentic_rerank["fallbackOrder"] == "planned-vector"
+    assert agentic_rerank["fallbackOrder"] == "planned-hybrid-rrf"
 
 
 def test_exhausted_ladder_never_drops_a_hard_constraint(
@@ -207,8 +208,8 @@ def test_exhausted_ladder_never_drops_a_hard_constraint(
     final ``drop_all`` rung removed price and in-stock entirely, so this
     query could answer with an out-of-stock $250 candle.
     """
-    empty = _EmptyPoolVectorSearch(object())
-    monkeypatch.setattr(vector_module, "VectorSearch", lambda db: empty)
+    empty = _EmptyPoolHybridSearch(object())
+    monkeypatch.setattr(hybrid_module, "HybridSearch", lambda db: empty)
 
     body = asyncio.run(
         app_module.compare_search_strategies(
@@ -216,8 +217,13 @@ def test_exhausted_ladder_never_drops_a_hard_constraint(
         )
     )
 
-    assert empty.attempts, "the agentic strategy should have attempted retrieval"
-    for predicates in empty.attempts:
+    attempts = [
+        list(call.get("hard_clauses") or [])
+        for call in empty.search_calls
+        if call.get("hard_clauses")
+    ]
+    assert attempts, "the agentic strategy should have attempted retrieval"
+    for predicates in attempts:
         assert "price <= %s" in predicates
         assert "quantity > 0" in predicates
         assert "NOT (tags ?| %s)" in predicates

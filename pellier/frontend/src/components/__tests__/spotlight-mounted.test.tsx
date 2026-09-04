@@ -92,7 +92,7 @@ describe('first-visit orientation', () => {
     await waitFor(() =>
       expect(screen.getAllByRole('img').at(-1)).toHaveAttribute(
         'src',
-        expect.stringContaining('tour-observatory-top-panel-960.png'),
+        expect.stringContaining('tour-observatory-top-panel-960.webp'),
       ),
     );
   });

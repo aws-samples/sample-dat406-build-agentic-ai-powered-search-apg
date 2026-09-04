@@ -48,7 +48,7 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Operator and Observatory',
     headline: 'Follow the evidence.',
     body: 'When a recommendation becomes a case, the Operator workspace and Observatory follow the evidence from grounded answers through retrieval, managed execution, policy, and Aurora.',
-    image: '/products/tour-observatory-top-panel-960.png',
+    image: '/products/tour-observatory-top-panel-960.webp',
     imageAlt: 'Pellier Observatory top panel with the current four-stage evidence journey',
   },
 ]

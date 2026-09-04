@@ -344,7 +344,9 @@ for migration in \
   041_align_theo_pairing_preview.sql \
   042_align_anna_guided_previews.sql \
   043_evidence_ledger.sql \
-  044_operator_lifecycle_ledger.sql
+  044_operator_lifecycle_ledger.sql \
+  045_persona_blurbs.sql \
+  046_retrieval_citation_snapshots.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"

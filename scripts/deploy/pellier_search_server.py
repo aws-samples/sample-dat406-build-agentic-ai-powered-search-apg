@@ -65,7 +65,8 @@ _GATEWAY_RETRIEVAL_INSERT = f"""
         embedding_model, rerank_model, retrieval_config, index_parameters,
         candidate_product_ids, vector_ranks, lexical_ranks, rrf_scores,
         rerank_scores, merchandising_rules, memory_record_ids_used,
-        citation_ids, latency_breakdown, rail
+        citation_ids, citation_snapshots, citation_snapshot_hash,
+        latency_breakdown, rail
     ) VALUES (
         :turn_id, :query_hash, :query_preview, :search_plan::jsonb,
         :hard_constraints::jsonb, :soft_preferences::jsonb,
@@ -75,6 +76,7 @@ _GATEWAY_RETRIEVAL_INSERT = f"""
         :vector_ranks::jsonb, :lexical_ranks::jsonb, :rrf_scores::jsonb,
         :rerank_scores::jsonb, :merchandising_rules::jsonb,
         :memory_record_ids_used::jsonb, :citation_ids::jsonb,
+        :citation_snapshots::jsonb, :citation_snapshot_hash,
         :latency_breakdown::jsonb, :rail
     )
 """
@@ -149,9 +151,9 @@ def semantic_search(query: str, limit: int = 5, max_price: float = None, min_rat
     # were first written against (box-verified 2026-06-12: 42703). Aliases
     # keep the response keys the downstream Python already expects.
     sql = f"""
-        SELECT "productId", description AS product_description, price,
+        SELECT "productId", name, description AS product_description, price,
                rating AS stars, reviews,
-               category AS category_name, quantity, "imgUrl",
+               category AS category_name, quantity, "imgUrl", updated_at,
                1 - (embedding <=> :embedding::vector) AS similarity
         FROM {SCHEMA}.product_catalog
         WHERE {where_sql}
@@ -260,9 +262,10 @@ def search_products_hybrid(
           FROM vector_results v
           FULL OUTER JOIN fts_results f USING (pid)
         )
-        SELECT pc."productId", pc.description AS product_description, pc.price,
+        SELECT pc."productId", pc.name, pc.description AS product_description, pc.price,
                pc.rating AS stars,
                pc.reviews, pc.category AS category_name, pc.quantity, pc."imgUrl",
+               pc.updated_at,
                rrf.vector_rank, rrf.lexical_rank, rrf.rrf_score
         FROM rrf
         JOIN {SCHEMA}.product_catalog pc ON pc."productId" = rrf.pid
@@ -285,7 +288,8 @@ def search_products_hybrid(
         cat = (p.get("category_name") or "").strip()
         if len(desc) > 240:
             desc = desc[:237] + "…"
-        documents.append(f"{desc} ({cat})")
+        name = (p.get("name") or "").strip()
+        documents.append(f"{name} — {desc} ({cat})")
 
     rerank_started = time.monotonic()
     rerank_results = _bedrock_rerank(query, documents, top_n=min(limit * 3, 30))
@@ -365,6 +369,41 @@ def search_products_hybrid(
 def _gateway_receipt_product_id(row: dict[str, Any]) -> str | None:
     value = row.get("productId", row.get("product_id"))
     return str(value) if value is not None and str(value).strip() else None
+
+
+def _gateway_citation_snapshot(row: dict[str, Any]) -> dict[str, Any] | None:
+    """Capture the catalog evidence used by this Lambda invocation."""
+    product_id = _gateway_receipt_product_id(row)
+    if product_id is None:
+        return None
+    name = " ".join(str(row.get("name") or product_id).split())
+    description = " ".join(
+        str(row.get("description", row.get("product_description", "")) or "").split()
+    )
+    quote = f"{name}: {description}".rstrip(":").strip()[:280]
+    updated_at = row.get("updated_at")
+    revision = (
+        updated_at.isoformat()
+        if hasattr(updated_at, "isoformat")
+        else str(updated_at).strip() or None
+    )
+    return {
+        "entity_id": product_id,
+        "source_uri": f"aurora://pellier/product_catalog/{product_id}",
+        "revision": revision,
+        "quote": quote,
+    }
+
+
+def _gateway_citation_snapshot_hash(snapshots: list[dict[str, Any]]) -> str:
+    canonical = json.dumps(
+        snapshots,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _rank_values(
@@ -453,6 +492,11 @@ def _persist_gateway_retrieval_receipt(
         for row in selected
         if (product_id := _gateway_receipt_product_id(row)) is not None
     ]
+    citation_snapshots = [
+        snapshot
+        for row in selected
+        if (snapshot := _gateway_citation_snapshot(row)) is not None
+    ]
     hard_constraints = {
         "in_stock": True,
         **{
@@ -529,6 +573,13 @@ def _persist_gateway_retrieval_receipt(
         _receipt_json_parameter("merchandising_rules", []),
         _receipt_json_parameter("memory_record_ids_used", []),
         _receipt_json_parameter("citation_ids", citation_ids),
+        _receipt_json_parameter("citation_snapshots", citation_snapshots),
+        _receipt_string_parameter(
+            "citation_snapshot_hash",
+            _gateway_citation_snapshot_hash(citation_snapshots)
+            if citation_snapshots
+            else None,
+        ),
         _receipt_json_parameter("latency_breakdown", latency_breakdown),
         _receipt_string_parameter("rail", "gateway-mcp"),
     ]

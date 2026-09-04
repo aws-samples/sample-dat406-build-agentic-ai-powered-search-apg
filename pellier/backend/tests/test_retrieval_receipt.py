@@ -22,6 +22,7 @@ import pytest
 
 from services.retrieval_receipt import (
     build_receipt,
+    citation_snapshot_hash,
     current_turn_context,
     persist_receipt,
     query_hash,
@@ -159,6 +160,43 @@ def test_camel_case_product_id_is_accepted() -> None:
     )
 
     assert receipt.to_row()["citation_ids"] == ["9"]
+
+
+def test_receipt_captures_hashed_catalog_evidence_at_retrieval_time() -> None:
+    receipt = build_receipt(
+        query="gift",
+        plan=_plan(),
+        citation_rows=[
+            {
+                "product_id": "P-7",
+                "name": "Weekender Holdall",
+                "description": "Waxed canvas carryall",
+                "updated_at": "2026-09-04T12:00:00+00:00",
+            }
+        ],
+    )
+
+    row = receipt.to_row()
+
+    assert row["citation_ids"] == ["P-7"]
+    assert row["citation_snapshots"] == [
+        {
+            "entity_id": "P-7",
+            "source_uri": "aurora://pellier/product_catalog/P-7",
+            "revision": "2026-09-04T12:00:00+00:00",
+            "quote": "Weekender Holdall: Waxed canvas carryall",
+        }
+    ]
+    assert row["citation_snapshot_hash"] == citation_snapshot_hash(
+        row["citation_snapshots"]
+    )
+
+
+def test_citation_snapshot_hash_changes_when_the_captured_evidence_changes() -> None:
+    before = [{"entity_id": "P-7", "quote": "Original catalog text"}]
+    after = [{"entity_id": "P-7", "quote": "Edited catalog text"}]
+
+    assert citation_snapshot_hash(before) != citation_snapshot_hash(after)
 
 
 # ---------------------------------------------------------------------------

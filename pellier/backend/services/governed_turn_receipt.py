@@ -41,7 +41,9 @@ _RETRIEVAL_SQL = """
            embedding_model,
            rerank_model,
            retrieval_config,
-           citation_ids
+           citation_ids,
+           citation_snapshots,
+           citation_snapshot_hash
       FROM pellier.retrieval_receipts
      WHERE turn_id = %s
      ORDER BY created_at DESC
@@ -74,12 +76,6 @@ _POLICY_SQL = """
       FROM pellier.governed_receipts
      WHERE args->>'turn_id' = %s
      ORDER BY receipt_id ASC
-"""
-
-_CATALOG_SQL = """
-    SELECT product_id, name, description, updated_at
-      FROM pellier.product_catalog
-     WHERE product_id = ANY(%s)
 """
 
 _RECEIPT_BY_TURN_SQL = """
@@ -212,29 +208,42 @@ def _trace_metadata(trace: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return {key: value for key, value in allowed.items() if value not in (None, {}, "")}
 
 
-async def _catalog_citations(
-    db: Any,
+def _receipt_citations(
     *,
     retrieval_receipt_id: Optional[int],
-    citation_ids: Any,
+    citation_snapshots: Any,
+    expected_snapshot_hash: Any,
 ) -> List[Dict[str, Any]]:
-    """Build citations from catalog rows that retrieval actually selected."""
-    ids = _decode_json(citation_ids, [])
-    if not isinstance(ids, list) or not ids:
+    """Return only the catalog evidence captured at retrieval time.
+
+    Re-querying ``product_catalog`` here would make an old governed receipt
+    describe the catalog today rather than the product data used to answer the
+    original turn. A missing or invalid snapshot is therefore an honest
+    absence of citations, never a mutable catalog fallback.
+    """
+    snapshots = _decode_json(citation_snapshots, [])
+    if not isinstance(snapshots, list) or not snapshots:
         return []
-    ordered_ids = [str(product_id) for product_id in ids if str(product_id).strip()]
-    if not ordered_ids:
+    if not isinstance(expected_snapshot_hash, str) or not expected_snapshot_hash:
         return []
-    rows = _as_rows(await db.fetch_all(_CATALOG_SQL, ordered_ids))
-    by_id = {str(row.get("product_id")): row for row in rows}
+    from services.retrieval_receipt import citation_snapshot_hash
+
+    if citation_snapshot_hash(snapshots) != expected_snapshot_hash:
+        logger.warning(
+            "retrieval citation snapshot hash mismatch for receipt %s",
+            retrieval_receipt_id,
+        )
+        return []
+
     citations: List[Dict[str, Any]] = []
-    for product_id in ordered_ids:
-        product = by_id.get(product_id)
-        if not product:
+    for snapshot in snapshots:
+        if not isinstance(snapshot, dict):
             continue
-        name = str(product.get("name") or product_id)
-        description = " ".join(str(product.get("description") or "").split())
-        quote = f"{name}: {description}".rstrip(":").strip()
+        product_id = str(snapshot.get("entity_id") or "").strip()
+        source_uri = str(snapshot.get("source_uri") or "").strip()
+        quote = str(snapshot.get("quote") or "").strip()
+        if not product_id or not source_uri or not quote:
+            continue
         citations.append(
             {
                 "evidence_id": (
@@ -242,8 +251,8 @@ async def _catalog_citations(
                     if retrieval_receipt_id is not None
                     else f"catalog-{product_id}"
                 ),
-                "source_uri": f"aurora://pellier/product_catalog/{product_id}",
-                "revision": _iso(product.get("updated_at")),
+                "source_uri": source_uri,
+                "revision": snapshot.get("revision"),
                 "quote": quote[:280],
                 "entity_id": product_id,
             }
@@ -431,10 +440,12 @@ async def persist_turn_receipt(
             if retrieval_row and retrieval_row.get("receipt_id") is not None
             else None
         )
-        citations = await _catalog_citations(
-            db,
+        citations = _receipt_citations(
             retrieval_receipt_id=receipt_id,
-            citation_ids=(retrieval_row or {}).get("citation_ids"),
+            citation_snapshots=(retrieval_row or {}).get("citation_snapshots"),
+            expected_snapshot_hash=(
+                retrieval_row or {}
+            ).get("citation_snapshot_hash"),
         )
         outcome = {
             "error_code": terminal_error_code,
