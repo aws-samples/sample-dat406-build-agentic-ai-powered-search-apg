@@ -1,6 +1,6 @@
 # Close: defend the architecture from your own evidence
 
-The last seven minutes are not a recap. Participants have spent two hours
+The last eight minutes are not a recap. Participants have spent two hours
 producing evidence; this is where they are asked to read it, including a case
 where the evidence does not say what it appears to say.
 

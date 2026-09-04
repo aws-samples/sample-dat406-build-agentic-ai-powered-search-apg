@@ -405,9 +405,13 @@ precise than "the agent did it."
    Put an authorized-but-uncommitted evidence set on screen, ask the room
    whether the return happened, and let them answer before you do. Then have
    participants run `receipt` and answer the four questions from their own
-   evidence. Seven minutes, and it lands the separation the whole session
-   was built on: authorization, execution, and commit are three transitions,
-   each needing its own proof.
+   evidence — the receipt lines they point at are `01.execution_row`,
+   `02.hybrid_receipt`, the managed receipt's build fingerprint, and
+   `04.deny_did_not_execute` beside `04.durable_effect`. Eight minutes, and
+   it lands the separation the whole session was built on: authorization,
+   execution, and commit are three transitions, each needing its own proof.
+   The close doc also carries a live query for the contradiction; an empty
+   result is a finding worth saying out loud, not a failed demo.
 
 ## Speaker anchors
 
