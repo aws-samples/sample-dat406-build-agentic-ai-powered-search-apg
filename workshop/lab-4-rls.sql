@@ -126,6 +126,92 @@ ROLLBACK;
 
 BEGIN;
 SET LOCAL ROLE pellier_agent;
+
+-- ---------------------------------------------------------------------------
+-- Production edge case: the conditions under which the denial below is proof
+-- ---------------------------------------------------------------------------
+-- A policy you author only decides anything if the role it is tested against
+-- is actually subject to it. Three ways that silently stops being true, none
+-- of which change your policy text:
+--
+--   1. BYPASSRLS or SUPERUSER on the runtime role. Row-level security is
+--      skipped outright. Migration 016 creates both runtime roles NOBYPASSRLS,
+--      but that is a creation-time fact, not a standing guarantee -- a later
+--      ALTER ROLE re-grants it, and nothing in the policy would look different.
+--
+--   2. Table ownership. `ENABLE ROW LEVEL SECURITY` does not apply to the
+--      table's owner; only `FORCE ROW LEVEL SECURITY` does. pellier.returns is
+--      ENABLE, so running this proof as the owning role would produce a
+--      successful write and no denial -- an outcome that looks like a broken
+--      policy but is a correctly-skipped one.
+--
+--   3. Permissive policies combine with OR. Adding a second PERMISSIVE policy
+--      to this table widens access; it cannot narrow it. A denial that holds
+--      today stops holding the moment anyone adds a broader permissive rule,
+--      and the rule you wrote is still there, still correct, still quoted in
+--      your evidence.
+--
+-- Asserting these here turns each one from a confusing "out-of-scope write
+-- succeeded" into a named diagnosis.
+DO $rls_preconditions$
+DECLARE
+    bypasses BOOLEAN;
+    is_super BOOLEAN;
+    rls_enabled BOOLEAN;
+    rls_forced BOOLEAN;
+    table_owner NAME;
+    permissive_policies INTEGER;
+BEGIN
+    SELECT rolbypassrls, rolsuper INTO bypasses, is_super
+      FROM pg_roles WHERE rolname = current_user;
+    IF bypasses THEN
+        RAISE EXCEPTION
+            'Role % holds BYPASSRLS, so row-level security is skipped and the '
+            'denial below would prove nothing. Revoke it: ALTER ROLE % NOBYPASSRLS;',
+            current_user, current_user;
+    END IF;
+    IF is_super THEN
+        RAISE EXCEPTION
+            'Role % is a superuser, which is exempt from row-level security. '
+            'Run this proof as the pellier_agent runtime role.',
+            current_user;
+    END IF;
+
+    SELECT relrowsecurity, relforcerowsecurity, pg_get_userbyid(relowner)
+      INTO rls_enabled, rls_forced, table_owner
+      FROM pg_class WHERE oid = 'pellier.returns'::regclass;
+    IF NOT rls_enabled THEN
+        RAISE EXCEPTION
+            'pellier.returns has no row-level security enabled; apply '
+            'scripts/migrations/016_runtime_roles_rls.sql before proving a boundary.';
+    END IF;
+    IF table_owner = current_user AND NOT rls_forced THEN
+        RAISE EXCEPTION
+            'This proof is running as %, which owns pellier.returns. An owner '
+            'is exempt from ENABLE ROW LEVEL SECURITY, so the write below would '
+            'succeed no matter what your policy says. Either run as a '
+            'non-owning runtime role, or set FORCE ROW LEVEL SECURITY.',
+            current_user;
+    END IF;
+
+    SELECT count(*) INTO permissive_policies
+      FROM pg_policies
+     WHERE schemaname = 'pellier' AND tablename = 'returns'
+       AND permissive = 'PERMISSIVE';
+    IF permissive_policies <> 1 THEN
+        RAISE EXCEPTION
+            'pellier.returns carries % permissive policies; this proof expects '
+            'exactly one (returns_principal_scope). Permissive policies are '
+            'OR-ed together, so an extra one widens access and the denial below '
+            'stops being attributable to the rule you wrote.',
+            permissive_policies;
+    END IF;
+
+    RAISE NOTICE 'RLS_PRECONDITIONS_OK: role=% owner=% forced=% permissive=%',
+        current_user, table_owner, rls_forced, permissive_policies;
+END;
+$rls_preconditions$;
+
 SELECT CASE
          WHEN current_user = 'pellier_agent' THEN 'RLS_PROBE_ROLE_OK'
          ELSE 'RLS_PROBE_ROLE_WRONG'

@@ -378,6 +378,13 @@ precise than "the agent did it."
    account and run the three guided turns. Show Case Investigator before
    Resolution Planner, then stop at the human checkpoint. Do not call the
    direct Gateway invocation a human-approved action.
+6. **Close:** Run `workshop/close-architecture-defense.md`. Do not recap.
+   Put an authorized-but-uncommitted evidence set on screen, ask the room
+   whether the return happened, and let them answer before you do. Then have
+   participants run `receipt` and answer the four questions from their own
+   evidence. Seven minutes, and it lands the separation the whole session
+   was built on: authorization, execution, and commit are three transitions,
+   each needing its own proof.
 
 ## Speaker anchors
 
