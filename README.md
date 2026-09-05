@@ -175,14 +175,28 @@ deletes only log groups or policy state created by this workshop run.
 
 ### Memory model
 
-Pellier separates four memory categories by owner and lifetime:
+"The agent has memory" is four systems with four owners, four lifetimes, and four
+failure modes. AgentCore Memory holds two of them. This is the distinction people most
+often carry away blurred, so it is written out in full:
 
-| Category | Current owner | What the workshop proves |
-|---|---|---|
-| Working / session | AgentCore Memory events | A separate Python process reads turn one before Runtime handles turn two |
-| Semantic, long-term | AgentCore `USER_PREFERENCE` records | Durable preferences are extracted and retrieved by actor |
-| Episodic, long-term | Aurora customer events, orders, and returns | Business history remains queryable in the system of record |
-| Procedural, long-term | Checked-in runtime skills and MCP tool schemas | Instructions and tool contracts are reviewable source |
+| Substrate | Owner | Keyed by | Lifetime | What the workshop proves |
+|---|---|---|---|---|
+| **Working**, short-term | AgentCore Memory events | actor **and session** | 30-day event expiry | A separate Python process reads turn one before Runtime handles turn two |
+| **Semantic**, long-term | AgentCore Memory, one `USER_PREFERENCE` strategy under `/pellier/preferences/{actorId}/` | **actor** | outlives the session | Durable preferences are extracted and retrieved by actor |
+| **Episodic**, long-term | Aurora customer events, orders, and returns | customer | as long as the business keeps it | Business history remains queryable in the system of record |
+| **Procedural** | Checked-in runtime skills and MCP tool schemas | file path | changes by pull request | Instructions and tool contracts are reviewable source |
+
+Short-term and long-term are not the same records with different retention; they have
+different keys. End the session and working memory stops growing, while a semantic
+record is still there tomorrow in a new session on a new device. That is also why they
+cannot be collapsed behind one retention setting: "what did we just say" is scoped to a
+conversation by definition, and "what does this person prefer" is worthless if it is.
+
+Each substrate fails differently, which is the practical reason to be precise. A
+forgotten sentence is a session-id problem. Empty preferences mean extraction has not
+settled or the actor key is wrong. A wrong order history is a database question that no
+memory service repairs. A misused tool is a pull request. Two of these are a
+managed-service bill, one is your database, and one is your git history.
 
 `pellier.tool_audit` is intentionally outside that table. It records what
 executed and how long it took; it does not teach the agent how to work. When
@@ -407,7 +421,7 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Introduction | Open the workspace and land in Pellier + Pellier Observatory — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
 | Lab 1: Build a PostgreSQL-Grounded Agent | Complete Inventory Agent and `check_inventory`, then prove Marco's answer against live inventory and `tool_audit`. |
 | Lab 2: Build and Measure PostgreSQL Hybrid Retrieval | Restore the RRF fusion, label the rows that count as relevant for Anna's query, then compare vector, hybrid, hybrid + rerank, and agentic retrieval and make a quality, latency, and cost decision against that labeling. |
-| Lab 3: Deploy and Operate the Managed Agent Path | Publish the customer-scoped read Theo's return needs on the Gateway, reconcile what the Runtime asks the Gateway for and bind that read to the caller, deploy, then prove the managed receipt carries your own build fingerprint and that Memory survives a fresh process. |
+| Lab 3: Deploy and Operate the Managed Agent Path | Publish the customer-scoped read Theo's return needs on the Gateway, reconcile what the Runtime asks the Gateway for and bind that read to the caller, deploy, then prove the managed receipt carries your own build fingerprint, that Memory survives a fresh process, and that the four memory substrates have four different owners. |
 | Lab 4: Govern and Prove Agent Actions | Author one Cedar rule and the OpenTelemetry trace contract, prove Gateway DENY prevents execution, confirm the matching identity is allowed, complete Jessica's Operator investigation up to the human checkpoint, prove Row-Level Security refuses another shopper's rows, replay a write to show it applies exactly once, and reset participant policy. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 

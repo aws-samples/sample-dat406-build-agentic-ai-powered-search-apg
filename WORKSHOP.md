@@ -499,6 +499,36 @@ retrieval decision against a labeling you chose, deploy that work onto the
 managed path, then govern a consequential action and prove its outcome from
 policy, execution, durable effect, database enforcement, and trace.
 
+## The memory distinction
+
+This is the single point attendees most often leave still conflating, so state it the
+same way every time. "The agent has memory" is four systems with four owners, four
+lifetimes, and four failure modes. AgentCore Memory holds two of them.
+
+| Substrate | Owner | Keyed by | What it holds |
+|---|---|---|---|
+| **Working** | AgentCore Memory, short-term | actor **and session** | The session timeline. Raw turns, 30-day event expiry. |
+| **Semantic** | AgentCore Memory, long-term | **actor** | Preferences a single `USER_PREFERENCE` strategy extracts, under `/pellier/preferences/{actorId}/`. |
+| **Episodic** | **Aurora PostgreSQL** | customer | Orders, returns, events. A system of record queried with SQL, not a recall service. |
+| **Procedural** | **The repository** | file path | `skills/*/SKILL.md` and the MCP tool schemas. Reviewable source, changed by pull request. |
+
+`pellier.tool_audit` is deliberately not on that list. It is execution history: which
+tool ran, with what arguments, at what latency. Nothing reads it back as context, so it
+teaches the agent nothing. Describing aggregates over it as procedural memory was an
+earlier model and is wrong.
+
+Short-term and long-term are not the same records with different retention; they have
+different keys. End the session and working memory stops growing, while semantic records
+are still there tomorrow on a new device. That is why they cannot be collapsed behind one
+retention setting.
+
+Lab 3 proves this hands-on, and the workshop appendix carries the full reference with a
+symptom-to-substrate table. The reason to be pedantic is operational: each substrate
+fails differently, so conflating them produces the wrong fix. A forgotten sentence is a
+session-id problem; a wrong order history is a database problem; a misused tool is a pull
+request. Commercially, two of these are a managed-service bill, one is your database, and
+one is your git history.
+
 ## Architecture and proof boundaries
 
 Keep the explanation at this level unless someone asks to go deeper:
@@ -560,7 +590,8 @@ Use these lines to keep the story consistent:
   technical claim."
 - "The UI helps us inspect; durable evidence lets us prove."
 - "A retrieval result can be relevant without being eligible."
-- "Memory carries context; Aurora remains the system of record."
+- "Memory is four systems, not one. Two live in AgentCore, one is Aurora, and one is
+  the repository. `tool_audit` is none of them."
 - "An allow decision is not an execution receipt, and a deny decision needs named
   non-execution evidence."
 - "The shopper turn ends before the staff review begins. The ledger shows that
