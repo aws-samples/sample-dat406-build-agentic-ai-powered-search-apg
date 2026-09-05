@@ -89,9 +89,9 @@
       "slug": "multitenancy",
       "title": "Multi-tenancy & STM hygiene",
       "role": "Keeping sessions, memories, and writes separate when traffic is real",
-      "summary": "Every memory write, vector search, and tool call carries a namespace. STM is bounded (30-day expiry by design); long-term taste lives in Aurora pgvector profile embeddings keyed by user. Multi-tenancy hygiene is the operational discipline that keeps tenant A's data out of tenant B's recall – it's a property of the keys, not a separate system.",
+      "summary": "Every memory write, vector search, and tool call carries a namespace. STM is bounded (30-day expiry by design); durable taste lives in AgentCore Memory long-term records under /pellier/preferences/{actorId}/, and business history lives in Aurora. Multi-tenancy hygiene is the operational discipline that keeps tenant A's data out of tenant B's recall – it's a property of the keys, not a separate system.",
       "shipped": true,
-      "shippedNote": "Namespaces flow through every memory call, agentcore_memory.append_session_turn, and pgvector profile embedding lookup.",
+      "shippedNote": "Namespaces flow through every memory call: agentcore_memory.append_session_turn keys short-term events, and the USER_PREFERENCE strategy keys long-term records by actor.",
       "category": "ops",
       "concerns": [
         {
@@ -104,7 +104,7 @@
         },
         {
           "concern": "Long-term taste",
-          "answer": "Aurora pgvector profile embeddings, keyed by user id – not session id. Survives session expiry."
+          "answer": "AgentCore Memory long-term records, extracted by the USER_PREFERENCE strategy and keyed by actor id – not session id. Survives session expiry. Aurora owns episodic history (orders, returns, events); it does not hold a preference embedding."
         },
         {
           "concern": "Cross-tenant leakage risk",
