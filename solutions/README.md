@@ -36,9 +36,37 @@ cp solutions/the-quiet-search/sql/lab-2-rrf-solution.sql \
   workshop/lab-2-rrf.sql
 ```
 
+Lab 2b labels the rows the micro-eval divides by. Its recovery copy restores
+only that tuple:
+
+```bash
+cp solutions/the-quiet-search/eval/planned_hybrid_retrieval_solution.py \
+  pellier/backend/services/planned_hybrid_retrieval.py
+```
+
 The reference supports the quality, latency, and cost decision. It does not prove the participant's live endpoint passed.
 
 ## Lab 3: Deploy and Operate the Managed Agent Path
+
+Lab 3 has two bounded builds. 3a publishes `get_ticket_history` on the Gateway
+and keeps `issue_credit` deferred; 3b reconciles the tools the Runtime asks the
+Gateway for and binds that read to the authenticated caller. Copying either
+still requires a deploy, because the published catalogue and the Runtime
+package are both control-plane state:
+
+```bash
+cp solutions/the-ledger/gateway/gateway_tool_schemas_solution.py \
+  scripts/deploy/gateway_tool_schemas.py
+cp solutions/the-ledger/services/agentcore_gateway.py \
+  pellier/backend/services/agentcore_gateway.py
+
+python3 scripts/provision_agentcore_end_to_end.py --repo-path "$PWD"
+```
+
+After the deploy, `/api/observatory/build-state` must report steps `3a` and
+`3b` as `shipped`, and the managed receipt's build fingerprint must match this
+checkout. A copy without a deploy leaves the source ahead of the deployed
+package, which is exactly the drift the fingerprint exists to catch.
 
 The managed Memory, Runtime, Gateway, and JWT path has no local substitute. Move a participant to a ready environment when that proof fails.
 
@@ -49,8 +77,11 @@ psql -v ON_ERROR_STOP=1 \
   -f solutions/the-ledger/sql/forensic_incident.sql
 ```
 
-Lab 3 also has a bounded OpenTelemetry acceptance contract. Its recovery copy
-does not provision or change managed resources:
+## Lab 4: Govern and Prove Agent Actions
+
+Lab 4a is the Cedar identity rule; Lab 4b is the OpenTelemetry acceptance
+contract. The trace contract's recovery copy does not provision or change
+managed resources:
 
 ```bash
 cp solutions/the-ledger/observability/lab-4-otel-contract-solution.jq \
@@ -58,8 +89,6 @@ cp solutions/the-ledger/observability/lab-4-otel-contract-solution.jq \
 ```
 
 It joins `governed_receipts` to `tool_audit` and resolves the authenticated Marco principal against the Theo customer named in tool input.
-
-## Lab 4: Govern and Prove Agent Actions
 
 Copy the identity-aware Cedar rule after one failed validation, then add it
 through the same pinned AgentCore CLI used by the workshop:
@@ -87,6 +116,13 @@ ALLOW, inspect both receipts, and remove the participant policy through the CLI.
 
 ## Bootstrap Reference
 
-The one-hour builders format pre-applies selected reference files. The governed format leaves the Inventory Agent definition and `check_inventory` body incomplete for Lab 1. `scripts/bootstrap-labs.sh` is the source of truth for that branch-specific behavior.
+The one-hour builders format pre-applies selected reference files. The governed
+format leaves every participant build incomplete and restores them with
+`scripts/reset_participant_exercises.py`: the Inventory Agent definition and
+`check_inventory` body for Lab 1, the golden set for Lab 2b, the Gateway
+catalogue and the Runtime support contract for Lab 3, and the RRF worksheet,
+trace contract and Cedar rule as whole-file starters.
+`scripts/bootstrap-labs.sh` is the source of truth for that branch-specific
+behavior.
 
 The remaining files under `solutions/` mirror production services or provide test/recovery fixtures. They are not additional workshop labs.

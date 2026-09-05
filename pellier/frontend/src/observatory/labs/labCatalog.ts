@@ -144,25 +144,25 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     title: 'Deploy and Operate the Managed Agent Path',
     shortTitle: 'AgentCore managed path',
     summary:
-      'Operate Runtime, Gateway, and Memory for Theo\'s three-turn thread, then author an OpenTelemetry trace contract and correlate the managed evidence.',
+      'Publish the Gateway tool Theo\'s return needs, reconcile what the Runtime asks for, then deploy and prove the managed receipt carries your own build.',
     image: '/assets/personas/theo-720.webp',
     imageWidth: 720,
     imageHeight: 1080,
     proofCardIds: ['managed-rail', 'audit-ledger'],
     objective:
-      'With Theo selected, author the OTEL predicates, then prove Gateway, fresh-process Memory, and correlated spans across his managed thread.',
+      'With Theo selected, publish the customer-scoped read, reconcile the Runtime catalogue, deploy, then prove the build fingerprint, fresh-process Memory, and Gateway execution across his managed thread.',
     participantTodo:
-      'Invoke Runtime as Theo, complete the OTEL trace contract, run his three-turn Storefront thread, and verify Memory from a separate process.',
+      'Publish get_ticket_history, reconcile the support specialist and bind it to the caller, deploy, then run Theo\'s three-turn thread and verify Memory from a separate process.',
     command:
       'cd .agentcore-project/pellier\nnpx -y @aws/agentcore@0.26.0 invoke \\\n  --runtime pellier_orchestrator \\\n  --session-id "$RUNTIME_SESSION" \\\n  --bearer-token "$PELLIER_TOKEN" \\\n  --prompt "Hand-thrown ceramics for a slower morning routine" \\\n  --json',
     measurements: {
       before: {
         label: 'Before',
-        value: 'A successful answer alone does not prove Runtime, Gateway, managed Memory, or trace continuity.',
+        value: 'The Gateway publishes 15 tools and the support specialist asks for two it does not serve, so Theo\'s return fails on the managed rail.',
       },
       after: {
         label: 'Acceptance target',
-        value: 'Runtime reports gateway-mcp, fresh-process Memory recalls the turn, and one trace carries agent, model, and tool spans.',
+        value: 'The Gateway publishes 16, Theo\'s return completes on the managed rail, and the receipt\'s build fingerprint matches this checkout.',
       },
     },
     evidenceAssertion:

@@ -777,3 +777,69 @@ def test_the_retired_and_canonical_title_lists_do_not_overlap() -> None:
     title_parts = {part for title in CANONICAL_LAB_TITLE_PARTS for part in title}
     assert not title_parts & set(RETIRED_LAB_TITLES)
     assert len(CANONICAL_LAB_TITLE_PARTS) == 4
+
+
+# ---------------------------------------------------------------------------
+# Build state, the surface a participant checks after each build.
+# ---------------------------------------------------------------------------
+
+_BUILD_STATE_DETECTORS = (
+    ("2b", "_lab2_golden_set_is_workshop_stub"),
+    ("3a", "_lab3_gateway_catalogue_is_workshop_stub"),
+    ("3b", "_lab3_support_contract_is_workshop_stub"),
+)
+
+
+@pytest.mark.parametrize(("step", "detector"), _BUILD_STATE_DETECTORS)
+def test_build_state_reports_each_new_exercise_as_unbuilt(
+    step: str, detector: str
+) -> None:
+    """The shipped tree is the starter state, so every step reads `exercise`.
+
+    A detector that returned False here would tell a participant their build
+    had landed before they made it, which is worse than reporting nothing.
+    """
+    from routes import observatory
+
+    assert getattr(observatory, detector)() is True, (
+        f"step {step}: the shipped starter is not detected as unbuilt"
+    )
+
+
+@pytest.mark.parametrize(("step", "detector"), _BUILD_STATE_DETECTORS)
+def test_build_state_detects_each_reference_solution_as_built(
+    step: str, detector: str
+) -> None:
+    """And the recovery copy must flip it, or the fallback lane proves nothing."""
+    import shutil
+
+    from routes import observatory
+
+    live_for_step = {
+        "2b": (
+            "pellier/backend/services/planned_hybrid_retrieval.py",
+            "solutions/the-quiet-search/eval/planned_hybrid_retrieval_solution.py",
+        ),
+        "3a": (
+            "scripts/deploy/gateway_tool_schemas.py",
+            "solutions/the-ledger/gateway/gateway_tool_schemas_solution.py",
+        ),
+        "3b": (
+            "pellier/backend/services/agentcore_gateway.py",
+            "solutions/the-ledger/services/agentcore_gateway.py",
+        ),
+    }
+    live_rel, solution_rel = live_for_step[step]
+    live = REPO / live_rel
+    backup = live.read_bytes()
+    try:
+        shutil.copyfile(REPO / solution_rel, live)
+        for module in ("services.planned_hybrid_retrieval", "services.agentcore_gateway"):
+            sys.modules.pop(module, None)
+        assert getattr(observatory, detector)() is False, (
+            f"step {step}: the reference solution is not detected as built"
+        )
+    finally:
+        live.write_bytes(backup)
+        for module in ("services.planned_hybrid_retrieval", "services.agentcore_gateway"):
+            sys.modules.pop(module, None)

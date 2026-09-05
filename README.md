@@ -406,9 +406,9 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 |---|---|
 | Introduction | Open the workspace and land in Pellier + Pellier Observatory — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
 | Lab 1: Build a PostgreSQL-Grounded Agent | Complete Inventory Agent and `check_inventory`, then prove Marco's answer against live inventory and `tool_audit`. |
-| Lab 2: Build and Measure PostgreSQL Hybrid Retrieval | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
-| Lab 3: Deploy and Operate the Managed Agent Path | Invoke Runtime, enumerate Gateway tools, read turn one from Memory in a fresh process, prove turn-two recall, and reconstruct the seeded identity mismatch from Aurora evidence. |
-| Lab 4: Govern and Prove Agent Actions | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the matching identity is allowed, complete Jessica's Operator investigation up to the human checkpoint, prove Row-Level Security refuses another shopper's rows, replay a write to show it applies exactly once, and reset participant policy. |
+| Lab 2: Build and Measure PostgreSQL Hybrid Retrieval | Restore the RRF fusion, label the rows that count as relevant for Anna's query, then compare vector, hybrid, hybrid + rerank, and agentic retrieval and make a quality, latency, and cost decision against that labeling. |
+| Lab 3: Deploy and Operate the Managed Agent Path | Publish the customer-scoped read Theo's return needs on the Gateway, reconcile what the Runtime asks the Gateway for and bind that read to the caller, deploy, then prove the managed receipt carries your own build fingerprint and that Memory survives a fresh process. |
+| Lab 4: Govern and Prove Agent Actions | Author one Cedar rule and the OpenTelemetry trace contract, prove Gateway DENY prevents execution, confirm the matching identity is allowed, complete Jessica's Operator investigation up to the human checkpoint, prove Row-Level Security refuses another shopper's rows, replay a write to show it applies exactly once, and reset participant policy. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.

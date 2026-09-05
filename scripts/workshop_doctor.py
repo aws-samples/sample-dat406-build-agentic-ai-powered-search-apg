@@ -329,6 +329,62 @@ def _managed_rail_selected(
     return Check(name, True, f"{run_env}")
 
 
+def _managed_catalogues_agree(repo: pathlib.Path = REPO) -> Check:
+    """Lab 3's two builds, read from source before anything is deployed.
+
+    The managed dispatcher asks the Gateway for exactly the tools it names and
+    raises ``Gateway is missing support tools`` when one is absent. That error
+    surfaces as an apologetic answer rather than a stack trace, so a
+    participant who has done 3a but not 3b sees a turn that "works" and a
+    receipt that never arrives. Naming the mismatch here is cheaper than
+    letting them find it in a trace.
+    """
+    name = "Gateway catalogue and Runtime support contract agree"
+    try:
+        sys.path.insert(0, str(repo / "scripts" / "deploy"))
+        sys.path.insert(0, str(BACKEND))
+        from gateway_tool_schemas import workshop_published_tools
+        from services.agentcore_gateway import (
+            SUPPORT_CALLER_BOUND_TOOLS,
+            SUPPORT_MANAGED_TOOLS,
+        )
+    except Exception as exc:  # noqa: BLE001 - the doctor must not crash here
+        return Check(name, False, f"could not read the catalogues: {exc}")
+
+    published = workshop_published_tools()
+    missing = sorted(set(SUPPORT_MANAGED_TOOLS) - published)
+    if missing:
+        # Name the step that is actually outstanding. Telling someone who has
+        # finished 3a to go and do 3a sends them to re-read a file they just
+        # got right.
+        steps = []
+        if "get_ticket_history" in missing:
+            steps.append("Lab 3a (publish the customer-scoped read)")
+        if "issue_credit" in missing:
+            steps.append("Lab 3b (drop the operator-only tool from the specialist)")
+        remedy = " and ".join(steps) or "Lab 3"
+        return Check(
+            name,
+            False,
+            "the support specialist asks the Gateway for "
+            f"{', '.join(missing)}, which it does not publish: complete {remedy}",
+        )
+    unbound = sorted(
+        tool
+        for tool in ("get_ticket_history",)
+        if tool in SUPPORT_MANAGED_TOOLS and tool not in SUPPORT_CALLER_BOUND_TOOLS
+    )
+    if unbound:
+        return Check(
+            name,
+            False,
+            f"{', '.join(unbound)} is published but not bound to the "
+            "authenticated caller: complete Lab 3b so the server sets "
+            "customer_id instead of the model",
+        )
+    return Check(name, True, f"{len(published)} tools published, support serveable")
+
+
 def lab3_checks(
     evidence: Evidence,
     run_id: Optional[str],
@@ -339,6 +395,7 @@ def lab3_checks(
 ) -> List[Check]:
     env = os.environ if environ is None else environ
     return [
+        _managed_catalogues_agree(),
         _managed_rail_selected(run_env, env_path, env),
         _row_for_run(
             evidence,

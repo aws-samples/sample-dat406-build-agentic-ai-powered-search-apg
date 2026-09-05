@@ -119,7 +119,16 @@ def _variant(body: dict[str, Any], pool_k: int) -> dict[str, Any]:
 def test_micro_eval_envelope_matches_the_frontend_contract(stub_services: _Reranker) -> None:
     body = asyncio.run(app_module.micro_eval_search_strategies(pool_k=[20, 3]))
 
-    assert set(body) == {"query", "limit", "repetitions", "variants"}
+    assert set(body) == {
+        "query",
+        "limit",
+        "repetitions",
+        # Lab 2b's labelled set. Every quality ratio below divides by it, so
+        # the surface needs the count to tell "unlabelled" from "scored zero".
+        "golden_set_size",
+        "variants",
+    }
+    assert body["golden_set_size"] == len(retrieval_module.CANONICAL_ANNA_GOLDEN_IDS)
     assert body["query"] == CANONICAL_QUERY
     assert body["limit"] == 5
     assert body["repetitions"] == retrieval_module.MICRO_EVAL_REPETITIONS_DEFAULT == 3

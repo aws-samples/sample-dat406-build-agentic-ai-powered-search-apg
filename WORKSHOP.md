@@ -322,12 +322,42 @@ appear in the room's instructions.
 
 ## The four-lab journey
 
+Every lab carries two bounded builds, a and b, anchored to one person. The
+difficulty climbs across the four: Lab 1 completes a capability, Lab 2 decides
+what "relevant" means and measures it, Lab 3 puts the participant's own work on
+the managed control plane, Lab 4 governs a consequential action and proves the
+outcome four separate ways.
+
 | Lab | Participant moment | What they build or prove | Takeaway |
 |---|---|---|---|
 | **Lab 1 · Build**<br>**Build a PostgreSQL-Grounded Agent** | Marco needs a live availability answer. | Complete the Inventory Agent's warehouse capability, then reconcile the response, warehouse rows, and execution evidence in PostgreSQL. | An agent answer is grounded only when it can be checked against the system of record and an execution receipt. |
-| **Lab 2 · Build & Measure**<br>**Build and Measure PostgreSQL Hybrid Retrieval** | Anna narrows a morning-ritual gift to two in-stock options under $100, then chooses from that same shortlist. | Restore the hybrid-ranking calculation, compare retrieval paths, and prove the returned products met price and stock constraints. | Retrieval quality is a measured tradeoff. Relevance can rank results; PostgreSQL enforces eligibility. |
-| **Lab 3 · Deploy & Operate**<br>**Deploy and Operate the Managed Agent Path** | Theo's multi-turn ceramic request needs context and a traceable managed path. | Define the telemetry acceptance criteria, use the managed path as Theo, verify Memory beyond the application process, confirm the build fingerprint on the managed receipt matches their own checkout, and correlate his Storefront thread with Runtime, Gateway, and PostgreSQL evidence. | Managed Runtime, Gateway, Memory, telemetry, and the executed revision each prove different parts of the path. A successful answer alone proves none of them. |
-| **Lab 4 · Govern**<br>**Govern and Prove Agent Actions** | Jessica's return action is allowed only for Jessica; Marco and Anna are the negative controls. | Define the identity-to-customer rule; run the deny, allow, and replay cases; prove exact policy, execution, durable-effect, and database-enforcement outcomes; then complete Jessica's three-turn Operator investigation and stop before approval. | Authentication, policy authorization, execution, database enforcement, staff access, durable effects, and human approval are separate controls and separate facts. |
+| **Lab 2 · Build & Measure**<br>**Build and Measure PostgreSQL Hybrid Retrieval** | Anna narrows a morning-ritual gift to two in-stock options under $100, then chooses from that same shortlist. | **2a** Restore the hybrid-ranking calculation. **2b** Label the rows that count as relevant, then read the micro-eval that divides by them. Prove the returned products met price and stock constraints. | Retrieval quality is a measured tradeoff, and the measurement rests on a labeling judgment a person makes. Relevance can rank results; PostgreSQL enforces eligibility. |
+| **Lab 3 · Deploy & Operate**<br>**Deploy and Operate the Managed Agent Path** | Theo's return request reaches a support specialist the managed Gateway cannot yet serve. | **3a** Publish the customer-scoped read the specialist needs, and keep the money movement deferred. **3b** Reconcile what the Runtime asks the Gateway for, and bind that read to the authenticated caller. Deploy, then verify Memory beyond the application process and confirm the build fingerprint on the managed receipt is their own. | Deploying is not the proof. The published catalogue, the executed revision, managed Memory, and the trace each prove a different part of the path, and a successful answer proves none of them. |
+| **Lab 4 · Govern**<br>**Govern and Prove Agent Actions** | Jessica's return action is allowed only for Jessica; Marco and Anna are the negative controls. | **4a** Define the identity-to-customer Cedar rule, then run the deny, allow, and replay cases. **4b** Author the OpenTelemetry trace contract that says what a complete managed trace must contain. Prove policy, execution, durable-effect, and database-enforcement outcomes separately, then complete Jessica's Operator investigation and stop before approval. | Authentication, policy authorization, execution, database enforcement, staff access, durable effects, and human approval are separate controls and separate facts. Observability is how you find that out after the fact. |
+
+### Time box
+
+Two hours, and the room is self-paced, so these are budgets rather than a
+schedule. A lab that runs over does not steal from the next one: it steals
+from the close, which is why the close is last and short.
+
+| Segment | Budget | Why it costs what it costs |
+|---|---|---|
+| Orientation and `workshop-start` | 10 min | One run id, the two surfaces, and the shape of the proof. No architecture tour. |
+| **Lab 1 · Marco** | 20 min | Two small edits in one file each, and the first receipt. Most of the cost is the first read of an unfamiliar tree. |
+| **Lab 2 · Anna** | 20 min | One SQL expression, one labeling query, and the comparison. Both builds are short; reading the measurement is the work. |
+| **Lab 3 · Theo** | 30 min | Two edits plus a real deploy. The deploy has wall clock nobody can compress, so this lab gets the extra ten minutes rather than borrowing them. |
+| **Lab 4 · Jessica** | 30 min | A Cedar rule, four principals, the trace contract, and the RLS proof. Four separate outcomes to establish, and establishing them separately is the point. |
+| Close | 10 min | What travels off the box. |
+
+Two labs at 20 and two at 30 is deliberate. Labs 1 and 2 are bounded edits with
+fast feedback; Labs 3 and 4 each wait on something real, a deploy and a policy
+evaluation, and a room that has not been given time for that will skip the
+proof and keep the answer.
+
+If the room is running behind, cut Lab 4's Operator investigation and the
+close, in that order. Never cut a Prove beat: a lab without its proof teaches
+that the demo worked.
 
 ### Exact participant exercises
 
@@ -382,46 +412,73 @@ leaving the participant to guess from a symptom.
   her memory chip fires when a participant clicks instead of typing. Before
   running it, ask which strategy will win and why, and which constraint ranking
   cannot enforce.
-- **Change.** Restore the deliberately incomplete hybrid-ranking calculation.
+- **Change (2a).** Restore the deliberately incomplete hybrid-ranking
+  calculation.
+- **Change (2b).** Label the rows that count as relevant for that request. The
+  micro-eval divides by this set, so with it empty coverage, precision and MRR
+  all read 0.0 for want of a denominator, and the surface says so rather than
+  showing bare zeros. The definition is a query, not a taste test: the in-stock
+  Home Decor pieces tagged both `gift` and `home` at or under $100. Derive them
+  in the Code Editor rather than guessing; the exercise carries the psql.
 - **Run.** Replay Anna's gift thread in the storefront, then compare the four
   retrieval paths on that one fixed request. Comparing four strategies is only
   meaningful when all four answer the same question, which is why the wording is
   fixed.
 - **Prove.** Read the retrieval receipt: vector ranks, lexical ranks, and their
   fusion all populated, and every returned product inside the price and stock
-  constraints. The receipt line is `02.hybrid_receipt`.
-- **Explain.** Retrieval quality is a measured tradeoff. Relevance can rank
-  results; PostgreSQL enforces eligibility. A reranker cannot recover a
-  candidate that retrieval never surfaced.
+  constraints. The receipt line is `02.hybrid_receipt`. Then read the rerank
+  pool micro-eval, which now has a denominator: pool 20 and pool 3 separate.
+- **Explain.** Retrieval quality is a measured tradeoff, and every metric is a
+  ratio against a labeling somebody chose. Relevance can rank results;
+  PostgreSQL enforces eligibility. A reranker cannot recover a candidate that
+  retrieval never surfaced, which is what candidate coverage measures.
 
-#### Lab 3 - Theo operates the managed path
+#### Lab 3 - Theo lands the build on the managed path
 
-- **Predict.** Ask what a successful managed answer would and would not prove.
-  It does not prove the participant's revision ran: the invoke response carries
-  no version and `qualifier=DEFAULT` is an alias.
-- **Change.** Run `lab3-start`. It verifies Gateway and Runtime, switches the
-  storefront to the managed rail, restarts the service, and runs one
-  authenticated turn. It refuses if either resource is missing, because a
-  storefront that quietly degrades to in-process while the room believes it is
-  managed teaches the opposite of the lesson.
-- **Run.** Use Theo's three turns as a signed-in caller, with 0, then 2, then 4
-  prior messages.
-- **Prove.** Correlate the thread with Runtime, Gateway, and PostgreSQL
-  evidence, verify Memory beyond the application process, and confirm the build
-  fingerprint on the managed receipt reads **This checkout**.
-- **Explain.** Managed Runtime, Gateway, Memory, telemetry, and the executed
-  revision each prove a different part of the path. A successful answer alone
-  proves none of them.
+- **Predict.** Theo's third turn is a return request, which routes to the
+  support specialist. Ask what the managed rail will do with it before running
+  it. Then ask what a successful managed answer would and would not prove: it
+  does not prove the participant's revision ran, because the invoke response
+  carries no version and `qualifier=DEFAULT` is an alias.
+- **Change (3a).** The support specialist reads a customer's past tickets
+  before answering, and the Gateway does not publish that tool. Publish
+  `get_ticket_history`; leave `issue_credit` deferred. That second half is the
+  decision, not an oversight: a read scoped to one customer is safe to hand a
+  shopper-facing specialist, and money movement belongs to the operator review
+  desk.
+- **Change (3b).** Reconcile the Runtime side. The managed dispatcher asks the
+  Gateway for exactly the tools it names and raises `Gateway is missing support
+  tools` when one is absent, so the two catalogues have to agree. Then bind the
+  new read to the authenticated caller, or the model chooses whose tickets to
+  read.
+- **Run.** Deploy, then use Theo's three turns as a signed-in caller, with 0,
+  then 2, then 4 prior messages.
+- **Prove.** Theo's third turn now completes on the managed rail. Confirm the
+  build fingerprint on the managed receipt reads **This checkout**: the file
+  edited in 3b is packaged into the Runtime, so the deployed digest changed and
+  that is what proves the participant's own build answered. Verify Memory
+  beyond the application process, and correlate the thread with Runtime,
+  Gateway, and PostgreSQL evidence.
+- **Explain.** Deploying is not the proof. A published tool contract, an
+  executed revision, managed Memory, and a trace each prove a different part of
+  the path. The same split applies wherever a control plane and a data plane
+  are deployed separately.
 
 #### Lab 4 - Jessica governs a consequential action
 
 - **Predict.** Same request, four principals. Ask the room which cases will be
   denied, which will execute, and what the replay will and will not change.
-- **Change.** Complete the fail-closed identity-to-customer rule in the Cedar
-  policy. It is deliberately participant-authored and exercises the condition
-  without weakening the shipped row-level-security backstop.
-- **Run.** Exercise the deny, allow, and replay cases, then complete Jessica's
-  three-turn Operator investigation and stop before approval.
+- **Change (4a).** Complete the fail-closed identity-to-customer rule in the
+  Cedar policy. It is deliberately participant-authored and exercises the
+  condition without weakening the shipped row-level-security backstop.
+- **Change (4b).** Author the OpenTelemetry trace contract: the predicates that
+  say what a complete managed trace must contain. They start `false`, which is
+  the honest starting position. Deciding that an agent span, a model span, a
+  tool span and a session-correlated span are each required is the exercise;
+  running the contract afterwards is arithmetic.
+- **Run.** Exercise the deny, allow, and replay cases, run the trace contract
+  against a real managed trace, then complete Jessica's three-turn Operator
+  investigation and stop before approval.
 - **Prove.** Establish four separate outcomes: the policy decision, the
   execution row (or its keyed absence), the durable write, and the database
   enforcement result. The receipt lines are `04.deny_did_not_execute` beside
@@ -438,8 +495,9 @@ enforcement, and durable evidence are proved, because there identity is the
 only variable that changes between the denied and allowed cases.
 
 The labs intentionally form one narrative: ground the answer, measure the
-retrieval decision, operate the managed path and inspect its traces, then
-govern a consequential action and prove its outcome.
+retrieval decision against a labeling you chose, deploy that work onto the
+managed path, then govern a consequential action and prove its outcome from
+policy, execution, durable effect, database enforcement, and trace.
 
 ## Architecture and proof boundaries
 

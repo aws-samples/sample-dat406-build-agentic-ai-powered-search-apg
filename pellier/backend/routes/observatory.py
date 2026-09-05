@@ -36,6 +36,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import ast
 import logging
 import runpy
 import time
@@ -142,6 +143,62 @@ def _inventory_agent_definition_is_workshop_stub() -> bool:
         from agents import inventory_agent
 
         return bool(getattr(inventory_agent, "_INVENTORY_AGENT_STUBBED", False))
+    except Exception:
+        return True
+
+
+def _lab2_golden_set_is_workshop_stub() -> bool:
+    """True while no rows are labelled relevant for Anna's canonical query."""
+    try:
+        from services.planned_hybrid_retrieval import CANONICAL_ANNA_GOLDEN_IDS
+
+        return not CANONICAL_ANNA_GOLDEN_IDS
+    except Exception:
+        return True
+
+
+def _lab3_gateway_catalogue_is_workshop_stub() -> bool:
+    """True while ``get_ticket_history`` is still withheld from the Gateway.
+
+    Read from the deploy source rather than imported: the backend cannot import
+    ``scripts/deploy`` at runtime, which is why the target map in
+    ``services/agentcore_gateway.py`` is pinned by a test instead of shared.
+    """
+    try:
+        source = (
+            Path(__file__).resolve().parents[3]
+            / "scripts"
+            / "deploy"
+            / "gateway_tool_schemas.py"
+        ).read_text(encoding="utf-8")
+    except Exception:
+        return True
+    for node in ast.walk(ast.parse(source)):
+        target = None
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target = node.target.id
+        elif isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
+            target = node.targets[0].id
+        if target == "WORKSHOP_DEFERRED_TOOLS" and node.value is not None:
+            try:
+                deferred = ast.literal_eval(
+                    node.value.args[0] if isinstance(node.value, ast.Call) else node.value
+                )
+            except Exception:
+                return True
+            return "get_ticket_history" in set(deferred)
+    return True
+
+
+def _lab3_support_contract_is_workshop_stub() -> bool:
+    """True while the Runtime still asks the Gateway for what it does not publish."""
+    try:
+        from services.agentcore_gateway import (
+            SUPPORT_CALLER_BOUND_TOOLS,
+            SUPPORT_MANAGED_TOOLS,
+        )
+
+        return "issue_credit" in SUPPORT_MANAGED_TOOLS or not SUPPORT_CALLER_BOUND_TOOLS
     except Exception:
         return True
 
@@ -2208,9 +2265,30 @@ async def get_build_state():
         agent_map = {"Inventory Agent": inventory}
         tool_map = {dict(row)["name"]: "shipped" for row in tool_rows}
         tool_map["check_inventory"] = check_inventory
+        # Every guided build, keyed by the lab step the guide names. Source
+        # defined, like the two above: a participant's edit is visible here the
+        # moment the backend reloads, without a deploy or a database round trip.
+        exercises = {
+            "1a": "exercise" if inventory == "exercise" else "shipped",
+            "1b": "exercise" if check_inventory == "exercise" else "shipped",
+            "2b": (
+                "exercise" if _lab2_golden_set_is_workshop_stub() else "shipped"
+            ),
+            "3a": (
+                "exercise"
+                if _lab3_gateway_catalogue_is_workshop_stub()
+                else "shipped"
+            ),
+            "3b": (
+                "exercise"
+                if _lab3_support_contract_is_workshop_stub()
+                else "shipped"
+            ),
+        }
         return {
             "agents": agent_map,
             "tools": tool_map,
+            "exercises": exercises,
         }
     except Exception as exc:
         logger.exception("Failed to build live build-state")

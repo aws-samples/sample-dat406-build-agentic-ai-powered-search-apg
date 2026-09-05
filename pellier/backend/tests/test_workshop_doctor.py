@@ -951,3 +951,89 @@ class TestWorkshopStart:
         )
         assert result.returncode == 1
         assert "049" in result.stderr
+
+
+class TestManagedCataloguesAgree:
+    """Lab 3's two builds, checked from source before anything is deployed.
+
+    The mismatch this catches does not look like a failure in the room. The
+    managed dispatcher raises `Gateway is missing support tools`, the turn
+    comes back as an apology, and the receipt the participant is waiting for
+    never arrives. Naming the outstanding step beats letting them read a trace.
+    """
+
+    def _check(self, monkeypatch, *, published, managed, bound):
+        import types
+
+        schemas = types.ModuleType("gateway_tool_schemas")
+        schemas.workshop_published_tools = lambda: frozenset(published)
+        monkeypatch.setitem(sys.modules, "gateway_tool_schemas", schemas)
+
+        gateway = types.ModuleType("services.agentcore_gateway")
+        gateway.SUPPORT_MANAGED_TOOLS = tuple(managed)
+        gateway.SUPPORT_CALLER_BOUND_TOOLS = frozenset(bound)
+        monkeypatch.setitem(sys.modules, "services.agentcore_gateway", gateway)
+
+        return doctor._managed_catalogues_agree()
+
+    def test_neither_build_done_names_both_steps(self, monkeypatch):
+        check = self._check(
+            monkeypatch,
+            published={"get_return_policy"},
+            managed=("get_return_policy", "get_ticket_history", "issue_credit"),
+            bound=set(),
+        )
+        assert not check.passed
+        assert "Lab 3a" in check.detail
+        assert "Lab 3b" in check.detail
+
+    def test_publishing_the_read_leaves_only_the_second_step(self, monkeypatch):
+        """A participant who finished 3a must not be sent back to redo it."""
+        check = self._check(
+            monkeypatch,
+            published={"get_return_policy", "get_ticket_history"},
+            managed=("get_return_policy", "get_ticket_history", "issue_credit"),
+            bound={"get_ticket_history"},
+        )
+        assert not check.passed
+        assert "Lab 3b" in check.detail
+        assert "Lab 3a" not in check.detail
+
+    def test_an_unbound_read_is_its_own_failure(self, monkeypatch):
+        """Published and reachable is not enough: the caller must be bound."""
+        check = self._check(
+            monkeypatch,
+            published={"get_return_policy", "get_ticket_history"},
+            managed=("get_return_policy", "get_ticket_history"),
+            bound=set(),
+        )
+        assert not check.passed
+        assert "not bound to the" in check.detail
+        assert "Lab 3b" in check.detail
+
+    def test_both_builds_done_passes(self, monkeypatch):
+        check = self._check(
+            monkeypatch,
+            published={"get_return_policy", "get_ticket_history"},
+            managed=("get_return_policy", "get_ticket_history"),
+            bound={"get_ticket_history"},
+        )
+        assert check.passed
+        assert "support serveable" in check.detail
+
+    def test_an_unreadable_catalogue_fails_rather_than_crashes(self, monkeypatch):
+        """The doctor runs when things are broken. It must not be one of them."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def boom(name, *args, **kwargs):
+            if name == "gateway_tool_schemas":
+                raise ModuleNotFoundError(name)
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.delitem(sys.modules, "gateway_tool_schemas", raising=False)
+        monkeypatch.setattr(builtins, "__import__", boom)
+        check = doctor._managed_catalogues_agree()
+        assert not check.passed
+        assert "could not read the catalogues" in check.detail

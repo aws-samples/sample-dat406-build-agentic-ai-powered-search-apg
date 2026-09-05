@@ -88,12 +88,26 @@ The application must continue to demonstrate:
 - Cedar authorization on sensitive tool actions.
 - Inspectable ALLOW execution and DENY non-execution evidence.
 
-The required participant path is:
+The required participant path is four labs, each with two bounded builds
+anchored to one person, in climbing order of difficulty:
 
-1. Lab 1: Build a PostgreSQL-Grounded Agent
-2. Lab 2: Build and Measure PostgreSQL Hybrid Retrieval
-3. Lab 3: Deploy and Operate the Managed Agent Path
-4. Lab 4: Govern and Prove Agent Actions
+| Lab | Person | a | b |
+|---|---|---|---|
+| 1. Build a PostgreSQL-Grounded Agent | Marco | Inventory Agent definition | `check_inventory` body |
+| 2. Build and Measure PostgreSQL Hybrid Retrieval | Anna | RRF fusion expression | the labelled golden set |
+| 3. Deploy and Operate the Managed Agent Path | Theo | publish the Gateway tool | reconcile the Runtime catalogue, then deploy |
+| 4. Govern and Prove Agent Actions | Jessica | the Cedar identity rule | the OpenTelemetry trace contract |
+
+`tests/test_workshop_marker_contract.py` is the authoritative inventory of
+those builds: their marker regions, starter fragments, and reference
+solutions. Adding, moving, or renaming a build means changing that file, which
+is the point. Lab 3b edits a file inside `RUNTIME_SOURCE_FILES`, so completing
+it changes the deployed build fingerprint; that is the lab's proof and must not
+be broken by moving the exercise to an unpackaged file.
+
+Budgets, for a two-hour room: 10 minutes orientation, 20 for Lab 1, 20 for
+Lab 2, 30 for Lab 3, 30 for Lab 4, 10 to close. Labs 3 and 4 carry the extra
+time because each waits on something real, a deploy and a policy evaluation.
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
 documentation.

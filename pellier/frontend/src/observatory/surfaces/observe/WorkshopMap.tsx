@@ -97,7 +97,7 @@ const LABS: LabItem[] = [
     lab: 'Lab 3 · Deploy & Operate',
     title: 'Deploy and Operate the Managed Agent Path',
     summary:
-      "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
+      "Publish the Gateway tool Theo's return needs, reconcile the Runtime catalogue, then deploy and prove the managed receipt carries your own build.",
     primary: {
       to: '/observatory/proof-board#managed-rail',
       label: 'Open Lab 3 proofs',
