@@ -14,7 +14,7 @@
  *      which is the stable home-page marker rendered at the top of
  *      `AppContent`.
  *   3. The modal singleton slots are mounted at the App root:
- *      `AuthModal`, `OperatorSignInModal`, and `PreferencesModal` exist in
+ *      `AuthModal` and `PreferencesModal` exist in
  *      the tree and render
  *      nothing while `UIContext.activeModal === null`, as required by
  *      the UIContext contract (Task 4.1).

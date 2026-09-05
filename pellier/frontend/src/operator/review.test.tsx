@@ -22,7 +22,6 @@ import { UIProvider } from '../contexts/UIContext'
 import ReviewQueue, { relativeTime, outcomeLine } from './surfaces/ReviewQueue'
 import ReviewRecord, { issueLine } from './surfaces/ReviewRecord'
 import ActionAssurance from './components/ActionAssurance'
-import OperatorSignInModal from './components/OperatorSignInModal'
 import OperatorFrame from './shell/OperatorFrame'
 
 function render(ui: ReactElement) {
@@ -333,17 +332,26 @@ describe('ReviewQueue', () => {
 })
 
 describe('OperatorFrame review link', () => {
-  it('opens the Operator sign-in modal from the operator shell', async () => {
+  it('starts the hosted sign-in flow straight from the operator shell', async () => {
+    // No interstitial. The control used to open a dialog that captured nothing
+    // and explained that the next click would sign you in, so signing in read
+    // as two clicks for one intent. Cognito owns password entry, MFA, reset
+    // and the social providers, and the gated page already explains why
+    // sign-in is required.
+    const assign = vi.fn()
+    const original = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...original, assign, pathname: '/operator', search: '' },
+    })
+
     mockFetch(() => ({ body: { reviews: [], total: 0, pendingCount: 0 } }))
     render(
-      <>
-        <MemoryRouter initialEntries={['/operator']}>
-          <Routes>
-            <Route path="/operator" element={<OperatorFrame />} />
-          </Routes>
-        </MemoryRouter>
-        <OperatorSignInModal />
-      </>,
+      <MemoryRouter initialEntries={['/operator']}>
+        <Routes>
+          <Route path="/operator" element={<OperatorFrame />} />
+        </Routes>
+      </MemoryRouter>,
     )
 
     await screen.findByTestId('operator-reviews-count')
@@ -351,8 +359,18 @@ describe('OperatorFrame review link', () => {
     expect(signIn).toHaveClass('operator-auth-signin')
     expect(signIn).toHaveClass('pellier-account-pill')
     fireEvent.click(signIn)
+
     expect(authMock.login).not.toHaveBeenCalled()
-    expect(screen.getByTestId('operator-signin-modal')).toBeInTheDocument()
+    expect(assign).toHaveBeenCalledTimes(1)
+    const target = String(assign.mock.calls[0][0])
+    expect(target).toContain('/api/auth/signin?provider=email')
+    // The return path brings the participant back to what they asked for.
+    expect(target).toContain('returnTo=')
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: original,
+    })
   })
 
   it('labels a pending queue state rather than rendering an unexplained count', async () => {

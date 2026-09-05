@@ -23,8 +23,8 @@ import { ClipboardCheck, LogOut, User, UsersRound } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import PellierHomeLink from '../../components/PellierHomeLink'
 import { useAuth } from '../../contexts/AuthContext'
-import { useUI } from '../../contexts/UIContext'
 import { fetchReviewQueue, OperatorApiError } from '../../services/operator'
+import { redirectToSignIn } from '../../utils/auth'
 import '../styles/operator.css'
 
 const OperatorQueueRefreshContext = createContext<() => void>(() => undefined)
@@ -145,7 +145,6 @@ const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
 
 const OperatorAuthControl: React.FC = () => {
   const { user, isAuthenticated, loading, logout } = useAuth()
-  const { openModal } = useUI()
 
   if (loading) {
     return (
@@ -177,7 +176,7 @@ const OperatorAuthControl: React.FC = () => {
     <button
       type="button"
       className="pellier-account-pill operator-auth-signin"
-      onClick={() => openModal('operator-auth')}
+      onClick={() => redirectToSignIn('email')}
       data-testid="operator-sign-in"
     >
       <User className="operator-topbar-icon" aria-hidden />

@@ -1,5 +1,5 @@
 import React from 'react'
-import { useUI } from '../../contexts/UIContext'
+import { redirectToSignIn } from '../../utils/auth'
 
 interface Props {
   /**
@@ -16,6 +16,14 @@ interface Props {
 /**
  * The recovery action on a Cognito-protected operator surface.
  *
+ * It starts the Hosted UI flow directly. There used to be a dialog in between
+ * that captured nothing and explained what the next click would do, so signing
+ * in read as "click sign in, then click sign in again". Cognito owns password
+ * entry, MFA, reset and the social providers, and this page already explains
+ * why sign-in is required, so the dialog had no job of its own.
+ * `redirectToSignIn` defaults its return path to the current URL, which brings
+ * the participant back to the exact record they asked for.
+ *
  * Deliberately not the account pill. It used to render
  * `pellier-account-pill operator-auth-signin` with a person icon and the word
  * "Sign in", which is exactly the topbar control, so a signed-out desk showed
@@ -23,19 +31,15 @@ interface Props {
  * were the same door. This is the page's primary action and looks like one;
  * the topbar keeps the global control.
  */
-const OperatorSignInAction: React.FC<Props> = ({ unlocks }) => {
-  const { openModal } = useUI()
-
-  return (
+const OperatorSignInAction: React.FC<Props> = ({ unlocks }) => (
     <button
       type="button"
       className="operator-state-signin"
-      onClick={() => openModal('operator-auth')}
+      onClick={() => redirectToSignIn('email')}
       data-testid="operator-state-sign-in"
     >
       {unlocks ? `Sign in to ${unlocks}` : 'Sign in'}
     </button>
-  )
-}
+)
 
 export default OperatorSignInAction

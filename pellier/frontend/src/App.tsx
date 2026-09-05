@@ -17,7 +17,6 @@ import { UIProvider, useUI } from './contexts/UIContext'
 import { LayoutProvider } from './contexts/LayoutContext'
 import { PersonaProvider } from './contexts/PersonaContext'
 import AuthModal from './components/AuthModal'
-import OperatorSignInModal from './operator/components/OperatorSignInModal'
 import CartPanel from './components/CartPanel'
 import Toast from './components/Toast'
 import PersonaTransitionOverlay from './components/PersonaTransitionOverlay'
@@ -141,7 +140,6 @@ function ToastSlot() {
 
 const TRANSIENT_MODALS = new Set([
   'auth',
-  'operator-auth',
   'preferences',
   'cart',
   'checkout',
@@ -342,7 +340,6 @@ function App() {
              * BrowserRouter so route boundaries can close them safely.
             */}
             <AuthModal />
-            <OperatorSignInModal />
             <PreferencesModal />
             <PersonaTransitionOverlay />
             <CartPanelSlot />

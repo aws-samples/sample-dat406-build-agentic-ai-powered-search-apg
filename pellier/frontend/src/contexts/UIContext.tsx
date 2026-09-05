@@ -31,7 +31,6 @@ import type { WorkshopMode } from './LayoutContext'
 export type ModalName =
   | 'drawer'
   | 'auth'
-  | 'operator-auth'
   | 'preferences'
   | 'cart'
   | 'checkout'
