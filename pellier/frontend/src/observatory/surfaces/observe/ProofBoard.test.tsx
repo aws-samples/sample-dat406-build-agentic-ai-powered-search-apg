@@ -130,7 +130,7 @@ const proofBoardPayload = {
     },
     {
       id: 'runtime-gateway-policy',
-      lab: 'Lab 4 · Enforce Identity and Prove Non-Execution',
+      lab: 'Lab 4 · Govern and Prove Agent Actions',
       group: 'Governance evidence',
       title: 'Verify Gateway, Cedar, and the governed receipt',
       status: 'complete',

@@ -224,7 +224,7 @@ const LAB_BY_CARD_ID: Record<string, string> = {
   'retrieval-comparison': 'Lab 2 · Build and Measure PostgreSQL Hybrid Retrieval',
   'managed-rail': 'Lab 3 · Operate and Observe the AgentCore Managed Path',
   'audit-ledger': 'Lab 3 · Operate and Observe the AgentCore Managed Path',
-  'runtime-gateway-policy': 'Lab 4 · Enforce Identity and Prove Non-Execution',
+  'runtime-gateway-policy': 'Lab 4 · Govern and Prove Agent Actions',
 };
 
 interface GovernedProofStage {

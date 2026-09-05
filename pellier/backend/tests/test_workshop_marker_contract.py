@@ -479,7 +479,7 @@ CANONICAL_LAB_TITLE_PARTS: Tuple[Tuple[str, str], ...] = (
     ("Lab 1 · Build", "Build a PostgreSQL-Grounded Agent"),
     ("Lab 2 · Build & Measure", "Build and Measure PostgreSQL Hybrid Retrieval"),
     ("Lab 3 · Operate & Observe", "Operate and Observe the AgentCore Managed Path"),
-    ("Lab 4 · Govern", "Enforce Identity and Prove Non-Execution"),
+    ("Lab 4 · Govern", "Govern and Prove Agent Actions"),
 )
 
 # Titles the rename replaced. Present anywhere in the shipped product, they are drift.

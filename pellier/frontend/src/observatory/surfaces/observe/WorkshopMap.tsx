@@ -118,7 +118,7 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 4 · Govern',
-    title: 'Enforce Identity and Prove Non-Execution',
+    title: 'Govern and Prove Agent Actions',
     summary:
       'Bind JWT identity to the requested customer, classify the managed DENY, prove its exact key has no execution row, confirm the matching identity executes once, and reset the participant policy.',
     primary: {

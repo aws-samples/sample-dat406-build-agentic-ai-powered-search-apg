@@ -31,7 +31,7 @@ describe('Observatory workshop map', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Enforce Identity and Prove Non-Execution' }),
+      screen.getByRole('heading', { name: 'Govern and Prove Agent Actions' }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
 

@@ -1065,7 +1065,7 @@ async def _collect_proof_board(
         },
         {
             "id": "runtime-gateway-policy",
-            "lab": "Lab 4 · Govern — Enforce Identity and Prove Non-Execution",
+            "lab": "Lab 4 · Govern — Govern and Prove Agent Actions",
             "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (

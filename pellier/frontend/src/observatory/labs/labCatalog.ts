@@ -188,7 +188,7 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     id: 'fail-closed-policy',
     number: '04',
     anchorName: 'Jessica',
-    title: 'Enforce Identity and Prove Non-Execution',
+    title: 'Govern and Prove Agent Actions',
     shortTitle: 'Identity and non-execution',
     summary:
       'Bind verified identity in Cedar, prove the four-case execution matrix and Aurora RLS backstop, then investigate Jessica\'s case as separately authorized staff.',

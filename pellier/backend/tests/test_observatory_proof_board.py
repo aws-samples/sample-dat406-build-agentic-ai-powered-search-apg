@@ -391,7 +391,7 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert cards["audit-ledger"]["lab"] == (
         "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path"
     )
-    assert cards["runtime-gateway-policy"]["lab"] == "Lab 4 · Govern — Enforce Identity and Prove Non-Execution"
+    assert cards["runtime-gateway-policy"]["lab"] == "Lab 4 · Govern — Govern and Prove Agent Actions"
     assert cards["runtime-gateway-policy"]["required"] is True
     assert all("act" not in card for card in cards.values())
     assert (

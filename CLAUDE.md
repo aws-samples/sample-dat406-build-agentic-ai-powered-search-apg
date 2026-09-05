@@ -91,9 +91,9 @@ The application must continue to demonstrate:
 The required participant path is:
 
 1. Lab 1: Build a PostgreSQL-Grounded Agent
-2. 02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs
-3. 03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace
-4. 04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts
+2. Lab 2: Build and Measure PostgreSQL Hybrid Retrieval
+3. Lab 3: Operate and Observe the AgentCore Managed Path
+4. Lab 4: Govern and Prove Agent Actions
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
 documentation.
