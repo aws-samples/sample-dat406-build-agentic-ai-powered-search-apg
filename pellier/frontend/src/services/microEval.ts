@@ -33,6 +33,18 @@ export interface MicroEvalResult {
   query: string
   limit: number
   repetitions: number
+  /**
+   * How many rows are labelled relevant for this query.
+   *
+   * Every quality metric is a ratio against that set, so zero labels make
+   * coverage, precision and MRR read 0.0 for want of a denominator rather
+   * than because retrieval failed. Lab 2b pins the labels; until then the
+   * surface has to say which of the two it is looking at.
+   *
+   * Optional because a runtime deployed before this field existed does not
+   * send it, and an absent count is unknown, not zero.
+   */
+  golden_set_size?: number
   variants: MicroEvalVariant[]
 }
 
@@ -66,7 +78,11 @@ function isResult(value: unknown): value is MicroEvalResult {
     record.repetitions > 0 &&
     Array.isArray(record.variants) &&
     record.variants.length > 0 &&
-    record.variants.every(isVariant)
+    record.variants.every(isVariant) &&
+    (record.golden_set_size === undefined ||
+      (typeof record.golden_set_size === 'number' &&
+        Number.isInteger(record.golden_set_size) &&
+        record.golden_set_size >= 0))
   )
 }
 

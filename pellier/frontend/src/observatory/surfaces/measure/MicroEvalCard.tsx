@@ -259,6 +259,27 @@ const MicroEvalCard: React.FC = () => {
         {`Top ${result.limit} results, ${result.repetitions} repetitions per pool, measured on Aurora.`}
       </p>
 
+      {result.golden_set_size === 0 ? (
+        <p
+          data-testid="micro-eval-unlabelled"
+          style={{
+            margin: '0 0 14px',
+            padding: '10px 12px',
+            borderLeft: '2px solid var(--obs-accent)',
+            background: 'var(--obs-surface-2)',
+            fontFamily: 'var(--obs-sans)',
+            fontSize: '13px',
+            lineHeight: 1.5,
+            color: 'var(--obs-ink-2)',
+          }}
+        >
+          No rows are labelled relevant for this query yet, so coverage,
+          precision and MRR below read 0.0 for want of a denominator, not
+          because retrieval failed. Latency is measured either way. Lab 2b
+          pins the labels.
+        </p>
+      ) : null}
+
       <div style={{ overflowX: 'auto' }}>
         <table
           aria-label="Rerank pool comparison"

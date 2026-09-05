@@ -76,6 +76,16 @@ LAB1_FALLBACK_COPIES: Tuple[Tuple[str, str], ...] = (
 # ---------------------------------------------------------------------------
 
 LAB2_STARTER = "workshop/lab-2-rrf.sql"
+LAB2_GOLDEN_REGION = (
+    "pellier/backend/services/planned_hybrid_retrieval.py",
+    "WORKSHOP · Retrieval eval · golden set",
+)
+LAB2_GOLDEN_REFERENCE = (
+    "solutions/the-quiet-search/eval/planned_hybrid_retrieval_solution.py"
+)
+# The ids the documented predicate yields from `scripts/seed_pellier_catalog.py`:
+# in-stock Home Decor at or under $100 tagged both `gift` and `home`.
+LAB2_GOLDEN_IDS = ("21", "22", "23", "25", "27", "29")
 LAB2_REFERENCE = "solutions/the-quiet-search/sql/lab-2-rrf-solution.sql"
 LAB2_MARKER = "WORKSHOP · PostgreSQL RRF · fusion expression"
 
@@ -155,6 +165,10 @@ PARTICIPANT_STARTERS = {
         "workshop/starters/lab-2-rrf.sql",
         LAB2_STARTER,
     ),
+    "lab-2-golden-set": (
+        "workshop/starters/lab-2/anna-golden-set.pyfrag",
+        "pellier/backend/services/planned_hybrid_retrieval.py",
+    ),
     "lab-3-gateway-catalogue": (
         "workshop/starters/lab-3/gateway-published-tools.pyfrag",
         "scripts/deploy/gateway_tool_schemas.py",
@@ -172,6 +186,24 @@ PARTICIPANT_STARTERS = {
         LAB4_STARTER,
     ),
 }
+
+
+def _module_constant(tree: ast.Module, name: str):
+    """Read one module-level constant without importing the module.
+
+    These modules build ``Settings`` at import time, so importing them to read
+    a tuple would demand database credentials the test environment has no
+    reason to hold.
+    """
+    for node in ast.walk(tree):
+        target = None
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target = node.target.id
+        elif isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
+            target = node.targets[0].id
+        if target == name and node.value is not None:
+            return ast.literal_eval(node.value)
+    raise AssertionError(f"{name} is not a module-level constant any more")
 
 
 def _load_module(name: str, rel: str):
@@ -297,6 +329,43 @@ def test_lab3_starter_fails_until_otel_contract_is_authored() -> None:
         'attributes["session.id"]',
     ):
         assert required in reference
+
+
+def test_lab2_golden_set_region_has_exactly_one_marker_pair() -> None:
+    rel, label = LAB2_GOLDEN_REGION
+    text = _read(rel)
+    assert text.count(f"# === {label}: START ===") == 1
+    assert text.count(f"# === {label}: END ===") == 1
+
+
+def test_lab2_starter_ships_no_labels() -> None:
+    """Every retrieval metric is a ratio against these ids. Unbuilt means empty."""
+    rel, _ = LAB2_GOLDEN_REGION
+    tree = ast.parse(_read(rel))
+    value = _module_constant(tree, "CANONICAL_ANNA_GOLDEN_IDS")
+    assert value == (), (
+        "the starter must ship an empty golden set; a pre-labeled one hands the "
+        "participant the answer and makes the before/after unreadable"
+    )
+
+
+def test_lab2_reference_labels_the_rows_the_predicate_yields() -> None:
+    tree = ast.parse(_read(LAB2_GOLDEN_REFERENCE))
+    assert _module_constant(tree, "CANONICAL_ANNA_GOLDEN_IDS") == LAB2_GOLDEN_IDS
+
+
+def test_lab2_golden_set_is_stated_once() -> None:
+    """The eval harness must derive the labels, not carry a second copy.
+
+    A duplicate literal would score the harness against a labeling the backend
+    no longer uses and report a regression that exists only in that file.
+    """
+    harness = _read("scripts/eval_retrieval_harness.py")
+    assert "CANONICAL_ANNA_GOLDEN_IDS" in harness
+    for product_id in LAB2_GOLDEN_IDS:
+        assert f'"{product_id}", "' not in harness.split("GOLDEN_QUERIES")[0], (
+            "the harness appears to carry its own copy of the golden ids"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -531,6 +600,8 @@ def test_no_lab_anchor_is_a_broken_path() -> None:
     anchors += [
         LAB2_STARTER,
         LAB2_REFERENCE,
+        LAB2_GOLDEN_REFERENCE,
+        LAB2_GOLDEN_REGION[0],
         LAB4_OTEL_STARTER,
         LAB4_OTEL_REFERENCE,
         LAB4_STARTER,

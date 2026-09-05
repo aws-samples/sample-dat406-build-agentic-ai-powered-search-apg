@@ -55,38 +55,12 @@ from services.search_plan import STRATEGY_HYBRID, STRATEGY_VECTOR
 CANONICAL_ANNA_QUERY = "A housewarming gift under $100 that is currently in stock."
 
 # === WORKSHOP · Retrieval eval · golden set: START ===
-# WORKSHOP_EXERCISE_STUB
+# SOLUTION - the labeled relevant rows for Anna's canonical query.
 #
-# Lab 2b. Lab 2a built the fusion. This is the half that tells you whether the
-# fusion is any good, and it cannot be computed: relevance is a labeling
-# decision a person makes, and every retrieval metric is a ratio against it.
-#
-# `micro_eval_variant` scores each rerank pool size against these ids:
-#   candidate_coverage  golden ids that reached the rerank pool / golden ids
-#   context_precision   returned ids that are golden / returned ids
-#   mrr                 1 / rank of the first golden id
-#
-# With an empty set every one of those is 0.0 and the comparison is unreadable.
-#
-# Label the relevant rows for CANONICAL_ANNA_QUERY. The definition is a
-# query, not a taste test: the in-stock Home Decor pieces tagged both `gift`
-# and `home` at or under $100. Derive them in the Code Editor, do not guess:
-#
-#   psql -X -P pager=off -c "
-#     SELECT \"productId\", name, price
-#       FROM pellier.product_catalog
-#      WHERE category = 'Home Decor'
-#        AND price <= 100
-#        AND quantity > 0
-#        AND tags @> '["gift","home"]'::jsonb
-#      ORDER BY \"productId\";"
-#
-# Pin the ids it returns, as strings, in ascending order.
-#
-# Verify (live, the real check): the Observatory Performance view's rerank pool
-# micro-eval reports non-zero candidate coverage and precision, and pool 20
-# separates from pool 3.
-CANONICAL_ANNA_GOLDEN_IDS: tuple[str, ...] = ()
+# The in-stock Home Decor pieces tagged both `gift` and `home` at or under
+# $100 in `scripts/seed_pellier_catalog.py`. Labeled by definition rather than
+# by taste, so the metrics are reproducible and the labeling is arguable.
+CANONICAL_ANNA_GOLDEN_IDS: tuple[str, ...] = ("21", "22", "23", "25", "27", "29")
 # === WORKSHOP · Retrieval eval · golden set: END ===
 
 # Below three documents the reranker has nothing to reorder.

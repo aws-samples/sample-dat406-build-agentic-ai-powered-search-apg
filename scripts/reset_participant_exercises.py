@@ -39,6 +39,12 @@ MARKER_EXERCISES = (
         marker="WORKSHOP · Inventory Agent · check_inventory",
     ),
     MarkerExercise(
+        exercise_id="lab-2-golden-set",
+        starter="workshop/starters/lab-2/anna-golden-set.pyfrag",
+        destination="pellier/backend/services/planned_hybrid_retrieval.py",
+        marker="WORKSHOP · Retrieval eval · golden set",
+    ),
+    MarkerExercise(
         exercise_id="lab-3-gateway-catalogue",
         starter="workshop/starters/lab-3/gateway-published-tools.pyfrag",
         destination="scripts/deploy/gateway_tool_schemas.py",

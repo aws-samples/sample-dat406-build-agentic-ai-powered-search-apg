@@ -2404,6 +2404,11 @@ async def micro_eval_search_strategies(
         "query": q,
         "limit": limit,
         "repetitions": passes,
+        # Every quality metric below is a ratio against the labeled set. When
+        # Lab 2b has not been built it is empty, and coverage, precision and
+        # MRR are all 0.0 for want of a denominator rather than because
+        # retrieval failed. The surface needs to be able to tell those apart.
+        "golden_set_size": len(CANONICAL_ANNA_GOLDEN_IDS),
         "variants": variants,
     }
 

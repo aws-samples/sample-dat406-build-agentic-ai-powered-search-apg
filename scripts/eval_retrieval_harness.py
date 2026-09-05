@@ -45,6 +45,7 @@ also gate on planner precision.
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import json
 import os
@@ -102,15 +103,47 @@ class GoldenQuery:
     filters: Filters = field(default_factory=Filters)
 
 
+def _canonical_anna_labels() -> tuple[str, tuple[str, ...]]:
+    """Read Lab 2b's labeled golden set from the backend source, not a copy.
+
+    The labels are a participant artifact: Lab 2b pins them in
+    ``services/planned_hybrid_retrieval.py``. A second literal here would score
+    the harness against last week's labeling and report a regression that
+    exists only in this file. Empty until the lab is built, which is the honest
+    reading of "nothing has been labeled yet".
+
+    Parsed rather than imported: importing that module constructs ``Settings``,
+    so a harness that imported it could not even be read without database
+    credentials in the environment.
+    """
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "pellier"
+        / "backend"
+        / "services"
+        / "planned_hybrid_retrieval.py"
+    ).read_text(encoding="utf-8")
+
+    wanted = {"CANONICAL_ANNA_QUERY": "", "CANONICAL_ANNA_GOLDEN_IDS": ()}
+    for node in ast.walk(ast.parse(source)):
+        target = None
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target = node.target.id
+        elif isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
+            target = node.targets[0].id
+        if target in wanted and node.value is not None:
+            wanted[target] = ast.literal_eval(node.value)
+
+    return str(wanted["CANONICAL_ANNA_QUERY"]), tuple(wanted["CANONICAL_ANNA_GOLDEN_IDS"])
+
+
+_ANNA_QUERY, _ANNA_EXPECTED = _canonical_anna_labels()
+
 GOLDEN_QUERIES: tuple[GoldenQuery, ...] = (
-    # The canonical Lab 2 query. Expected ids are the in-stock Home Decor
-    # pieces tagged both ``gift`` and ``home`` at or under $100 in
-    # scripts/seed_pellier_catalog.py; the backend pins the same entry as
-    # ``planned_hybrid_retrieval.CANONICAL_ANNA_GOLDEN_IDS``.
     GoldenQuery(
         "anna_housewarming",
-        "A housewarming gift under $100 that is currently in stock.",
-        ("21", "22", "23", "25", "27", "29"),
+        _ANNA_QUERY,
+        _ANNA_EXPECTED,
         Filters(categories=("Home Decor", "Gifts"), tags=("gift", "home"), price_max=100),
     ),
     GoldenQuery(

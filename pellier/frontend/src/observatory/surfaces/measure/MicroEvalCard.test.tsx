@@ -193,3 +193,49 @@ describe('MicroEvalCard', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 });
+
+describe('an unlabelled golden set', () => {
+  // Lab 2b pins the labels. Before it is built the backend reports
+  // `golden_set_size: 0` and every quality ratio is 0.0 for want of a
+  // denominator. Rendering those bare reads as "retrieval is broken", which is
+  // the opposite of what the numbers mean.
+  const zeroed = {
+    ...PAYLOAD,
+    golden_set_size: 0,
+    variants: PAYLOAD.variants.map((variant) => ({
+      ...variant,
+      candidate_coverage: 0,
+      context_precision: 0,
+      mrr: 0,
+    })),
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function runWith(payload: unknown) {
+    stubFetch(() => new Response(JSON.stringify(payload), { status: 200 }));
+    await runCard();
+  }
+
+  it('says the ratios have no denominator rather than showing bare zeros', async () => {
+    await runWith(zeroed);
+    const notice = await screen.findByTestId('micro-eval-unlabelled');
+    expect(notice.textContent).toMatch(/labelled relevant/i);
+    expect(notice.textContent).toMatch(/Lab 2b/);
+  });
+
+  it('stays out of the way once the labels are pinned', async () => {
+    await runWith({ ...zeroed, golden_set_size: 6 });
+    await screen.findByRole('table');
+    expect(screen.queryByTestId('micro-eval-unlabelled')).toBeNull();
+  });
+
+  it('says nothing when the runtime predates the field', async () => {
+    const { golden_set_size: _omitted, ...legacy } = zeroed;
+    await runWith(legacy);
+    await screen.findByRole('table');
+    expect(screen.queryByTestId('micro-eval-unlabelled')).toBeNull();
+  });
+});

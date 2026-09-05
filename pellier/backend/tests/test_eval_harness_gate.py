@@ -516,7 +516,10 @@ def test_the_harness_runs_the_shipped_executor(harness: Any) -> None:
         "rerank": lambda **_kwargs: [],
         "extractor": _StubExtractor(),
     }
-    golden = harness.GOLDEN_QUERIES[0]
+    # Not GOLDEN_QUERIES[0]: that entry's labels are Lab 2b's artifact and are
+    # empty until a participant builds it. These tests exercise the harness's
+    # coverage arithmetic, which needs a labeled entry to divide by.
+    golden = next(g for g in harness.GOLDEN_QUERIES if g.expected)
     args = argparse.Namespace(pool_k=20, rrf_k=60, top_k=5)
 
     outcomes = asyncio.run(
@@ -542,7 +545,10 @@ def test_the_harness_reports_the_pool_the_executor_resolved(harness: Any) -> Non
     """``--pool-k 50`` cannot label coverage at 50 over a pool of thirty."""
     from services.search_plan import build_plan
 
-    golden = harness.GOLDEN_QUERIES[0]
+    # Not GOLDEN_QUERIES[0]: that entry's labels are Lab 2b's artifact and are
+    # empty until a participant builds it. These tests exercise the harness's
+    # coverage arithmetic, which needs a labeled entry to divide by.
+    golden = next(g for g in harness.GOLDEN_QUERIES if g.expected)
     plan = build_plan(golden.query, {"in_stock_only": True}, top_k=5)
     resolved = 30
     rows = [{"product_id": str(expected)} for expected in golden.expected]
