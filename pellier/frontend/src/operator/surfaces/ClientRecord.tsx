@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { ArrowDown, Database, MessageSquareText } from 'lucide-react'
+import { ArrowDown } from 'lucide-react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MEMBERSHIP } from '../../data/membership'
 import {
@@ -290,7 +290,6 @@ const ClientRecord: React.FC = () => {
         >
           <div className="operator-service-request-head">
             <span className="operator-service-request-eyebrow">
-              <MessageSquareText aria-hidden />
               Current service request
             </span>
             <span
@@ -306,36 +305,36 @@ const ClientRecord: React.FC = () => {
           <p className="operator-service-request-note">
             {currentRequest.lastNote}
           </p>
-          <dl className="operator-service-request-evidence">
-            <div>
-              <dt>Service context</dt>
-              <dd>
-                {currentRequest.channel} · {currentRequest.ticketId}
-              </dd>
-            </div>
-            <div>
-              <dt>
-                <Database aria-hidden />
-                Returns ledger
-              </dt>
-              <dd>
-                {returnEvidence?.authoritativeReturnCount ?? returns.length}{' '}
-                authoritative{' '}
-                {(returnEvidence?.authoritativeReturnCount ??
-                  returns.length) === 1
-                  ? 'row'
-                  : 'rows'}
-              </dd>
-            </div>
-            <div>
-              <dt>Next step</dt>
-              <dd>
-                {returnEvidence?.unconfirmedReturnAssertion
-                  ? 'Reconcile the assertion before promising an outcome.'
-                  : 'Investigate the request against current records.'}
-              </dd>
-            </div>
-          </dl>
+          {/* Where the request came from and what the ledger holds: two facts,
+              read as a line of facts. They were cells in a three-column strip
+              beside a full sentence, which made an instruction look like a
+              third metric. The ticket is an identifier, so it is the only part
+              set in mono. */}
+          <p className="operator-service-request-facts">
+            <span>Raised in {currentRequest.channel}</span>
+            <code>{currentRequest.ticketId}</code>
+            <span className="operator-service-request-facts-sep" aria-hidden="true">
+              ·
+            </span>
+            <span>
+              {returnEvidence?.authoritativeReturnCount ?? returns.length}{' '}
+              authoritative{' '}
+              {(returnEvidence?.authoritativeReturnCount ?? returns.length) === 1
+                ? 'row'
+                : 'rows'}{' '}
+              in the returns ledger
+            </span>
+          </p>
+          {/* The one thing to do next, given the weight of an instruction
+              rather than the weight of a statistic. */}
+          <div className="operator-service-request-next">
+            <span className="operator-service-request-next-label">Next step</span>
+            <p>
+              {returnEvidence?.unconfirmedReturnAssertion
+                ? 'Reconcile the assertion before promising an outcome.'
+                : 'Investigate the request against current records.'}
+            </p>
+          </div>
           <a
             href="#operator-concierge-title"
             className="operator-service-request-link"

@@ -1337,13 +1337,22 @@
 /* A live service request is the reason an advisor opened the record, so it
    precedes the summary figures instead of hiding in the history table. This is
    one full-width evidence band, not another card in the record grid. */
+/*
+ * Paper, with the state named once.
+ *
+ * The card used to tint its whole body with the warn hue and then say the same
+ * thing three more times: a warn-tinted border, a warn eyebrow and a warn
+ * status pill. Colouring an entire panel by status is how a dashboard shouts;
+ * this desk carries state in a mark and a word, and everything else stays
+ * paper. The conflict tick below is the mark.
+ */
 .operator-service-request {
   margin: 0 0 18px;
   padding: 19px 22px 20px;
-  border: 1px solid color-mix(in srgb, var(--op-warn) 26%, var(--op-rule));
+  border: 1px solid var(--op-rule);
   border-radius: var(--op-radius);
   box-shadow: var(--op-shadow-paper);
-  background: color-mix(in srgb, var(--op-warn) 6%, var(--op-paper));
+  background: var(--op-paper);
 }
 
 /* A hairline tick across the top edge, the mark the Pellier section frame has
@@ -1370,11 +1379,11 @@
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
-  color: var(--op-warn);
+  /* The section's label, in the label register every other eyebrow uses. The
+     status pill beside it owns the colour. */
+  color: var(--op-label);
 }
 
-.operator-service-request-eyebrow svg,
-.operator-service-request-evidence dt svg,
 .operator-service-request-link svg {
   width: 15px;
   height: 15px;
@@ -1400,25 +1409,42 @@
   color: var(--op-ink-2);
 }
 
-.operator-service-request-evidence {
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.75fr) minmax(0, 1.45fr);
-  gap: 1px;
-  margin: 16px 0 0;
-  border: 1px solid var(--op-rule);
-  background: var(--op-rule);
-}
-
-.operator-service-request-evidence > div {
-  min-width: 0;
-  padding: 11px 12px;
-  background: var(--op-paper);
-}
-
-.operator-service-request-evidence dt {
+/*
+ * Two facts on one line, replacing a three-cell strip built from a 1px-gap
+ * rule grid. Its third cell held a full sentence, so the column widths existed
+ * to fit prose and an instruction sat where a reader expects a number.
+ */
+.operator-service-request-facts {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--op-muted);
+}
+
+.operator-service-request-facts code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--op-ink-2);
+}
+
+.operator-service-request-facts-sep {
+  /* Visible enough to separate two facts. At --op-rule-strong it vanished and
+     the pair read as one run of text with an odd gap in it. */
+  color: var(--op-muted);
+}
+
+.operator-service-request-next {
+  margin: 14px 0 0;
+  padding: 13px 0 0;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-service-request-next-label {
+  display: block;
   font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: var(--op-label-track);
@@ -1426,12 +1452,12 @@
   color: var(--op-label);
 }
 
-.operator-service-request-evidence dd {
-  margin: 5px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--op-ink-2);
-  overflow-wrap: anywhere;
+.operator-service-request-next p {
+  max-width: 62ch;
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--op-ink);
 }
 
 .operator-service-request-link {
@@ -3167,10 +3193,6 @@
   .operator-case-entry-action {
     grid-column: 1 / -1;
     width: 100%;
-  }
-
-  .operator-service-request-evidence {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .operator-topbar {

@@ -170,3 +170,27 @@ describe('topbar account control', () => {
   })
 })
 
+describe('service request card', () => {
+  it('does not colour its whole body by status', () => {
+    // The card tinted its background with the warn hue and then repeated that
+    // hue in the border, the eyebrow and the status pill. Colouring an entire
+    // panel by state is the dashboard reflex this desk avoids: the state is a
+    // mark and a word, and the panel stays paper.
+    const card = ruleBody('.operator-service-request {')
+    expect(card).toContain('background: var(--op-paper)')
+    expect(card).not.toContain('--op-warn')
+
+    const eyebrow = ruleBody('.operator-service-request-eyebrow {')
+    expect(eyebrow).not.toContain('--op-warn')
+  })
+
+  it('does not lay its facts out as a rule grid of equal cells', () => {
+    // Three cells of a 1px-gap grid held two facts and one full sentence, so
+    // an instruction sat where a reader expects a number and the column widths
+    // existed to fit prose.
+    expect(CSS).not.toContain('.operator-service-request-evidence')
+    const facts = ruleBody('.operator-service-request-facts {')
+    expect(facts).toContain('display: flex')
+  })
+})
+
