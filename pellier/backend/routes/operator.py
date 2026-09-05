@@ -125,19 +125,33 @@ _BOOK_SELECT = """
         c.preferences_summary                  AS preferences_summary,
         COUNT(o.id)                            AS order_count,
         COALESCE(SUM(p.price * o.quantity), 0) AS order_value,
-        MAX(o.placed_at)                       AS last_order_at
+        MAX(o.placed_at)                       AS last_order_at,
+        -- The client's live service request, if one is open. The book row
+        -- otherwise has to describe a case from `preferences_summary`, which
+        -- is a free-text brief and not a statement of what is happening.
+        t.subject                              AS open_case,
+        t.status                               AS open_case_status
       FROM pellier.customers c
       LEFT JOIN pellier.orders o
              ON o.customer_id = c.id
       LEFT JOIN pellier.product_catalog p
              ON p."productId" = o.product_id
+      LEFT JOIN LATERAL (
+            SELECT subject, status
+              FROM pellier.support_tickets
+             WHERE customer_id = c.id
+               AND status IN ('open', 'pending')
+             ORDER BY opened_at DESC
+             LIMIT 1
+      ) t ON TRUE
      -- left() rather than a LIKE prefix match: psycopg parses a bare percent
      -- sign as a placeholder even when no parameters are bound, and it does
      -- not skip comments, so a percent anywhere in this string raises before
      -- the query reaches Postgres.
      WHERE left(c.id, 5) = 'CUST-'
        AND c.id <> 'CUST-FRESH'
-     GROUP BY c.id, c.name, c.membership, c.spend_12mo, c.preferences_summary
+     GROUP BY c.id, c.name, c.membership, c.spend_12mo, c.preferences_summary,
+              t.subject, t.status
      ORDER BY c.spend_12mo DESC, c.name ASC
 """
 
@@ -306,6 +320,11 @@ def _book_row(row: Dict[str, Any]) -> Dict[str, Any]:
         "lastOrderAt": _iso(row.get("last_order_at")),
         "note": row.get("preferences_summary") or "",
         "personaId": _HERO_CUSTOMER_IDS.get(customer_id),
+        # What is actually happening for this client, when something is. `note`
+        # is a preferences brief and cannot answer that: reading a case out of
+        # it means parsing prose and calling the result a fact.
+        "openCase": row.get("open_case") or None,
+        "openCaseStatus": row.get("open_case_status") or None,
     }
 
 

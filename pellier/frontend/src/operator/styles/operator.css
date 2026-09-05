@@ -738,13 +738,47 @@
   min-width: 0;
 }
 
+.operator-case-entry-headline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+/* What is happening, in the weight it deserves: the reason this one client is
+   promoted above the book. One line, truncated rather than wrapped, so a case
+   naming five pieces cannot push the card into two rows. */
+.operator-case-entry-case {
+  margin: 7px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--op-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operator-case-entry-brief {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--op-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .operator-case-entry-kicker {
-  display: block;
-  color: var(--op-authority);
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--op-authority) 45%, transparent);
+  border-radius: 999px;
   font-size: var(--text-label);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
+  color: var(--op-authority);
 }
 
 .operator-case-entry h2 {
@@ -1414,36 +1448,32 @@
  * rule grid. Its third cell held a full sentence, so the column widths existed
  * to fit prose and an instruction sat where a reader expects a number.
  */
-.operator-service-request-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 8px;
-  margin: 14px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--op-muted);
-}
-
-.operator-service-request-facts code {
+/* The identifier, in the register identifiers use. */
+.operator-service-request-ticket {
   font-family: var(--mono);
   font-size: 12.5px;
-  color: var(--op-ink-2);
-}
-
-.operator-service-request-facts-sep {
-  /* Visible enough to separate two facts. At --op-rule-strong it vanished and
-     the pair read as one run of text with an odd gap in it. */
+  letter-spacing: 0.02em;
   color: var(--op-muted);
 }
 
-.operator-service-request-next {
-  margin: 14px 0 0;
-  padding: 13px 0 0;
-  border-top: 1px solid var(--op-rule);
+/*
+ * Two claims, side by side, divided by a hairline. Stacked they read as one
+ * account; beside each other the reader can see that they disagree, which is
+ * the only reason this card is promoted.
+ */
+.operator-service-request-claims {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 26px;
+  margin: 15px 0 0;
 }
 
-.operator-service-request-next-label {
+.operator-service-request-claims > div + div {
+  padding-left: 26px;
+  border-left: 1px solid var(--op-rule);
+}
+
+.operator-service-request-claim-label {
   display: block;
   font-size: var(--text-label);
   font-weight: 600;
@@ -1452,12 +1482,71 @@
   color: var(--op-label);
 }
 
-.operator-service-request-next p {
-  max-width: 62ch;
-  margin: 6px 0 0;
+.operator-service-request-claims p {
+  margin: 7px 0 0;
   font-size: 14px;
   line-height: 1.5;
   color: var(--op-ink);
+  text-wrap: pretty;
+}
+
+.operator-service-request-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  margin: 16px 0 0;
+  padding: 15px 0 0;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-service-request-next {
+  max-width: 56ch;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--op-muted);
+}
+
+/* The desk's one primary button, same metrics as every other. */
+.operator-service-request-action {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--op-ink);
+  border-radius: var(--control-radius);
+  background: var(--op-ink);
+  color: var(--op-paper);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.operator-service-request-action:hover {
+  border-color: var(--op-authority);
+  background: var(--op-authority);
+  color: var(--op-paper);
+}
+
+@media (max-width: 760px) {
+  .operator-service-request-claims {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px 0;
+  }
+
+  .operator-service-request-claims > div + div {
+    padding-left: 0;
+    padding-top: 14px;
+    border-left: 0;
+    border-top: 1px solid var(--op-rule);
+  }
 }
 
 .operator-service-request-link {

@@ -189,8 +189,17 @@ describe('service request card', () => {
     // an instruction sat where a reader expects a number and the column widths
     // existed to fit prose.
     expect(CSS).not.toContain('.operator-service-request-evidence')
-    const facts = ruleBody('.operator-service-request-facts {')
-    expect(facts).toContain('display: flex')
+  })
+
+  it('sets the two claims beside each other so they can be compared', () => {
+    // The card is promoted because a ticket asserts a return the database has
+    // no row for. Stacked, the two read as one account of events; side by side
+    // the disagreement is the thing the reader sees.
+    const claims = ruleBody('.operator-service-request-claims {')
+    expect(claims).toContain('grid-template-columns')
+    expect(claims).toContain('minmax(0, 1fr) minmax(0, 1fr)')
+    // And they stack rather than crush on a narrow pane.
+    expect(CSS).toContain('.operator-service-request-claims > div + div')
   })
 })
 

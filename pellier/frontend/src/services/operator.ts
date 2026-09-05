@@ -47,6 +47,15 @@ export interface OperatorClient {
   note: string
   /** Set only where a real storefront handoff exists. */
   personaId: string | null
+  /**
+   * The subject of this client's open service request, when one is open.
+   *
+   * Distinct from `note`, which is a preferences brief. A card that wants to
+   * say what is happening has to read this; deriving it from the brief means
+   * parsing prose and presenting the result as a fact.
+   */
+  openCase?: string | null
+  openCaseStatus?: string | null
   /** Present on a single-client read. */
   openTicketCount?: number
   creditBalanceCents?: number

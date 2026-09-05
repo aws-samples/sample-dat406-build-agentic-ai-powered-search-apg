@@ -8,7 +8,6 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { ArrowDown } from 'lucide-react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MEMBERSHIP } from '../../data/membership'
 import {
@@ -289,8 +288,8 @@ const ClientRecord: React.FC = () => {
           aria-labelledby="operator-service-request-title"
         >
           <div className="operator-service-request-head">
-            <span className="operator-service-request-eyebrow">
-              Current service request
+            <span className="operator-service-request-ticket">
+              {currentRequest.ticketId}
             </span>
             <span
               className="operator-status"
@@ -302,46 +301,51 @@ const ClientRecord: React.FC = () => {
           <h2 id="operator-service-request-title">
             {currentRequest.subject}
           </h2>
-          <p className="operator-service-request-note">
-            {currentRequest.lastNote}
-          </p>
-          {/* Where the request came from and what the ledger holds: two facts,
-              read as a line of facts. They were cells in a three-column strip
-              beside a full sentence, which made an instruction look like a
-              third metric. The ticket is an identifier, so it is the only part
-              set in mono. */}
-          <p className="operator-service-request-facts">
-            <span>Raised in {currentRequest.channel}</span>
-            <code>{currentRequest.ticketId}</code>
-            <span className="operator-service-request-facts-sep" aria-hidden="true">
-              ·
-            </span>
-            <span>
-              {returnEvidence?.authoritativeReturnCount ?? returns.length}{' '}
-              authoritative{' '}
-              {(returnEvidence?.authoritativeReturnCount ?? returns.length) === 1
-                ? 'row'
-                : 'rows'}{' '}
-              in the returns ledger
-            </span>
-          </p>
-          {/* The one thing to do next, given the weight of an instruction
-              rather than the weight of a statistic. */}
-          <div className="operator-service-request-next">
-            <span className="operator-service-request-next-label">Next step</span>
-            <p>
+          {/*
+            * The disagreement, side by side.
+            *
+            * This card exists because a support ticket can ASSERT a return
+            * while the database holds no row for it, and the console's job is
+            * to show that rather than resolve it by guessing. Two columns make
+            * the two claims comparable; a stacked list made them read as one
+            * account of events. The right column is labelled by what it is,
+            * not by the product behind it, because the same build runs on
+            * local PostgreSQL and on Aurora.
+            */}
+          <div className="operator-service-request-claims">
+            <div>
+              <span className="operator-service-request-claim-label">
+                Client report
+              </span>
+              <p>{currentRequest.lastNote}</p>
+            </div>
+            <div>
+              <span className="operator-service-request-claim-label">
+                System of record
+              </span>
+              <p>
+                {returnEvidence?.authoritativeReturnCount ?? returns.length}{' '}
+                authoritative{' '}
+                {(returnEvidence?.authoritativeReturnCount ?? returns.length) === 1
+                  ? 'row'
+                  : 'rows'}{' '}
+                in the returns ledger
+              </p>
+            </div>
+          </div>
+          <div className="operator-service-request-foot">
+            <p className="operator-service-request-next">
               {returnEvidence?.unconfirmedReturnAssertion
                 ? 'Reconcile the assertion before promising an outcome.'
                 : 'Investigate the request against current records.'}
             </p>
+            <a
+              href="#operator-concierge-title"
+              className="operator-service-request-action"
+            >
+              Investigate case
+            </a>
           </div>
-          <a
-            href="#operator-concierge-title"
-            className="operator-service-request-link"
-          >
-            Investigate with Operator Concierge
-            <ArrowDown aria-hidden />
-          </a>
         </section>
       ) : null}
 

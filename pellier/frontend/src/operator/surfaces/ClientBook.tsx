@@ -205,9 +205,18 @@ const ClientBook: React.FC = () => {
             personaId={jessicaCase.personaId}
           />
           <div className="operator-case-entry-copy">
-            <span className="operator-case-entry-kicker">Service recovery case</span>
-            <h2 id="operator-jessica-case-title">{jessicaCase.name}</h2>
-            <p>{jessicaCase.note}</p>
+            {/* Name and standing on one line, then what is happening, then the
+                client's brief. Three levels of decreasing weight rather than
+                labelled columns: the labels were carrying facts the sentences
+                already say. */}
+            <div className="operator-case-entry-headline">
+              <h2 id="operator-jessica-case-title">{jessicaCase.name}</h2>
+              <span className="operator-case-entry-kicker">Service recovery</span>
+            </div>
+            {jessicaCase.openCase ? (
+              <p className="operator-case-entry-case">{jessicaCase.openCase}</p>
+            ) : null}
+            <p className="operator-case-entry-brief">{jessicaCase.note}</p>
           </div>
           <button
             type="button"
@@ -219,7 +228,7 @@ const ClientBook: React.FC = () => {
               )
             }
           >
-            Open Jessica&apos;s case
+            Review case
           </button>
         </section>
       ) : null}

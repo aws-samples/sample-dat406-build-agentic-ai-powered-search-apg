@@ -364,7 +364,7 @@ describe('ClientBook', () => {
     expect(entry).toHaveTextContent('Jessica Nakamura')
     expect(entry).toHaveTextContent('Open return dispute')
     expect(
-      screen.getByRole('button', { name: /Open Jessica's case/i }),
+      screen.getByRole('button', { name: /Review case/i }),
     ).toBeInTheDocument()
   })
 
@@ -408,7 +408,7 @@ describe('ClientBook', () => {
     )
 
     fireEvent.click(
-      await screen.findByRole('button', { name: /Open Jessica's case/i }),
+      await screen.findByRole('button', { name: /Review case/i }),
     )
 
     expect(await screen.findByTestId('operator-location')).toHaveTextContent(
@@ -563,7 +563,7 @@ describe('ClientRecord', () => {
     )
     expect(request).toHaveAttribute('data-conflict', 'true')
     expect(
-      screen.getByRole('link', { name: /Investigate with Operator Concierge/i }),
+      screen.getByRole('link', { name: /Investigate case/i }),
     ).toHaveAttribute('href', '#operator-concierge-title')
   })
 
@@ -617,7 +617,7 @@ describe('ClientRecord', () => {
     expect(screen.queryByTestId('operator-credit-submit')).not.toBeInTheDocument()
     expect(screen.queryByTestId('operator-return-submit')).not.toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /Investigate with Operator Concierge/i }),
+      screen.getByRole('link', { name: /Investigate case/i }),
     ).toHaveAttribute('href', '#operator-concierge-title')
   })
 })
