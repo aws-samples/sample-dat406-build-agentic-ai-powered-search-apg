@@ -1382,21 +1382,25 @@
  */
 .operator-service-request {
   margin: 0 0 18px;
-  padding: 19px 22px 20px;
+  /* Air is the point. At 19/22 the card held the same words in a third less
+     room and read as something generated to fill a slot; the reading order
+     only becomes legible once each band has space around it. */
+  padding: clamp(22px, 3.2vw, 34px);
   border: 1px solid var(--op-rule);
-  border-radius: var(--op-radius);
+  border-radius: 18px;
   box-shadow: var(--op-shadow-paper);
   background: var(--op-paper);
 }
 
-/* A hairline tick across the top edge, the mark the Pellier section frame has
-   always used. A thick coloured bar down one side turns every panel into an
-   alert. */
-.operator-service-request[data-conflict='true'] {
-  box-shadow:
-    inset 0 2px 0 var(--op-warn),
-    var(--op-shadow-paper);
-}
+/*
+ * No second mark for the same fact.
+ *
+ * A warn-coloured tick used to run across the top edge whenever the ticket's
+ * claim was unbacked. The head now names that state in words, beside a dot, so
+ * the tick was a second signal for one fact in a different hue. `data-conflict`
+ * stays on the element: it is what the state is derived from and what the
+ * tests read.
+ */
 
 .operator-service-request-head {
   display: flex;
@@ -1425,10 +1429,12 @@
 }
 
 .operator-service-request h2 {
-  max-width: 34ch;
-  margin: 11px 0 0;
+  max-width: 26ch;
+  margin: 14px 0 0;
   font-family: var(--display);
-  font-size: 22px;
+  /* The headline carries the card. At 22px it was the same size as the body
+     around it and nothing led. */
+  font-size: clamp(25px, 2.4vw, 31px);
   font-weight: 400;
   line-height: 1.25;
   color: var(--op-ink);
@@ -1451,9 +1457,28 @@
 /* The identifier, in the register identifiers use. */
 .operator-service-request-ticket {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 13px;
   letter-spacing: 0.02em;
   color: var(--op-muted);
+}
+
+/* State as a mark and a phrase. An uppercase outlined pill made the state
+   compete with the headline; a dot reads at a glance and the phrase says what
+   to do about it. */
+.operator-service-request-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  color: var(--op-ink);
+  white-space: nowrap;
+}
+
+.operator-service-request-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--op-authority);
 }
 
 /*
@@ -1464,12 +1489,12 @@
 .operator-service-request-claims {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0 26px;
-  margin: 15px 0 0;
+  gap: 0 32px;
+  margin: 22px 0 0;
 }
 
 .operator-service-request-claims > div + div {
-  padding-left: 26px;
+  padding-left: 32px;
   border-left: 1px solid var(--op-rule);
 }
 
@@ -1483,8 +1508,8 @@
 }
 
 .operator-service-request-claims p {
-  margin: 7px 0 0;
-  font-size: 14px;
+  margin: 10px 0 0;
+  font-size: 15px;
   line-height: 1.5;
   color: var(--op-ink);
   text-wrap: pretty;
@@ -1496,15 +1521,15 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 14px 20px;
-  margin: 16px 0 0;
-  padding: 15px 0 0;
+  margin: 24px 0 0;
+  padding: 22px 0 0;
   border-top: 1px solid var(--op-rule);
 }
 
 .operator-service-request-next {
   max-width: 56ch;
   margin: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.5;
   color: var(--op-muted);
 }
@@ -1514,13 +1539,15 @@
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  min-height: 44px;
-  padding: 10px 18px;
+  min-height: 46px;
+  padding: 12px 26px;
   border: 1px solid var(--op-ink);
-  border-radius: var(--control-radius);
+  /* A considered rectangle rather than a lozenge: this is the card's own
+     commitment, not a control in a toolbar. */
+  border-radius: 9px;
   background: var(--op-ink);
   color: var(--op-paper);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
   text-decoration: none;
   transition:

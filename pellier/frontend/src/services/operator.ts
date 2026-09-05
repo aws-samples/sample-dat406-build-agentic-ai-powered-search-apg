@@ -124,6 +124,13 @@ export interface OperatorBook {
 }
 
 export interface OperatorClientRecord {
+  /**
+   * Which database answered. The record contrasts what a ticket claims with
+   * what the authoritative store holds, and that column names the store it
+   * read: the same build serves local PostgreSQL in development and Aurora in
+   * the workshop.
+   */
+  dataSource?: string
   client: OperatorClient
   orders: OperatorOrder[]
   tickets: OperatorTicket[]

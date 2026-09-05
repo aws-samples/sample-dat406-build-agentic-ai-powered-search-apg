@@ -291,11 +291,18 @@ const ClientRecord: React.FC = () => {
             <span className="operator-service-request-ticket">
               {currentRequest.ticketId}
             </span>
+            {/* A dot and a phrase, not a shouted pill. The phrase names the
+                state an operator has to act on: an assertion no authoritative
+                row backs needs verifying, and anything else is just the
+                ticket's own status. */}
             <span
-              className="operator-status"
+              className="operator-service-request-state"
               data-status={currentRequest.status}
             >
-              {currentRequest.status}
+              <span className="operator-service-request-dot" aria-hidden="true" />
+              {returnEvidence?.unconfirmedReturnAssertion
+                ? 'Needs verification'
+                : currentRequest.status}
             </span>
           </div>
           <h2 id="operator-service-request-title">
@@ -321,7 +328,7 @@ const ClientRecord: React.FC = () => {
             </div>
             <div>
               <span className="operator-service-request-claim-label">
-                System of record
+                {record.dataSource ? `${record.dataSource} record` : 'System of record'}
               </span>
               <p>
                 {returnEvidence?.authoritativeReturnCount ?? returns.length}{' '}

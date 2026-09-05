@@ -78,6 +78,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from services.auth import require_operator
+from services.data_source import database_source_label
 
 logger = logging.getLogger(__name__)
 
@@ -749,6 +750,11 @@ async def get_client(
         "tickets": tickets,
         "credits": credits,
         "returns": returns,
+        # Which database answered. The record surface contrasts what a ticket
+        # CLAIMS against what the authoritative store HOLDS, and that column
+        # has to name the store it read rather than assume Aurora: the same
+        # build serves local PostgreSQL in development.
+        "dataSource": database_source_label(),
     }
 
 
