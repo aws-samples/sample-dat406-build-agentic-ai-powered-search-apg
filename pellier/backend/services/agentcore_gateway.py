@@ -71,6 +71,42 @@ LOCAL_MCP_TOOL_NAMES: List[str] = [
     "get_ticket_history",
 ]
 
+# === WORKSHOP · Managed catalogue · support reconcile: START ===
+# WORKSHOP_EXERCISE_STUB
+#
+# Lab 3b. Theo's third turn ("My Wabi-Sabi Bowl arrived chipped. Please help me
+# return it.") routes to the support specialist. On the managed rail the
+# dispatcher asks the Gateway for exactly the tools named here and raises
+# "Gateway is missing support tools: ..." when the Gateway does not publish one
+# of them, so this tuple and the Gateway's published catalogue have to agree.
+#
+# Two decisions, both governance rather than plumbing:
+#
+#   1. SUPPORT_MANAGED_TOOLS must name only tools the Gateway publishes. Lab 3a
+#      publishes `get_ticket_history`. `issue_credit` moves money, stays
+#      deferred in `scripts/deploy/gateway_tool_schemas.py`, and is reachable
+#      only through the operator review desk — no shopper-facing specialist
+#      holds that grant.
+#   2. SUPPORT_CALLER_BOUND_TOOLS names the tools whose `customer_id` the server
+#      overwrites with the authenticated caller's id before execution. A read of
+#      someone's support history is only safe under that ownership condition;
+#      without it the model chooses whose tickets to read.
+#
+# Verify (live, the real check): after `agentcore deploy`, Theo's third turn
+# completes on the managed rail and the Observatory build-state card flips from
+# stale to match.
+SUPPORT_MANAGED_TOOLS: tuple[str, ...] = (
+    "get_return_policy",
+    "search_products",
+    "initiate_return",
+    "get_ticket_history",
+    "issue_credit",
+    "get_audit_trail",
+    "escalate_to_human",
+)
+SUPPORT_CALLER_BOUND_TOOLS: frozenset[str] = frozenset()
+# === WORKSHOP · Managed catalogue · support reconcile: END ===
+
 MANAGED_SPECIALIST_TOOLS: Dict[str, tuple[str, ...]] = {
     "search": (
         "search_products",
@@ -90,15 +126,7 @@ MANAGED_SPECIALIST_TOOLS: Dict[str, tuple[str, ...]] = {
     ),
     "pricing": ("get_price_analysis", "browse_category", "search_products"),
     "inventory": ("check_inventory", "get_low_stock", "restock_inventory"),
-    "support": (
-        "get_return_policy",
-        "search_products",
-        "initiate_return",
-        "get_ticket_history",
-        "issue_credit",
-        "get_audit_trail",
-        "escalate_to_human",
-    ),
+    "support": SUPPORT_MANAGED_TOOLS,
 }
 
 _MANAGED_SPECIALIST_LABELS = {
@@ -317,7 +345,7 @@ _CUSTOMER_SCOPED_TOOL_NAMES = frozenset(
         "initiate_return",
         "escalate_to_human",
     }
-)
+) | SUPPORT_CALLER_BOUND_TOOLS
 
 
 def _bind_server_tool_context(

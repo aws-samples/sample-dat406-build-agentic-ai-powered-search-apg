@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Restore the four governed workshop exercises to their incomplete starters."""
+"""Restore the governed workshop exercises to their incomplete starters."""
 
 from __future__ import annotations
 
@@ -38,6 +38,18 @@ MARKER_EXERCISES = (
         destination="pellier/backend/services/agent_tools.py",
         marker="WORKSHOP · Inventory Agent · check_inventory",
     ),
+    MarkerExercise(
+        exercise_id="lab-3-gateway-catalogue",
+        starter="workshop/starters/lab-3/gateway-published-tools.pyfrag",
+        destination="scripts/deploy/gateway_tool_schemas.py",
+        marker="WORKSHOP · Gateway catalogue · published tools",
+    ),
+    MarkerExercise(
+        exercise_id="lab-3-support-reconcile",
+        starter="workshop/starters/lab-3/support-reconcile.pyfrag",
+        destination="pellier/backend/services/agentcore_gateway.py",
+        marker="WORKSHOP · Managed catalogue · support reconcile",
+    ),
 )
 
 FILE_EXERCISES = (
@@ -47,9 +59,9 @@ FILE_EXERCISES = (
         destination="workshop/lab-2-rrf.sql",
     ),
     FileExercise(
-        exercise_id="lab-3-otel",
-        starter="workshop/starters/lab-3-otel-contract.jq",
-        destination="workshop/lab-3-otel-contract.jq",
+        exercise_id="lab-4-otel",
+        starter="workshop/starters/lab-4-otel-contract.jq",
+        destination="workshop/lab-4-otel-contract.jq",
     ),
     FileExercise(
         exercise_id="lab-4-cedar",

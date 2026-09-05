@@ -1,0 +1,21 @@
+# WORKSHOP_EXERCISE_STUB
+#
+# Lab 3a. Theo's third turn asks the support specialist to file a return, and
+# that specialist reads his past tickets first. `get_ticket_history` has a
+# schema in the catalogue above but is withheld from the Gateway, so the
+# managed rail cannot serve it.
+#
+# Publish the read; keep the money movement deferred. Remove exactly one name
+# from this set. `issue_credit` stays: it moves money, it belongs to the
+# operator review desk, and no shopper-facing specialist holds that grant.
+#
+# Then deploy, and pair this with Lab 3b so the Runtime asks the Gateway for
+# exactly what the Gateway now publishes:
+#     python3 scripts/provision_agentcore_end_to_end.py --repo-path "$PWD"
+#
+# Verify (live, the real check): the Observatory Tool Registry publishes 16
+# Gateway tools, and `get_ticket_history` appears in an MCP tool listing.
+WORKSHOP_DEFERRED_TOOLS: frozenset[str] = frozenset({
+    "issue_credit",
+    "get_ticket_history",
+})

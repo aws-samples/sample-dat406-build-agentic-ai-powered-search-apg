@@ -47,7 +47,7 @@ This is a **400-level (expert)** workshop application. "Level 400" is the AWS de
 
 **You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
 
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: each lab has one build. Lab 1 completes two marked regions in code, the Inventory Agent definition and its `check_inventory` tool; Labs 2, 3 and 4 each complete a single artifact — `workshop/lab-2-rrf.sql`, `workshop/lab-3-otel-contract.jq`, and `workshop/lab-4-rls.sql` — and every one has a reference copy under `solutions/` if you need it. Around those builds you run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
+**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: each lab has one build. Lab 1 completes two marked regions in code, the Inventory Agent definition and its `check_inventory` tool; Labs 2, 3 and 4 each complete a single artifact — `workshop/lab-2-rrf.sql`, `workshop/lab-4-otel-contract.jq`, and `workshop/lab-4-rls.sql` — and every one has a reference copy under `solutions/` if you need it. Around those builds you run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
 
 > **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** Each lab asks for one small build, and every one has a documented recovery path. Everything else is there to explore at your own pace.
 
@@ -724,7 +724,7 @@ sample-pellier-agentic-search-apg/
 │           └── data/                        36 displayed product records + persona curation
 │
 ├── workshop/                              Participant build surface: lab-2-rrf.sql,
-│                                          lab-3-otel-contract.jq, lab-4-rls.sql,
+│                                          lab-4-otel-contract.jq, lab-4-rls.sql,
 │                                          starters/, architecture-diagrams/
 ├── policies/                              Cedar policy set applied to the policy engine
 ├── skills/                                Strands runtime skills (5) + scoped guidance

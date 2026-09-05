@@ -1295,7 +1295,9 @@ log "✅ Status marker created"
 #   solutions/the-ledger/    — governance reference (observe-only)
 #
 # Files we explicitly do NOT copy (participants build these):
-#   inside agent_tools.py — the check_inventory tool body only
+#   inside agent_tools.py            — the check_inventory tool body only
+#   inside agentcore_gateway.py      — Lab 3b's support reconcile region
+#   inside gateway_tool_schemas.py   — Lab 3a's published-tools decision
 if [ "${WORKSHOP_FORMAT}" = "builders" ] || [ "${WORKSHOP_FORMAT}" = "governed" ]; then
     log "=========================================="
     log "Workshop: processing ${WORKSHOP_FORMAT} managed path"
@@ -1341,8 +1343,6 @@ if [ "${WORKSHOP_FORMAT}" = "builders" ] || [ "${WORKSHOP_FORMAT}" = "governed" 
                   "pellier/backend/services/agentcore_runtime.py" "AgentCore runtime"
     copy_solution "solutions/the-ledger/services/agentcore_memory.py" \
                   "pellier/backend/services/agentcore_memory.py" "AgentCore memory"
-    copy_solution "solutions/the-ledger/services/agentcore_gateway.py" \
-                  "pellier/backend/services/agentcore_gateway.py" "AgentCore gateway"
     # Policy is managed at the Gateway by the AgentCore CLI project. The old
     # local fake-Cedar service was removed; services/managed_policy.py is the
     # read side used by the operator surface.

@@ -71,6 +71,24 @@ LOCAL_MCP_TOOL_NAMES: List[str] = [
     "get_ticket_history",
 ]
 
+# === WORKSHOP · Managed catalogue · support reconcile: START ===
+# SOLUTION - the support specialist's managed contract, reconciled.
+#
+# `issue_credit` is gone: the Gateway does not publish it, so naming it here
+# hard-failed every support turn on the managed rail. `get_ticket_history`
+# stays and is now bound to the caller, so the server sets `customer_id` from
+# the verified session and the model cannot choose whose tickets to read.
+SUPPORT_MANAGED_TOOLS: tuple[str, ...] = (
+    "get_return_policy",
+    "search_products",
+    "initiate_return",
+    "get_ticket_history",
+    "get_audit_trail",
+    "escalate_to_human",
+)
+SUPPORT_CALLER_BOUND_TOOLS: frozenset[str] = frozenset({"get_ticket_history"})
+# === WORKSHOP · Managed catalogue · support reconcile: END ===
+
 MANAGED_SPECIALIST_TOOLS: Dict[str, tuple[str, ...]] = {
     "search": (
         "search_products",
@@ -90,15 +108,7 @@ MANAGED_SPECIALIST_TOOLS: Dict[str, tuple[str, ...]] = {
     ),
     "pricing": ("get_price_analysis", "browse_category", "search_products"),
     "inventory": ("check_inventory", "get_low_stock", "restock_inventory"),
-    "support": (
-        "get_return_policy",
-        "search_products",
-        "initiate_return",
-        "get_ticket_history",
-        "issue_credit",
-        "get_audit_trail",
-        "escalate_to_human",
-    ),
+    "support": SUPPORT_MANAGED_TOOLS,
 }
 
 _MANAGED_SPECIALIST_LABELS = {
@@ -317,7 +327,7 @@ _CUSTOMER_SCOPED_TOOL_NAMES = frozenset(
         "initiate_return",
         "escalate_to_human",
     }
-)
+) | SUPPORT_CALLER_BOUND_TOOLS
 
 
 def _bind_server_tool_context(

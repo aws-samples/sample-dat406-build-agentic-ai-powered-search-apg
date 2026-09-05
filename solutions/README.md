@@ -53,8 +53,8 @@ Lab 3 also has a bounded OpenTelemetry acceptance contract. Its recovery copy
 does not provision or change managed resources:
 
 ```bash
-cp solutions/the-ledger/observability/lab-3-otel-contract-solution.jq \
-  workshop/lab-3-otel-contract.jq
+cp solutions/the-ledger/observability/lab-4-otel-contract-solution.jq \
+  workshop/lab-4-otel-contract.jq
 ```
 
 It joins `governed_receipts` to `tool_audit` and resolves the authenticated Marco principal against the Theo customer named in tool input.

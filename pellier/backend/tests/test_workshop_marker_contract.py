@@ -25,17 +25,21 @@ behind.
 **Lab 2 - Build and Measure PostgreSQL Hybrid Retrieval.** A runnable psql
 worksheet whose RRF expression starts degraded and a complete recovery twin.
 
-**Lab 3 - Deploy and Operate the Managed Agent Path.** A jq contract whose
-OTEL predicates start false and a complete recovery twin.
+**Lab 3 - Deploy and Operate the Managed Agent Path.** Two marker regions and two
+fallback files. 3a publishes ``get_ticket_history`` on the Gateway; 3b reconciles the
+tools the Runtime asks the Gateway for and binds that read to the caller. One of the two
+files is a packaged runtime source, so completing 3b changes the deployed build
+fingerprint, which is how the participant proves their own build answered.
 
-**Lab 4 - Govern and Prove Actions.** A starter Cedar file that must NOT contain
-the answer, a reference rule that must, and one proof script whose flags the guide passes
-verbatim.
+**Lab 4 - Govern and Prove Agent Actions.** A starter Cedar file that must NOT contain
+the answer, a reference rule that must, one proof script whose flags the guide passes
+verbatim, and a jq trace contract whose OTEL predicates start false.
 """
 
 from __future__ import annotations
 
 import ast
+import importlib.util
 import re
 import subprocess
 import sys
@@ -68,20 +72,47 @@ LAB1_FALLBACK_COPIES: Tuple[Tuple[str, str], ...] = (
 )
 
 # ---------------------------------------------------------------------------
-# Labs 2 and 3, bounded build artifacts plus pacing fallbacks.
+# Lab 2, bounded build artifact plus pacing fallback.
 # ---------------------------------------------------------------------------
 
 LAB2_STARTER = "workshop/lab-2-rrf.sql"
 LAB2_REFERENCE = "solutions/the-quiet-search/sql/lab-2-rrf-solution.sql"
 LAB2_MARKER = "WORKSHOP · PostgreSQL RRF · fusion expression"
 
-LAB3_STARTER = "workshop/lab-3-otel-contract.jq"
-LAB3_REFERENCE = "solutions/the-ledger/observability/lab-3-otel-contract-solution.jq"
-LAB3_MARKER = "WORKSHOP · AgentCore OTEL · trace contract"
+# ---------------------------------------------------------------------------
+# Lab 3, two marker regions that together move the build onto the managed path.
+# 3a publishes a Gateway tool; 3b reconciles what the Runtime asks the Gateway
+# for. `agentcore_gateway.py` is a packaged runtime source, so 3b also flips the
+# deployed build fingerprint, which is the lab's proof.
+# ---------------------------------------------------------------------------
+
+LAB3_REGIONS: Tuple[Tuple[str, str], ...] = (
+    ("scripts/deploy/gateway_tool_schemas.py",
+     "WORKSHOP · Gateway catalogue · published tools"),
+    ("pellier/backend/services/agentcore_gateway.py",
+     "WORKSHOP · Managed catalogue · support reconcile"),
+)
+
+LAB3_FALLBACK_COPIES: Tuple[Tuple[str, str], ...] = (
+    ("solutions/the-ledger/gateway/gateway_tool_schemas_solution.py",
+     "scripts/deploy/gateway_tool_schemas.py"),
+    ("solutions/the-ledger/services/agentcore_gateway.py",
+     "pellier/backend/services/agentcore_gateway.py"),
+)
+
+# The tool Lab 3a publishes and Lab 3b binds to the caller, and the one that
+# stays deferred in both. Getting these backwards is the whole lesson.
+LAB3_PUBLISHED_TOOL = "get_ticket_history"
+LAB3_DEFERRED_TOOL = "issue_credit"
 
 # ---------------------------------------------------------------------------
-# Lab 4, "40-govern-actions-and-prove-outcomes", steps 1 through 4.
+# Lab 4, "40-govern-actions-and-prove-outcomes": a Cedar rule and a trace
+# contract.
 # ---------------------------------------------------------------------------
+
+LAB4_OTEL_STARTER = "workshop/lab-4-otel-contract.jq"
+LAB4_OTEL_REFERENCE = "solutions/the-ledger/observability/lab-4-otel-contract-solution.jq"
+LAB4_OTEL_MARKER = "WORKSHOP · AgentCore OTEL · trace contract"
 
 LAB4_STARTER = "policies/workshop_identity_match_forbid.cedar"
 LAB4_REFERENCE = "solutions/the-concierge/policies/identity_match_forbid.cedar"
@@ -124,15 +155,39 @@ PARTICIPANT_STARTERS = {
         "workshop/starters/lab-2-rrf.sql",
         LAB2_STARTER,
     ),
-    "lab-3-otel": (
-        "workshop/starters/lab-3-otel-contract.jq",
-        LAB3_STARTER,
+    "lab-3-gateway-catalogue": (
+        "workshop/starters/lab-3/gateway-published-tools.pyfrag",
+        "scripts/deploy/gateway_tool_schemas.py",
+    ),
+    "lab-3-support-reconcile": (
+        "workshop/starters/lab-3/support-reconcile.pyfrag",
+        "pellier/backend/services/agentcore_gateway.py",
+    ),
+    "lab-4-otel": (
+        "workshop/starters/lab-4-otel-contract.jq",
+        LAB4_OTEL_STARTER,
     ),
     "lab-4-cedar": (
         "workshop/starters/workshop_identity_match_forbid.cedar",
         LAB4_STARTER,
     ),
 }
+
+
+def _load_module(name: str, rel: str):
+    """Import a solution file by path without adding it to the package tree.
+
+    Solution twins live outside ``pellier/backend`` and share module names with
+    the live modules they replace, so importing them normally would either fail
+    or shadow the real one for every later test in the session.
+    """
+    path = REPO / rel
+    assert path.is_file(), f"{rel} is named by the lab guide but is not in the repository"
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _read(rel: str) -> str:
@@ -204,7 +259,7 @@ def test_lab1_fallback_copy_keeps_the_markers(source: str, destination: str) -> 
     "starter,reference,label",
     (
         (LAB2_STARTER, LAB2_REFERENCE, LAB2_MARKER),
-        (LAB3_STARTER, LAB3_REFERENCE, LAB3_MARKER),
+        (LAB4_OTEL_STARTER, LAB4_OTEL_REFERENCE, LAB4_OTEL_MARKER),
     ),
 )
 def test_labs_2_and_3_have_matching_build_markers(
@@ -229,8 +284,8 @@ def test_lab2_starter_fails_until_rrf_is_authored() -> None:
 
 
 def test_lab3_starter_fails_until_otel_contract_is_authored() -> None:
-    starter = _read(LAB3_STARTER)
-    reference = _read(LAB3_REFERENCE)
+    starter = _read(LAB4_OTEL_STARTER)
+    reference = _read(LAB4_OTEL_REFERENCE)
     for field in ("agentSpan", "modelSpan", "toolSpan", "sessionCorrelated"):
         assert f"{field}: false" in starter
         assert f"{field}: false" not in reference
@@ -242,6 +297,116 @@ def test_lab3_starter_fails_until_otel_contract_is_authored() -> None:
         'attributes["session.id"]',
     ):
         assert required in reference
+
+
+# ---------------------------------------------------------------------------
+# Lab 3, "30-deploy-and-operate-the-managed-path", steps 1 and 2.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("rel", "label"), LAB3_REGIONS)
+def test_lab3_region_has_exactly_one_marker_pair(rel: str, label: str) -> None:
+    text = _read(rel)
+    assert text.count(f"# === {label}: START ===") == 1
+    assert text.count(f"# === {label}: END ===") == 1
+
+
+@pytest.mark.parametrize(("rel", "label"), LAB3_REGIONS)
+def test_lab3_region_is_ordered_and_not_empty(rel: str, label: str) -> None:
+    text = _read(rel)
+    start = text.index(f"# === {label}: START ===")
+    end = text.index(f"# === {label}: END ===")
+    assert start < end, f"{rel} has its {label} markers inverted"
+    assert text[start:end].strip(), f"{rel} has an empty {label} region"
+
+
+@pytest.mark.parametrize(("source", "destination"), LAB3_FALLBACK_COPIES)
+def test_lab3_fallback_copy_exists_at_both_ends(source: str, destination: str) -> None:
+    assert (REPO / source).is_file(), f"missing Lab 3 recovery source {source}"
+    assert (REPO / destination).is_file(), f"missing Lab 3 destination {destination}"
+
+
+@pytest.mark.parametrize(("source", "destination"), LAB3_FALLBACK_COPIES)
+def test_lab3_fallback_copy_keeps_the_markers(source: str, destination: str) -> None:
+    """A recovery copy that loses the markers breaks every later reset."""
+    label = dict(LAB3_REGIONS)[destination]
+    text = _read(source)
+    assert text.count(f"# === {label}: START ===") == 1
+    assert text.count(f"# === {label}: END ===") == 1
+
+
+def test_lab3_starter_withholds_the_tool_theo_needs() -> None:
+    """3a is unbuilt until `get_ticket_history` leaves the deferred set."""
+    sys.path.insert(0, str(REPO / "scripts" / "deploy"))
+    import gateway_tool_schemas
+
+    published = gateway_tool_schemas.workshop_published_tools()
+    assert LAB3_PUBLISHED_TOOL not in published, (
+        f"{LAB3_PUBLISHED_TOOL} is already published; Lab 3a ships its own answer"
+    )
+    assert LAB3_DEFERRED_TOOL not in published
+    assert LAB3_PUBLISHED_TOOL in gateway_tool_schemas.canonical_tool_names(), (
+        "the participant publishes an existing schema; it must stay in the catalogue"
+    )
+
+
+def test_lab3_reference_publishes_the_read_and_withholds_the_money_movement() -> None:
+    solution = _load_module(
+        "lab3_gateway_solution",
+        "solutions/the-ledger/gateway/gateway_tool_schemas_solution.py",
+    )
+    published = solution.workshop_published_tools()
+    assert LAB3_PUBLISHED_TOOL in published
+    assert LAB3_DEFERRED_TOOL not in published, (
+        "issue_credit moves money and belongs to the operator desk, not a shopper agent"
+    )
+
+
+def test_lab3_starter_leaves_the_support_specialist_unserveable() -> None:
+    """The authentic failure Lab 3 fixes: the Runtime asks for unpublished tools."""
+    sys.path.insert(0, str(REPO / "scripts" / "deploy"))
+    import gateway_tool_schemas
+
+    from services import agentcore_gateway
+
+    published = gateway_tool_schemas.workshop_published_tools()
+    unserveable = set(agentcore_gateway.SUPPORT_MANAGED_TOOLS) - published
+    assert unserveable, (
+        "Lab 3 has nothing to fix: the starter support specialist is already serveable"
+    )
+    assert agentcore_gateway.SUPPORT_CALLER_BOUND_TOOLS == frozenset(), (
+        "the starter must not pre-bind the ownership condition"
+    )
+
+
+def test_lab3_reference_reconciles_the_runtime_with_the_gateway() -> None:
+    schemas = _load_module(
+        "lab3_gateway_schemas_ref",
+        "solutions/the-ledger/gateway/gateway_tool_schemas_solution.py",
+    )
+    runtime = _load_module(
+        "lab3_runtime_ref",
+        "solutions/the-ledger/services/agentcore_gateway.py",
+    )
+    published = schemas.workshop_published_tools()
+    for specialist, names in runtime.MANAGED_SPECIALIST_TOOLS.items():
+        missing = sorted(set(names) - published)
+        assert not missing, f"{specialist} still asks for unpublished tools: {missing}"
+    assert LAB3_PUBLISHED_TOOL in runtime.SUPPORT_CALLER_BOUND_TOOLS, (
+        f"{LAB3_PUBLISHED_TOOL} must be bound to the authenticated caller"
+    )
+    assert LAB3_PUBLISHED_TOOL in runtime._CUSTOMER_SCOPED_TOOL_NAMES
+
+
+def test_lab3_build_ships_to_the_managed_runtime() -> None:
+    """3b must edit a packaged source, or the deploy proof has nothing to prove."""
+    from services.build_fingerprint import RUNTIME_SOURCE_FILES
+
+    packaged = {path.as_posix() for path in RUNTIME_SOURCE_FILES}
+    assert "services/agentcore_gateway.py" in packaged, (
+        "Lab 3b's file left the runtime package, so completing it no longer "
+        "changes the deployed build fingerprint"
+    )
 
 
 def test_lab4_starter_does_not_ship_the_answer() -> None:
@@ -366,8 +531,8 @@ def test_no_lab_anchor_is_a_broken_path() -> None:
     anchors += [
         LAB2_STARTER,
         LAB2_REFERENCE,
-        LAB3_STARTER,
-        LAB3_REFERENCE,
+        LAB4_OTEL_STARTER,
+        LAB4_OTEL_REFERENCE,
         LAB4_STARTER,
         LAB4_REFERENCE,
         LAB4_PROOF_SCRIPT,
@@ -389,7 +554,7 @@ def test_participant_starter_copies_are_incomplete_not_solutions() -> None:
     inventory_agent = _read(PARTICIPANT_STARTERS["lab-1-inventory-agent"][0])
     inventory_tool = _read(PARTICIPANT_STARTERS["lab-1-inventory-tool"][0])
     lab2 = _read(PARTICIPANT_STARTERS["lab-2-rrf"][0])
-    lab3 = _read(PARTICIPANT_STARTERS["lab-3-otel"][0])
+    lab3 = _read(PARTICIPANT_STARTERS["lab-4-otel"][0])
     lab4 = _read(PARTICIPANT_STARTERS["lab-4-cedar"][0])
 
     assert "_INVENTORY_AGENT_STUBBED = True" in inventory_agent

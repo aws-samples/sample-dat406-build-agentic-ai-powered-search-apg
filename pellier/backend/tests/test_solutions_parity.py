@@ -120,6 +120,11 @@ _PAIRS = [
 #     cp pellier/backend/<path> solutions/<module>/<path>
 # ---------------------------------------------------------------------------
 
+# `agentcore_gateway.py` is deliberately absent: on the governed lineage it
+# carries Lab 3b's marker region, so its solution twin holds the RECONCILED
+# support contract and must differ from the shipped starter. Bootstrap does not
+# copy it here; `reset_participant_exercises.py` owns its starter state, and
+# `tests/test_workshop_marker_contract.py` asserts both ends of that contract.
 _AUTO_APPLIED_IDENTICAL = [
     ("personalization_agent", _BACKEND / "agents" / "personalization_agent.py",
      _SOLUTIONS / "closing-marcos-gap" / "agents" / "personalization_agent.py"),
@@ -131,8 +136,6 @@ _AUTO_APPLIED_IDENTICAL = [
      _SOLUTIONS / "the-ledger" / "services" / "agentcore_runtime.py"),
     ("agentcore_memory", _BACKEND / "services" / "agentcore_memory.py",
      _SOLUTIONS / "the-ledger" / "services" / "agentcore_memory.py"),
-    ("agentcore_gateway", _BACKEND / "services" / "agentcore_gateway.py",
-     _SOLUTIONS / "the-ledger" / "services" / "agentcore_gateway.py"),
     ("agentcore_identity", _BACKEND / "services" / "agentcore_identity.py",
      _SOLUTIONS / "the-ledger" / "services" / "agentcore_identity.py"),
     ("cognito_auth", _BACKEND / "services" / "cognito_auth.py",

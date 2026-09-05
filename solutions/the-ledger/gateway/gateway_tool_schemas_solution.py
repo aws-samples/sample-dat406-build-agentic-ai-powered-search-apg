@@ -372,26 +372,15 @@ for _target in TOOL_SCHEMAS.values():
 # first time a tool is added, and the drift would be invisible until a fresh provision.
 #
 # === WORKSHOP · Gateway catalogue · published tools: START ===
-# WORKSHOP_EXERCISE_STUB
+# SOLUTION - publish the read, keep the money movement deferred.
 #
-# Lab 3a. Theo's third turn asks the support specialist to file a return, and
-# that specialist reads his past tickets first. `get_ticket_history` has a
-# schema in the catalogue above but is withheld from the Gateway, so the
-# managed rail cannot serve it.
-#
-# Publish the read; keep the money movement deferred. Remove exactly one name
-# from this set. `issue_credit` stays: it moves money, it belongs to the
-# operator review desk, and no shopper-facing specialist holds that grant.
-#
-# Then deploy, and pair this with Lab 3b so the Runtime asks the Gateway for
-# exactly what the Gateway now publishes:
-#     python3 scripts/provision_agentcore_end_to_end.py --repo-path "$PWD"
-#
-# Verify (live, the real check): the Observatory Tool Registry publishes 16
-# Gateway tools, and `get_ticket_history` appears in an MCP tool listing.
+# `get_ticket_history` is a customer-scoped read the support specialist needs
+# for Theo's return. Lab 3b binds its `customer_id` to the authenticated
+# caller, so the read cannot cross customers. `issue_credit` stays deferred:
+# it moves money and belongs to the operator review desk, not to any
+# shopper-facing specialist.
 WORKSHOP_DEFERRED_TOOLS: frozenset[str] = frozenset({
     "issue_credit",
-    "get_ticket_history",
 })
 # === WORKSHOP · Gateway catalogue · published tools: END ===
 
