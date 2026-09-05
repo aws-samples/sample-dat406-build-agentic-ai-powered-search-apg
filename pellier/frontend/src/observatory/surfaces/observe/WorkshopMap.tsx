@@ -94,8 +94,8 @@ const LABS: LabItem[] = [
     ],
   },
   {
-    lab: 'Lab 3 · Operate & Observe',
-    title: 'Operate and Observe the AgentCore Managed Path',
+    lab: 'Lab 3 · Deploy & Operate',
+    title: 'Deploy and Operate the Managed Agent Path',
     summary:
       "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
     primary: {

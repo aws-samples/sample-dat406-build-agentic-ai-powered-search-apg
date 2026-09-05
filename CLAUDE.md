@@ -92,7 +92,7 @@ The required participant path is:
 
 1. Lab 1: Build a PostgreSQL-Grounded Agent
 2. Lab 2: Build and Measure PostgreSQL Hybrid Retrieval
-3. Lab 3: Operate and Observe the AgentCore Managed Path
+3. Lab 3: Deploy and Operate the Managed Agent Path
 4. Lab 4: Govern and Prove Agent Actions
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or

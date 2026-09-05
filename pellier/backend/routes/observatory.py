@@ -1017,7 +1017,7 @@ async def _collect_proof_board(
         },
         {
             "id": "audit-ledger",
-            "lab": "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path",
+            "lab": "Lab 3 · Deploy & Operate — Deploy and Operate the Managed Agent Path",
             "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
@@ -1098,7 +1098,7 @@ async def _collect_proof_board(
         },
         {
             "id": "managed-rail",
-            "lab": "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path",
+            "lab": "Lab 3 · Deploy & Operate — Deploy and Operate the Managed Agent Path",
             "group": "Managed boundaries",
             "title": "Prove the managed Runtime and Gateway rail",
             "status": _card_status(

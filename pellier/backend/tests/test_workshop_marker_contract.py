@@ -25,7 +25,7 @@ behind.
 **Lab 2 - Build and Measure PostgreSQL Hybrid Retrieval.** A runnable psql
 worksheet whose RRF expression starts degraded and a complete recovery twin.
 
-**Lab 3 - Operate and Observe the AgentCore Managed Path.** A jq contract whose
+**Lab 3 - Deploy and Operate the Managed Agent Path.** A jq contract whose
 OTEL predicates start false and a complete recovery twin.
 
 **Lab 4 - Govern and Prove Actions.** A starter Cedar file that must NOT contain
@@ -478,7 +478,7 @@ def test_participant_exercise_reset_restores_only_the_named_marker_region() -> N
 CANONICAL_LAB_TITLE_PARTS: Tuple[Tuple[str, str], ...] = (
     ("Lab 1 · Build", "Build a PostgreSQL-Grounded Agent"),
     ("Lab 2 · Build & Measure", "Build and Measure PostgreSQL Hybrid Retrieval"),
-    ("Lab 3 · Operate & Observe", "Operate and Observe the AgentCore Managed Path"),
+    ("Lab 3 · Deploy & Operate", "Deploy and Operate the Managed Agent Path"),
     ("Lab 4 · Govern", "Govern and Prove Agent Actions"),
 )
 
@@ -487,6 +487,7 @@ RETIRED_LAB_TITLES: Tuple[str, ...] = (
     "Design the Retrieval Strategy",
     "Run Agents in a Managed Runtime",
     "Govern and Trace Agent Actions",
+    "Operate and Observe the AgentCore Managed Path",
 )
 
 # Surfaces a participant actually reads a lab title on, plus the API that supplies one.

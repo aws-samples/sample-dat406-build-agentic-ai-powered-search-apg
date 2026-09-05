@@ -222,8 +222,8 @@ const TRACE_TONE: Record<TraceStepState, { label: string; card: ProofTone }> = {
 const LAB_BY_CARD_ID: Record<string, string> = {
   'marco-floor-check': 'Lab 1 · Build a PostgreSQL-Grounded Agent',
   'retrieval-comparison': 'Lab 2 · Build and Measure PostgreSQL Hybrid Retrieval',
-  'managed-rail': 'Lab 3 · Operate and Observe the AgentCore Managed Path',
-  'audit-ledger': 'Lab 3 · Operate and Observe the AgentCore Managed Path',
+  'managed-rail': 'Lab 3 · Deploy and Operate the Managed Agent Path',
+  'audit-ledger': 'Lab 3 · Deploy and Operate the Managed Agent Path',
   'runtime-gateway-policy': 'Lab 4 · Govern and Prove Agent Actions',
 };
 
@@ -1547,7 +1547,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         backToReferences={!isAuditFocus}
         eyebrow={
           isAuditFocus
-            ? 'Lab 3 · Operate and Observe the AgentCore Managed Path'
+            ? 'Lab 3 · Deploy and Operate the Managed Agent Path'
             : 'Observe · Evidence'
         }
         title="Proof Board"

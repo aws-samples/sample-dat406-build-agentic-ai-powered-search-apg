@@ -38,7 +38,7 @@ cp solutions/the-quiet-search/sql/lab-2-rrf-solution.sql \
 
 The reference supports the quality, latency, and cost decision. It does not prove the participant's live endpoint passed.
 
-## Lab 3: Operate and Observe the AgentCore Managed Path
+## Lab 3: Deploy and Operate the Managed Agent Path
 
 The managed Memory, Runtime, Gateway, and JWT path has no local substitute. Move a participant to a ready environment when that proof fails.
 

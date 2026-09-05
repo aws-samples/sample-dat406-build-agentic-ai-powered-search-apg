@@ -385,11 +385,11 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     )
     assert cards["retrieval-comparison"]["status"] == "available"
     assert cards["managed-rail"]["lab"] == (
-        "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path"
+        "Lab 3 · Deploy & Operate — Deploy and Operate the Managed Agent Path"
     )
     assert cards["managed-rail"]["required"] is True
     assert cards["audit-ledger"]["lab"] == (
-        "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path"
+        "Lab 3 · Deploy & Operate — Deploy and Operate the Managed Agent Path"
     )
     assert cards["runtime-gateway-policy"]["lab"] == "Lab 4 · Govern — Govern and Prove Agent Actions"
     assert cards["runtime-gateway-policy"]["required"] is True

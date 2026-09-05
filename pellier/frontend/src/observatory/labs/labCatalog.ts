@@ -141,7 +141,7 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     id: 'managed-agent-path',
     number: '03',
     anchorName: 'Theo',
-    title: 'Operate and Observe the AgentCore Managed Path',
+    title: 'Deploy and Operate the Managed Agent Path',
     shortTitle: 'AgentCore managed path',
     summary:
       'Operate Runtime, Gateway, and Memory for Theo\'s three-turn thread, then author an OpenTelemetry trace contract and correlate the managed evidence.',

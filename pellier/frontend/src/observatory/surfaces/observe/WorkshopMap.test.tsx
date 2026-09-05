@@ -14,7 +14,7 @@ describe('Observatory workshop map', () => {
     expect(screen.getAllByText(/^Lab [1-4] ·/).map((node) => node.textContent)).toEqual([
       'Lab 1 · Build',
       'Lab 2 · Build & Measure',
-      'Lab 3 · Operate & Observe',
+      'Lab 3 · Deploy & Operate',
       'Lab 4 · Govern',
     ]);
     expect(
@@ -27,7 +27,7 @@ describe('Observatory workshop map', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
-        name: 'Operate and Observe the AgentCore Managed Path',
+        name: 'Deploy and Operate the Managed Agent Path',
       }),
     ).toBeInTheDocument();
     expect(

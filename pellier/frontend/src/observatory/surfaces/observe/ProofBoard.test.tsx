@@ -96,7 +96,7 @@ const proofBoardPayload = {
     },
     {
       id: 'audit-ledger',
-      lab: 'Lab 3 · Operate and Observe the AgentCore Managed Path',
+      lab: 'Lab 3 · Deploy and Operate the Managed Agent Path',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -111,7 +111,7 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: 'Lab 3 · Operate and Observe the AgentCore Managed Path',
+      lab: 'Lab 3 · Deploy and Operate the Managed Agent Path',
       group: 'Managed boundaries',
       title: 'Prove the managed Runtime and Gateway rail',
       status: 'complete',
@@ -291,7 +291,7 @@ describe('ProofBoard', () => {
     ).toHaveLength(2);
     expect(
       screen.getAllByText(
-        'Lab 3 · Operate and Observe the AgentCore Managed Path',
+        'Lab 3 · Deploy and Operate the Managed Agent Path',
       ).length,
     ).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
@@ -528,7 +528,7 @@ describe('ProofBoard', () => {
     ).toHaveLength(2);
     expect(
       screen.getAllByText(
-        'Lab 3 · Operate and Observe the AgentCore Managed Path',
+        'Lab 3 · Deploy and Operate the Managed Agent Path',
       ).length,
     ).toBeGreaterThan(0);
   });
