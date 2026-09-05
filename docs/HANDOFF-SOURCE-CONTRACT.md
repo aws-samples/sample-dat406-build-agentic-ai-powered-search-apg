@@ -353,7 +353,6 @@ These are decisions or deferrals, listed so nobody rediscovers them as surprises
 | item | state |
 |---|---|
 | Two Lab 1 screenshots | `static/act1/floor-check-after.webp` and `marco-turn4-stub-trace.webp` still carry the retired tool name in the filename, and `act1/` is the retired Act taxonomy. They need a real end-to-end run to regenerate; fabricating them is worse than leaving them. |
-| `query_business_records` | Governed and reachable by no specialist, by decision. `test_tool_ownership.py` holds the reason and what wiring it would require. |
 | Live Gateway vocabulary | Three targets still publish the retired names. Source is aligned; convergence is `migrate_gateway_vocabulary.py`, which is pinned to one audited account. |
 | Live baseline permits restock | The live baseline permits the retired restock action where fresh does not. `scripts/deploy/plan_restock_alignment.py` prepares the alignment and cannot apply it. |
 | RLS reclassification | Scoped to `initiate_return` only. |

@@ -44,7 +44,7 @@ const ToolRegistryDetail: React.FC = () => {
         },
         {
           numeral: 'iii.',
-          text: 'The required-path starter ships 16 of the 17 registered MCP tools; check_inventory completes the registry exercise. The direct-only query_business_records helper is intentionally outside this MCP count.',
+          text: 'The required-path starter ships 16 of the 17 registered MCP tools; check_inventory completes the registry exercise.',
         },
       ]}
       liveState={{

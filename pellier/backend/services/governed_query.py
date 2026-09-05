@@ -262,12 +262,12 @@ async def run_governed_query(
     has to interpret.
 
     Writes the receipt itself rather than leaving that to the caller. An
-    earlier revision left `persist_receipt` for each caller to invoke:
-    `query_business_records` did, `scripts/compare_query_lanes.py` did not,
-    and that script prints "durable receipt: pellier.governed_query_receipts"
-    as a property of this lane while running three queries that left none. A
-    receipt a caller can forget is not evidence, so the write moved in here
-    and callers no longer have the option.
+    earlier revision left `persist_receipt` for each caller to invoke, one
+    caller did and `scripts/compare_query_lanes.py` did not, and that script
+    printed "durable receipt: pellier.governed_query_receipts" as a property
+    of this lane while running three queries that left none. A receipt a
+    caller can forget is not evidence, so the write moved in here and callers
+    no longer have the option.
 
     Args:
         db: ``DatabaseService``.

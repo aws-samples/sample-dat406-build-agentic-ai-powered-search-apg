@@ -478,9 +478,11 @@ Per-agent model choice is an architectural decision – Inventory Agent's terse 
 
 ### Tools
 
-17 `@tool` functions form the Gateway catalog. Discovery returns all 17 by
-exact name; this iteration publishes 15 of them to participants, holding back
-`issue_credit` and `get_ticket_history`. The 15 published names are:
+17 `@tool` functions form the Gateway catalog, and 17 is also the total in
+`services/agent_tools.py`: every tool that exists is in the catalog. Discovery
+returns all 17 by exact name; this iteration publishes 15 of them to
+participants, holding back `issue_credit` and `get_ticket_history`. The 15
+published names are:
 
 `search_products` · `search_products_hybrid` · `get_related_products` · `get_trending_products` · `get_price_analysis` · `browse_category` · `compare_products` · `check_inventory` · `restock_inventory` · `get_low_stock` · `get_return_policy` · `initiate_return` · `get_customer_preferences` · `get_audit_trail` · `escalate_to_human`
 
@@ -512,17 +514,13 @@ rerank pool, and freeze the cited text, source URI and revision with a SHA-256
 snapshot at retrieval time, so a later catalog edit cannot rewrite what an
 answer was based on.
 
-An 18th tool, `query_business_records`, is **implemented for the in-process rail
-only, and is currently bound to no specialist**, so nothing invokes it today.
-That is 18 `@tool` functions in total: the 17-tool Gateway catalog plus this one.
-Wiring it is a deliberate product decision, not an oversight: it needs an owning
-specialist, prompt language that makes it the last resort behind the curated
-tools, and a receipt surface. Until then it ships governed and unreachable
-rather than reachable and ungoverned. `tests/test_tool_ownership.py` records
-that decision and fails if a specialist quietly imports it.
+There is no 18th tool. A governed natural-language query capability was
+implemented and bound to no specialist, so nothing could call it; it was
+deleted rather than carried unreachable. The lane it fronted is still here and
+still exercised, by `scripts/compare_query_lanes.py` and by live tests.
 
-It is off the Gateway for separate reasons, and not because the Gateway path is
-incapable. The RDS Data API is single-statement
+The lane is off the Gateway for separate reasons, and not because the Gateway
+path is incapable. The RDS Data API is single-statement
 per `execute_statement` call ("Multistatements aren't supported", box-verified:
 a prepended `SET` once killed every read tool on the Gateway path), but it does
 support explicit transactions, and session-local state persists across calls
@@ -544,8 +542,8 @@ superuser, and RLS then applies to the rest of the transaction.
 
 It stays off the Gateway for two other reasons. First, cost shape: each
 statement is one HTTPS round trip, so a governed query needs seven where the
-existing read tools need one. Second, and decisive, publishing it would mean a
-second copy of the boundary (subquery wrap, plan inspection, schema allowlist,
+existing read tools need one. Second, and decisive, publishing the lane would
+mean a second copy of the boundary (subquery wrap, plan inspection, schema allowlist,
 row cap, receipt write) living in a Lambda deploy artifact, reviewed and tested
 apart from `services/governed_query.py`. These same Lambdas already record two
 drift incidents against the in-process rail: column names (`42703`) and
@@ -553,9 +551,10 @@ drift incidents against the in-process rail: column names (`42703`) and
 security boundary is a class of bug. If it is ever published, the target should
 call the reviewed boundary rather than restate it.
 
-`tests/test_managed_gateway_tool_contract.py` pins this: the assertion is
-`in-process == CANONICAL | IN_PROCESS_ONLY`, so adding a tool without deciding
-which category it belongs to fails rather than silently diverging.
+`tests/test_managed_gateway_tool_contract.py` pins the in-process set against
+the canonical catalog, so a tool added on one rail and not the other fails
+rather than silently diverging, and `tests/test_tool_ownership.py` fails for
+any tool no specialist binds unless the reason is written down.
 
 Aurora also stores a semantic tool registry for the retrieval-strategy teaching
 surface. It is not the governed execution selector. The managed Dispatcher

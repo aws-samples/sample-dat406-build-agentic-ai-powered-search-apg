@@ -42,7 +42,6 @@ CANONICAL_TOOLS = (
     "get_audit_trail",
     "search_products",
     "search_products_hybrid",
-    "query_business_records",
 )
 
 # Retired public names. These may appear only in the allow-listed history files.
@@ -197,15 +196,10 @@ def test_gateway_publishes_the_canonical_names() -> None:
     from services.agentcore_gateway import LOCAL_MCP_TOOL_NAMES
 
     published = set(LOCAL_MCP_TOOL_NAMES)
-    # query_business_records is deliberately in-process only.
-    expected = set(CANONICAL_TOOLS) - {"query_business_records"}
+    expected = set(CANONICAL_TOOLS)
 
     assert expected <= published, (
         f"canonical tools missing from the Gateway catalog: {sorted(expected - published)}"
-    )
-    assert "query_business_records" not in published, (
-        "query_business_records runs model-generated SQL behind a security "
-        "boundary and is deliberately not published through the Gateway."
     )
 
 

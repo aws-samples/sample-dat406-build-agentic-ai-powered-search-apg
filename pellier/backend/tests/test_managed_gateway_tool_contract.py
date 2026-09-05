@@ -42,20 +42,6 @@ CANONICAL_TOOLS = {
     "get_ticket_history",
 }
 
-# Tools that exist on the in-process rail and are deliberately NOT published
-# through the Gateway. Declared explicitly so an accidental divergence still
-# fails: the assertion below is in-process == CANONICAL | IN_PROCESS_ONLY, so
-# adding a tool without deciding which category it belongs to breaks the test.
-#
-# `query_business_records` runs model-generated SQL behind a security boundary
-# (`services/governed_query.py`: read-only role, READ ONLY transaction,
-# statement timeout, schema allowlist, RLS). Publishing it through a Gateway
-# Lambda would mean copying that boundary into a separate deploy artifact,
-# where it would drift from the reviewed version. The design's required
-# execution rail for this capability is the in-process one.
-IN_PROCESS_ONLY_TOOLS = {
-    "query_business_records",
-}
 
 SURFACE_FILES = {
     "search": DEPLOY / "pellier_search_server.py",
@@ -174,7 +160,7 @@ def test_in_process_and_recovery_files_match_the_managed_contract() -> None:
                 for decorator in node.decorator_list
             )
         }
-        assert decorated == CANONICAL_TOOLS | IN_PROCESS_ONLY_TOOLS, path
+        assert decorated == CANONICAL_TOOLS, path
 
 
 def test_related_product_source_contract_stays_in_sync_with_recovery_files() -> None:
@@ -247,19 +233,3 @@ def test_imperative_resources_receive_workshop_ownership_tags() -> None:
     for path in paths:
         source = path.read_text(encoding="utf-8")
         assert "PellierWorkshopId" in source, path
-
-
-def test_in_process_only_tools_are_not_published_through_the_gateway() -> None:
-    """The declared exception must stay an exception.
-
-    If one of these ever appears in a Gateway schema or Lambda surface, the
-    security boundary it depends on has been copied into a second place, and
-    the two copies will drift.
-    """
-    published = set().union(*_lambda_names().values()) | set().union(
-        *_gateway_schema_names().values()
-    )
-    overlap = published & IN_PROCESS_ONLY_TOOLS
-    assert not overlap, (
-        f"in-process-only tools appear on a managed surface: {sorted(overlap)}"
-    )

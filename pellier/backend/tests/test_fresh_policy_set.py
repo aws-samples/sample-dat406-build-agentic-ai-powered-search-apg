@@ -583,15 +583,3 @@ def test_the_application_catalogue_reconciles_with_the_workshop_contract() -> No
     )
     assert catalogue - WORKSHOP_DEFERRED_TOOLS == workshop_published_tools()
     assert len(LOCAL_MCP_TOOL_NAMES) == len(catalogue), "a name is listed twice"
-
-
-def test_the_in_process_only_tool_is_not_published_anywhere() -> None:
-    """`query_business_records` runs model-generated SQL behind a security boundary.
-
-    Classified `IN_PROCESS_ONLY` in `test_managed_gateway_tool_contract.py`: publishing it
-    would mean copying that boundary (read-only role, READ ONLY transaction, statement
-    timeout, schema allowlist, RLS) into a separate deploy artifact where it would drift.
-    It must appear in neither the canonical catalogue nor the workshop set.
-    """
-    assert "query_business_records" not in canonical_tool_names()
-    assert "query_business_records" not in workshop_published_tools()
