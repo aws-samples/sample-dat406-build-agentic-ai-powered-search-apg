@@ -165,7 +165,7 @@ const OperatorAuthControl: React.FC = () => {
         title={`Signed in as ${user.email}`}
       >
         <span className="operator-auth-identity">
-          {user.givenName || user.email}
+          {presentIdentity(user.givenName || user.email)}
         </span>
         <LogOut className="operator-topbar-icon" aria-hidden />
         <span>Sign out</span>
@@ -184,6 +184,21 @@ const OperatorAuthControl: React.FC = () => {
       <span>Sign in</span>
     </button>
   )
+}
+
+/**
+ * Present a bare Cognito username with a capital.
+ *
+ * The workshop's operator signs in as `operator`, and the personas as `marco`,
+ * `anna` and `theo`, so `given_name` falls back to the username and the desk
+ * rendered it lowercase beside a capitalised "Sign out". Only a single bare
+ * word is touched: an address keeps its case, because capitalising the local
+ * part of an email is wrong, and anything with a space is a real name whose
+ * capitalisation is not ours to guess.
+ */
+function presentIdentity(value: string): string {
+  if (!/^[a-z][a-z0-9._-]*$/.test(value)) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 const OperatorFrame: React.FC = () => {

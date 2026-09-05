@@ -466,17 +466,9 @@
   transform: translateY(1px);
 }
 
-.operator-signin-mark {
-  position: relative;
-  display: inline-grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 44%, var(--rule-2));
-  border-radius: 15px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
-}
+/* The shield mark is gone. A generic security glyph in a tinted tile is
+   stock decoration: the eyebrow already says whose desk this is, and the
+   sentence says who may enter. */
 
 .operator-signin-mark svg {
   width: 23px;
@@ -513,7 +505,9 @@
 
 .operator-signin-dialog h2 {
   position: relative;
-  max-width: 10ch;
+  /* 10ch broke "Continue to the client desk." across three lines in a 468px
+     dialog, which reads as a column of fragments rather than a sentence. */
+  max-width: 17ch;
   margin: 0;
   color: var(--ink);
   font-family: var(--display);
@@ -538,8 +532,9 @@
   width: 100%;
   min-height: 52px;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  /* Centred: `space-between` was holding a label against an arrow that no
+     longer exists, and left the label adrift on its own. */
+  justify-content: center;
   margin-top: 28px;
   padding: 0 18px;
   border: 1px solid var(--ink);
@@ -558,23 +553,21 @@
     transform 120ms ease-out;
 }
 
-.operator-signin-primary-action svg {
-  width: 18px;
-  height: 18px;
-  transition: transform 160ms ease-out;
-}
-
 .operator-signin-primary-action:hover {
   border-color: var(--accent);
   background: var(--accent);
 }
 
-.operator-signin-primary-action:hover svg {
-  transform: translateX(3px);
-}
-
 .operator-signin-primary-action:active {
   transform: translateY(1px);
+}
+
+/* Seen on every open, because the dialog moves focus here. An offset ring in
+   the brand tone rather than the platform default, which read as a stray
+   second border around the button. */
+.operator-signin-primary-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .operator-signin-footer {
@@ -718,11 +711,12 @@
    * 13% over warm paper it loses its hue and returns as cool grey, so the
    * card faded left-to-right from pink to grey on a warm page.
    *
-   * The entry is promoted because it is the one open case, so the promotion
-   * is a burgundy edge and the lift, which is the same vocabulary the rest of
-   * the desk uses. The warmth stays as a whisper the eye reads as paper.
+   * The entry is promoted because it is the one open case, and the lift plus
+   * the standing pill carry that. A burgundy edge was tried and removed: the
+   * pill beside the name already says service recovery, so the edge was a
+   * second mark for one fact, which is the habit this pass exists to break.
+   * The warmth stays as a whisper the eye reads as paper.
    */
-  border-left: 3px solid var(--op-authority);
   background:
     linear-gradient(
       105deg,
@@ -1474,11 +1468,52 @@
   white-space: nowrap;
 }
 
+/*
+ * The dot is the card's one urgent mark, so it breathes.
+ *
+ * The pulse is a ring leaving the dot rather than the dot itself scaling: a
+ * dot that changes size nudges the phrase beside it on every cycle, and a
+ * label that shifts is worse than one that never moved. 2.6s and a low peak
+ * opacity keep it at the edge of vision, which is the point. It stops
+ * entirely under reduced motion, where the dot alone still names the state.
+ */
 .operator-service-request-dot {
+  position: relative;
   width: 9px;
   height: 9px;
+  flex: 0 0 auto;
   border-radius: 999px;
   background: var(--op-authority);
+}
+
+.operator-service-request-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--op-authority);
+  animation: operator-urgent-pulse 2600ms ease-out infinite;
+}
+
+@keyframes operator-urgent-pulse {
+  0% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operator-service-request-dot::after {
+    animation: none;
+  }
 }
 
 /*

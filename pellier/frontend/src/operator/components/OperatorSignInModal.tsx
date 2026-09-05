@@ -7,7 +7,7 @@
  * presenting providers that cannot grant Operator access.
  */
 import { useCallback, useEffect, useRef } from 'react'
-import { ShieldCheck, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import ResponsiveImage from '../../components/ResponsiveImage'
 import { OPERATOR_SIGNIN_MODAL } from '../../copy'
 import { useUI } from '../../contexts/UIContext'
@@ -107,9 +107,6 @@ export default function OperatorSignInModal() {
           <X aria-hidden />
         </button>
 
-        <div className="operator-signin-mark" aria-hidden>
-          <ShieldCheck />
-        </div>
         {/* The wrapper carries the block layout and the spacing. SectionEyebrow
             sets `display: inline-flex` inline, and an inline style beats a
             class rule, so styling the primitive itself would have needed an

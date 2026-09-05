@@ -203,3 +203,18 @@ describe('service request card', () => {
   })
 })
 
+describe('urgent mark', () => {
+  it('pulses a ring rather than the dot, and stops under reduced motion', () => {
+    // Scaling the dot itself nudges the phrase beside it on every cycle, so
+    // the ring is a pseudo-element and the dot holds its size.
+    const ring = ruleBody('.operator-service-request-dot::after')
+    expect(ring).toContain('animation: operator-urgent-pulse')
+    expect(CSS).toContain('@keyframes operator-urgent-pulse')
+
+    const reduced = CSS.slice(CSS.indexOf('.operator-service-request-dot::after'))
+    expect(reduced).toContain('prefers-reduced-motion')
+    expect(reduced.slice(0, reduced.indexOf('}', reduced.indexOf('prefers-reduced-motion')) + 400))
+      .toContain('animation: none')
+  })
+})
+
