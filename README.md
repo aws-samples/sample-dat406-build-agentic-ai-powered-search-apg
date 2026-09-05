@@ -47,9 +47,9 @@ This is a **400-level (expert)** workshop application. "Level 400" is the AWS de
 
 **You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
 
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you complete two marked regions — the Inventory Agent definition and its `check_inventory` tool — then run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
+**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: each lab has one build. Lab 1 completes two marked regions in code, the Inventory Agent definition and its `check_inventory` tool; Labs 2, 3 and 4 each complete a single artifact — `workshop/lab-2-rrf.sql`, `workshop/lab-3-otel-contract.jq`, and `workshop/lab-4-rls.sql` — and every one has a reference copy under `solutions/` if you need it. Around those builds you run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
 
-> **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** You only need to complete the one guided exercise to succeed. Everything else is there to explore at your own pace.
+> **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** Each lab asks for one small build, and every one has a documented recovery path. Everything else is there to explore at your own pace.
 
 ---
 
@@ -131,12 +131,14 @@ as one policy engine:
 |---|---|---|
 | Identity | Cognito JWT verified on the managed rail | Which authenticated human initiated the request |
 | Managed execution | AgentCore Runtime with JWT passthrough | Which orchestrator ran and on which managed rail |
-| Tool contract | AgentCore Gateway exposes 15 target-qualified MCP tools | Which callable capability and input schema the agent received |
-| Authorization | AgentCore Policy evaluates Cedar before Gateway target execution | Whether a tool call was allowed or denied |
+| Tool contract | AgentCore Gateway exposes a 17-tool target-qualified MCP catalog, 15 of them published to participants | Which callable capability and input schema the agent received |
+| Authorization | AgentCore Policy evaluates Cedar before Gateway target execution | Which of five states the call reached: `ALLOW`, `DENY`, `WOULD_DENY` (a real LOG_ONLY decision flip), `EVALUATION_INCOMPLETE` (the engine could not be read), or `POLICY_INFERRED` (a match against policy text, which is never presented as a decision) |
 | Data authorization | Aurora SQL functions validate ownership and write invariants | Which records the permitted tool could actually read or mutate |
 | Row-level authorization | PostgreSQL RLS policies on `orders` and `returns`, enforced against the `pellier_agent` and `pellier_query` roles (neither holds `BYPASSRLS`) and scoped by the `pellier.principal_sub` GUC through `pellier.principal_customers` | That a permitted tool holding a valid token still cannot read another shopper's rows, enforced by the database rather than by application code |
 | Generated-SQL authorization | `services/governed_query.py` wraps model-generated SQL as a subquery, inspects the plan with `EXPLAIN (FORMAT JSON, VERBOSE)`, and executes read-only under a statement timeout, fixed `search_path`, schema allowlist, and row cap | That structure and privilege, not prompt wording, decide what a natural-language question may reach |
-| Application evidence | `pellier.governed_receipts`, `pellier.tool_audit`, `pellier.governed_turn_receipts`, `pellier.governed_query_receipts`, `pellier.retrieval_receipts`, and the inventory ledger | Which decision was made, which tool ran, and what reached Aurora |
+| Application evidence | `pellier.governed_receipts`, `pellier.tool_audit`, `pellier.governed_turn_receipts`, `pellier.governed_query_receipts`, `pellier.retrieval_receipts`, `pellier.policy_decisions`, `pellier.workshop_runs`, and the inventory ledger | Which decision was made, which tool ran, and what reached Aurora |
+| Evidence immutability | Migration 047 makes `governed_receipts` and `execution_receipts` append-only by trigger, and lets `tool_audit` and `write_operations` be filled exactly once, with the unrestricted UPDATE grant revoked | That a receipt cannot be edited after the fact by the application that wrote it |
+| Fail-closed writes | In governed format a write refuses when the Gateway URL, the access token, or the policy engine is missing, recording a receipt with rail `refused` and returning HTTP 409 | That an ungoverned write is refused and recorded, rather than quietly falling back to the in-process rail |
 | Commerce execution | Aurora quotes, confirmation grants, reservations, payment events, outbox rows, and immutable commerce receipts | Which authenticated shopper confirmed which total, what inventory moved, and which payment state completed |
 
 Pellier is not merely conversational commerce. It is proof-carrying commerce:
@@ -219,11 +221,12 @@ Sign in as one of the three returning customers and the entire storefront – he
 | *Anna*   | Gifts, milestones, candles       | Beeswax Taper Candles        |
 | *Theo*   | Slow craft, ceramics, ritual     | Stoneware Pour-Over Set      |
 
-The **signed-out state** is the editorial baseline – a 10-piece grid anchored by the Nocturne Leather Weekender, no prior context, no profile embedding. It is the hero state, not a fourth persona.
+The **signed-out state** is the editorial baseline – a nine-piece grid anchored by the Nocturne Leather Weekender, no prior context, no profile embedding. It is the hero state, not a fourth persona.
 
-Each persona ships with 10 curated products carrying real Cohere Embed v4
-1024-dim embeddings, alongside 10 house pieces the client book owns and 10
-signature investment pieces. Those 60 story products stay stable for persona
+Each of the three personas ships with 10 curated products carrying real Cohere
+Embed v4 1024-dim embeddings, alongside 10 pieces for the signed-out edit, 10
+house pieces the client book owns, and 10 signature investment pieces. Those 60
+story products stay stable for persona
 grids, orders, inventory, and policy exercises. The governed retrieval lab
 expands `pellier.product_catalog` to 1,000 rows with generated high-ID archive
 distractors and deterministic derived vectors. The extra rows create enough
@@ -382,7 +385,7 @@ preflight invokes those exact profiles before declaring the environment ready.
 
 ### Facilitator note: `SPA_MOUNT_PATH`
 
-By default the SPA is served at `/`. The nginx layer ([`scripts/bootstrap-environment.sh:315-324`](scripts/bootstrap-environment.sh#L315-L324)) strips the `/app/` prefix (`proxy_pass http://127.0.0.1:8000/`) before forwarding to FastAPI, so root-mount works behind both Workshop Studio's `/ports/8000/*` proxy and the `/app/*` shortcut. If you ever deploy behind a proxy that forwards `/app/*` verbatim (no prefix-stripping), set:
+By default the SPA is served at `/`. The nginx layer ([`scripts/bootstrap-environment.sh:339-340`](scripts/bootstrap-environment.sh#L315-L324)) strips the `/app/` prefix (`proxy_pass http://127.0.0.1:8000/`) before forwarding to FastAPI, so root-mount works behind both Workshop Studio's `/ports/8000/*` proxy and the `/app/*` shortcut. If you ever deploy behind a proxy that forwards `/app/*` verbatim (no prefix-stripping), set:
 
 ```bash
 SPA_MOUNT_PATH=/app
@@ -405,7 +408,7 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Lab 1: Build a PostgreSQL-Grounded Agent | Complete Inventory Agent and `check_inventory`, then prove Marco's answer against live inventory and `tool_audit`. |
 | 02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
 | 03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace | Invoke Runtime, enumerate Gateway tools, read turn one from Memory in a fresh process, prove turn-two recall, and reconstruct the seeded identity mismatch from Aurora evidence. |
-| 04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the matching identity is allowed, and reset participant policy. |
+| 04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the matching identity is allowed, complete Jessica's Operator investigation up to the human checkpoint, prove Row-Level Security refuses another shopper's rows, replay a write to show it applies exactly once, and reset participant policy. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.
@@ -421,6 +424,10 @@ and every one of them is scoped to a single run.
 | `doctor --lab N` | `scripts/workshop_doctor.py` | Checks that lab's prerequisites and prints PASS or FAIL per check with the reason. Exits 1 on any failure. |
 | `lab3-start` | `scripts/lab3-start.sh` | Verifies Gateway and Runtime, validates the provisioning receipt, switches the storefront to the managed rail, restarts, and proves one authenticated turn reported `gateway-mcp`. Refuses if either resource is missing. |
 | `receipt` | `scripts/build_receipt.py` | Assembles the portable evidence receipt for the run. `--strict` exits 1 unless every lab's contract is proved **and** the evidence was scoped to that run, so an unapplied migration 049 fails rather than grading someone else's rows; the default reports honestly and exits 0. |
+
+`scripts/prove-reset-cycles.sh` is the release check behind those commands: it
+runs the governed reset, a journey smoke, then both again, and exits non-zero
+unless both cycles pass. A reset that only works once is not a reset.
 
 Migration 049 gives every evidence table a `run_id` column defaulted from the
 `pellier.run_id` session setting, which `services/database.py` binds on each
@@ -471,13 +478,43 @@ Per-agent model choice is an architectural decision – Inventory Agent's terse 
 
 ### Tools
 
-15 `@tool` functions form the Gateway catalog, registered under these exact
-names and asserted by discovery tests:
+17 `@tool` functions form the Gateway catalog. Discovery returns all 17 by
+exact name; this iteration publishes 15 of them to participants, holding back
+`issue_credit` and `get_ticket_history`. The 15 published names are:
 
 `search_products` · `search_products_hybrid` · `get_related_products` · `get_trending_products` · `get_price_analysis` · `browse_category` · `compare_products` · `check_inventory` · `restock_inventory` · `get_low_stock` · `get_return_policy` · `initiate_return` · `get_customer_preferences` · `get_audit_trail` · `escalate_to_human`
 
-A 16th tool, `query_business_records`, is **implemented for the in-process rail
+#### One search executor
+
+`services/planned_hybrid_retrieval.execute_search_plan` is the single pipeline
+behind the shipped path: a typed plan, hard predicates pushed into **both**
+branches, vector and full-text retrieval, RRF, a bounded rerank, a final
+eligibility recheck, then the rows returned. The storefront's
+`search_products_hybrid`, the Observatory's strategy comparison, the Lab 2
+receipt and `scripts/eval_retrieval_harness.py` all call it, which is what lets
+the evaluation speak for the shipped path rather than for a parallel copy of it.
+
+Two surfaces keep their own pipelines on purpose and say so at the top of each
+file: `services/replacement_search.find_replacements` enforces predicates the
+executor has no parameter for and exits its relaxation ladder on a different
+signal, and `app.explain_search` exists to expose the stages the executor
+collapses.
+
+`GET /api/observatory/search-strategies/micro-eval` compares rerank pool sizes
+on one canonical query and reports candidate coverage, context precision,
+reciprocal rank, hard-constraint violations, short-result rate, citation
+coverage, and p50/p95 latency. Its cost is bounded: repetitions are capped,
+deterministic metrics are scored once, and a request may compare at most four
+pool sizes.
+
+Retrieval receipts cite the rows the shopper actually received, not the whole
+rerank pool, and freeze the cited text, source URI and revision with a SHA-256
+snapshot at retrieval time, so a later catalog edit cannot rewrite what an
+answer was based on.
+
+An 18th tool, `query_business_records`, is **implemented for the in-process rail
 only, and is currently bound to no specialist**, so nothing invokes it today.
+That is 18 `@tool` functions in total: the 17-tool Gateway catalog plus this one.
 Wiring it is a deliberate product decision, not an oversight: it needs an owning
 specialist, prompt language that makes it the last resort behind the curated
 tools, and a receipt surface. Until then it ships governed and unreachable
@@ -627,13 +664,18 @@ Claude Code resolves `CLAUDE.md` guidance by scope. The backend separately loads
 
 ## Quality gates
 
-The `governed-quality` workflow runs the complete backend and frontend release
-gate on pushes and pull requests to `governed`:
+The `governed-quality` workflow runs on pushes and pull requests to `governed`.
+Its backend job runs the test suite and validates every shell script; its
+frontend job runs the tests, type-check, lint, build and production dependency
+audit. Copy compliance is not a separate CI step: `test_copy_compliance.py`
+defines a test and is collected by `pytest -q` like any other. `git diff --check`
+is a local habit rather than a gate.
+
+Run the whole thing locally with:
 
 ```bash
 cd pellier/backend
 ./.venv/bin/python -m pytest -q
-./.venv/bin/python tests/test_copy_compliance.py
 
 cd ../frontend
 npm test -- --run
@@ -669,7 +711,9 @@ sample-pellier-agentic-search-apg/
 │   │   ├── CLAUDE.md                        Backend and Lab 1 rules
 │   │   ├── agents/                          Search Agent, Personalization Agent, Inventory Agent, ...
 │   │   ├── services/                        Dispatcher, Operator graph, handoff, tools, AgentCore, database
-│   │   ├── routes/                          FastAPI routers (chat, operator, observatory, transcribe)
+│   │   ├── routes/                          FastAPI routers (agent, auth, commerce,
+│   │   │                                    observatory, operator, products, search,
+│   │   │                                    storefront, user, workshop)
 │   │   └── app.py
 │   └── frontend/                          React 18 + TS + Vite SPA
 │       ├── CLAUDE.md                        Storefront and Pellier Observatory rules
@@ -678,17 +722,23 @@ sample-pellier-agentic-search-apg/
 │           ├── operator/                    Client desk, concierge graph, reviews, actions
 │           ├── shared/                      Cross-surface atoms – TraceChip, PresencePill
 │           ├── observatory/                 Shopper and operator orchestration evidence
-│           └── data/                        40 displayed product records + persona curation
+│           └── data/                        36 displayed product records + persona curation
 │
+├── workshop/                              Participant build surface: lab-2-rrf.sql,
+│                                          lab-3-otel-contract.jq, lab-4-rls.sql,
+│                                          starters/, architecture-diagrams/
+├── policies/                              Cedar policy set applied to the policy engine
 ├── skills/                                Strands runtime skills (5) + scoped guidance
 ├── solutions/                             Reference implementations (drop-in escape hatches)
-│   ├── the-quiet-search/                    Semantic retrieval reference
+│   ├── waking-the-stock-keeper/             Lab 1 Inventory Agent reference
 │   ├── closing-marcos-gap/                  Lab 1 check_inventory reference
-│   ├── the-ledger/                          Labs 3-4 AgentCore + audit reference
-│   └── the-concierge/                       Lab 4 MCP and Gateway reference
+│   ├── the-quiet-search/                    Lab 2 RRF reference
+│   ├── the-ledger/                          Lab 3 forensic SQL + OTEL contract reference
+│   ├── the-concierge/                       Lab 4 MCP and Gateway reference
+│   └── retrieval-eval/                      Retrieval evaluation reference
 │
 └── scripts/
-    ├── migrations/                         Ordered fresh-cluster SQL (001-030)
+    ├── migrations/                         Ordered fresh-cluster SQL (001-049)
     ├── seed_pellier_catalog.py             60 story products + 940 retrieval distractors
     ├── seed_local_golden_journeys.py       Local Theo handoff + Jessica evidence rehearsal
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd
