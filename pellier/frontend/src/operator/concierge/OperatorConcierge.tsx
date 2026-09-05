@@ -158,22 +158,37 @@ const OperatorConcierge: React.FC<Props> = ({
         <h2 className="operator-concierge-title" id="operator-concierge-title">
           Operator Concierge
         </h2>
-        <p className="operator-concierge-sub">
-          Grounded in this client&rsquo;s orders, preferences, inventory, returns, and
-          governed actions from {concierge.config?.dataSource ?? 'the live database'}.
-        </p>
-        <div
-          className="operator-concierge-path"
-          aria-label="Strands Graph path: Case Investigator, then Resolution Planner"
-        >
-          <span className="operator-concierge-path-label">
-            <GitBranch size={13} strokeWidth={1.8} aria-hidden="true" />
-            Strands Graph
-          </span>
-          <span>Case Investigator</span>
-          <ArrowRight size={13} strokeWidth={1.8} aria-hidden="true" />
-          <span>Resolution Planner</span>
-        </div>
+        {/*
+          * Orientation, and only until it is no longer needed.
+          *
+          * Both of these sat above the scroller for the life of the pane, so
+          * roughly seventy pixels of a viewport-height column explained what
+          * the Concierge is while an operator was trying to read what it
+          * found. The evidence block below could then show two lines at a
+          * time. They earn their place on arrival and yield once there is a
+          * conversation to read.
+          */}
+        {hasConversation ? null : (
+          <>
+            <p className="operator-concierge-sub">
+              Grounded in this client&rsquo;s orders, preferences, inventory, returns,
+              and governed actions from{' '}
+              {concierge.config?.dataSource ?? 'the live database'}.
+            </p>
+            <div
+              className="operator-concierge-path"
+              aria-label="Strands Graph path: Case Investigator, then Resolution Planner"
+            >
+              <span className="operator-concierge-path-label">
+                <GitBranch size={13} strokeWidth={1.8} aria-hidden="true" />
+                Strands Graph
+              </span>
+              <span>Case Investigator</span>
+              <ArrowRight size={13} strokeWidth={1.8} aria-hidden="true" />
+              <span>Resolution Planner</span>
+            </div>
+          </>
+        )}
         {/* Scope, not a second profile: enough to make the conversation's subject
             unambiguous without repeating the record on the left. */}
         <p className="operator-concierge-scope" data-testid="operator-concierge-scope">
@@ -194,6 +209,12 @@ const OperatorConcierge: React.FC<Props> = ({
         className="operator-concierge-body"
         data-testid="operator-concierge-body"
         ref={body}
+        onScroll={(event) => {
+          // Marks the scroller so the stylesheet fades its top edge only once
+          // something has actually scrolled past it.
+          const el = event.currentTarget
+          el.dataset.scrolled = el.scrollTop > 4 ? 'true' : 'false'
+        }}
       >
         {hasConversation || inFlight ? (
           <>
@@ -226,7 +247,6 @@ const OperatorConcierge: React.FC<Props> = ({
                   onClick={() => void concierge.submit(nextGuidedPrompt)}
                 >
                   {nextGuidedLabel}
-                  <ArrowRight size={15} strokeWidth={1.8} aria-hidden="true" />
                 </button>
               </section>
             ) : null}

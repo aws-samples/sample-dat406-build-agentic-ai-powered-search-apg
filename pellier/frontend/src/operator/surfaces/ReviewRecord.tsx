@@ -263,7 +263,7 @@ const ReviewRecord: React.FC = () => {
           ) : undefined
         }
         reason={error}
-        action={authenticationRequired ? <OperatorSignInAction /> : undefined}
+        action={authenticationRequired ? <OperatorSignInAction unlocks="open this action" /> : undefined}
       />
     )
   }

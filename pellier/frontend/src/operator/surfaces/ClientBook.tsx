@@ -115,7 +115,7 @@ const ClientBook: React.FC = () => {
           )
         }
         reason={error}
-        action={authenticationRequired ? <OperatorSignInAction /> : undefined}
+        action={authenticationRequired ? <OperatorSignInAction unlocks="read the client book" /> : undefined}
       />
     )
   }

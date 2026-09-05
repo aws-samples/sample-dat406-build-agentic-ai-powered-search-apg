@@ -7,7 +7,7 @@
  * presenting providers that cannot grant Operator access.
  */
 import { useCallback, useEffect, useRef } from 'react'
-import { ArrowRight, ShieldCheck, X } from 'lucide-react'
+import { ShieldCheck, X } from 'lucide-react'
 import ResponsiveImage from '../../components/ResponsiveImage'
 import { OPERATOR_SIGNIN_MODAL } from '../../copy'
 import { useUI } from '../../contexts/UIContext'
@@ -137,7 +137,6 @@ export default function OperatorSignInModal() {
           data-testid="operator-signin-modal-continue"
         >
           <span>{OPERATOR_SIGNIN_MODAL.ACTION}</span>
-          <ArrowRight aria-hidden />
         </button>
 
         <p className="operator-signin-footer">

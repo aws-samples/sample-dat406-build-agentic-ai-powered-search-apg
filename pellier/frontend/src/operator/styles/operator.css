@@ -124,6 +124,15 @@
      the paper family, never grey: at the 0.66 scrim floor the cream measures
      6.5:1 and the muted tone 4.8:1 over the brightest pixel in the plate. */
   --op-band-ink: var(--dl-paper);
+  /* The band's GROUND. Separate from --op-ink on purpose: the band
+     redeclares --op-ink to the light band ink so its type follows the
+     token layer, which means any background built from --op-ink inside
+     the band resolves to near-white. The house gradient did exactly
+     that and rendered cream text on a cream ground. */
+  --op-band-ground: #1f1410;
+  /* The sticky topbar is 65px. Anything pinned below it clears that plus a
+     16px breath, in one place so the two values cannot drift apart. */
+  --op-topbar-clearance: 81px;
   --op-band-muted: #ded5c8;
   --op-band-rule: rgb(251 248 242 / 0.24);
 
@@ -279,25 +288,26 @@
   gap: 22px;
 }
 
+/*
+ * The signed-in control, in the same slot and the same shape as the signed-out
+ * one. It used to be a 4px rectangle at 34px tall while the sign-in beside it
+ * was a 999px pill at 44px, so the corner of the account control changed the
+ * moment an operator signed in and the topbar appeared to reshape itself.
+ *
+ * `.pellier-account-pill` (index.css) owns border, radius, colour and hover,
+ * exactly as it does for `.operator-auth-signin` below. Only layout lives here
+ * so the two states cannot drift apart again.
+ */
 .operator-auth-control {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 7px 10px;
-  border: 1px solid var(--op-rule-strong);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--op-muted);
+  gap: 8px;
+  min-height: 44px;
+  padding: 7px 14px;
   font-family: var(--sans);
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
-}
-
-.operator-auth-control:hover {
-  border-color: var(--op-accent);
-  color: var(--op-accent);
 }
 
 /* The sign-in control is the storefront account pill (`.pellier-account-pill`
@@ -697,17 +707,27 @@
   margin-top: 22px;
   padding: 16px 18px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--op-authority) 28%, var(--op-rule));
+  border: 1px solid color-mix(in srgb, var(--op-authority) 22%, var(--op-rule));
   border-radius: var(--op-radius);
-  /* Jessica's warm coral-and-sage brief is the visual hook for this entry.
-     The sage is a decorative story token, not the database provenance tone. */
+  /*
+   * Promotion by structure, not by tint.
+   *
+   * This was a four-stop wash meant to carry Jessica's coral-and-sage brief.
+   * Neither half landed. 15% burgundy over cream is a pastel pink that reads
+   * sentimental next to an editorial desk, and #6b705c is an olive: at 7 to
+   * 13% over warm paper it loses its hue and returns as cool grey, so the
+   * card faded left-to-right from pink to grey on a warm page.
+   *
+   * The entry is promoted because it is the one open case, so the promotion
+   * is a burgundy edge and the lift, which is the same vocabulary the rest of
+   * the desk uses. The warmth stays as a whisper the eye reads as paper.
+   */
+  border-left: 3px solid var(--op-authority);
   background:
     linear-gradient(
       105deg,
-      color-mix(in srgb, var(--op-authority) 15%, var(--op-paper)) 0%,
-      color-mix(in srgb, var(--op-authority) 7%, var(--op-paper)) 38%,
-      color-mix(in srgb, var(--op-case-sage) 7%, var(--op-paper)) 67%,
-      color-mix(in srgb, var(--op-case-sage) 13%, var(--op-paper)) 100%
+      color-mix(in srgb, var(--op-authority) 6%, var(--op-paper)) 0%,
+      var(--op-paper) 52%
     );
   /* The one promoted entry on the surface, so it takes the lift rather than
      the resting shadow. Warm tint, same family as every other elevation. */
@@ -818,7 +838,7 @@
 
 .operator-rung {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
   gap: 6px;
   padding: 4px 10px;
@@ -1463,7 +1483,7 @@
   overflow: hidden;
   margin-bottom: 18px;
   border-radius: var(--op-radius);
-  background: var(--op-ink);
+  background: var(--op-band-ground);
   box-shadow: var(--op-shadow-paper);
 
   --op-ink: var(--op-band-ink);
@@ -1506,9 +1526,9 @@
   content: '';
   background: linear-gradient(
     118deg,
-    color-mix(in srgb, var(--op-authority) 34%, var(--op-ink)) 0%,
-    var(--op-ink) 62%,
-    color-mix(in srgb, var(--op-case-sage) 16%, var(--op-ink)) 100%
+    color-mix(in srgb, var(--op-authority) 34%, var(--op-band-ground)) 0%,
+    var(--op-band-ground) 62%,
+    color-mix(in srgb, var(--op-case-sage) 16%, var(--op-band-ground)) 100%
   );
   pointer-events: none;
 }
@@ -1542,7 +1562,10 @@
 /* The name and the rung read as one line of identity. */
 .operator-record-headline {
   display: flex;
-  align-items: baseline;
+  /* Centre, not baseline. Sharing a baseline with a 44px display face drops an
+     11px pill to the bottom of the name's cap height, which reads as a pill
+     that slipped rather than a standing marker beside a name. */
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px 16px;
 }
@@ -1735,10 +1758,13 @@
 }
 
 /*
- * The piece name in the storefront's product register (`.product-name`,
- * index.css:284): Fraunces italic. This is the one place on the desk where a
- * product appears as a product rather than as a row of facts, and the order
- * history is where an advisor recognises what the client actually owns.
+ * The piece name in the register the storefront actually renders. The bare
+ * `.product-name` rule (index.css:284) is Fraunces italic, but index.css:250
+ * resets it to sans inside `.pellier-surface` and `.pellier-page-surface`,
+ * which is every page a shopper sees. Matching the bare rule put a serif
+ * italic on the desk for pieces the shopper reads in sans, so the same
+ * catalogue name looked like two different products. Weight and size carry
+ * the emphasis instead.
  *
  * Sized from the desk's own scale rather than inheriting the storefront's
  * 1024px step to 22px: the record is 52% of the two-pane workbench, and a
@@ -1746,9 +1772,9 @@
  */
 .operator-piece-name {
   display: block;
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
+  font-family: var(--sans);
+  font-style: normal;
+  font-weight: 500;
   font-size: 17px;
   line-height: 1.2;
   letter-spacing: var(--op-display-track);
@@ -2078,25 +2104,58 @@
   color: var(--op-band-ink);
 }
 
+/*
+ * The page's primary action, not a second account pill.
+ *
+ * It carried `pellier-account-pill operator-auth-signin` and rendered the
+ * topbar control verbatim: same shape, same person icon, same word. A gated
+ * desk therefore showed two identical pills, and the plate's own heading and
+ * sentence said "sign in" twice more. This one states the destination and
+ * looks like the thing to press.
+ */
 .operator-state-signin {
-  /* Inline-flex inside EmptyState's action slot, which owns the spacing. */
+  /* Inline-flex inside EmptyState's action slot, which owns the spacing.
+     Metrics are `.operator-case-entry-action`'s, so the desk has one primary
+     button rather than one per surface. Text only: an arrow glyph adds a
+     second thing to read in a control whose whole job is one word. */
   display: inline-flex;
+  align-items: center;
   margin: 0;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--op-ink);
+  border-radius: var(--control-radius);
+  background: var(--op-ink);
+  color: var(--op-paper);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.operator-state-signin:hover {
+  border-color: var(--op-authority);
+  background: var(--op-authority);
+  color: var(--op-paper);
 }
 
 /* The recovery control on the plate. Higher specificity than
    `.pellier-account-pill:hover`, which would otherwise paint espresso on
    espresso. */
+/* On the photographic plate the espresso IS the ground, so the primary action
+   inverts to paper rather than disappearing into it. */
 .operator-state[data-surface='plate'] .operator-state-signin {
-  border-color: rgb(251 248 242 / 0.42);
-  background: rgb(251 248 242 / 0.1);
-  color: var(--op-band-ink);
+  background: var(--op-band-ink);
+  color: var(--op-band-ground);
 }
 
 .operator-state[data-surface='plate'] .operator-state-signin:hover {
-  border-color: var(--op-band-ink);
-  background: var(--op-band-ink);
-  color: var(--op-ink);
+  background: var(--op-paper);
+  color: var(--op-band-ground);
 }
 
 .operator-state code {
@@ -3335,8 +3394,19 @@
   display: grid;
   /* 52/48. Both halves are first class; the record is never a sidebar. */
   grid-template-columns: minmax(0, 52fr) minmax(0, 48fr);
-  gap: 34px;
+  /* Row gap is not the column gap. 34px between the panes is measure; 34px
+     under the breadcrumb is just the panes sitting low, and it stacked on the
+     crumb's own margin for 52px of air above the fold. */
+  gap: 16px 34px;
   align-items: start;
+}
+
+/* The breadcrumb spans both columns so the record band and the Concierge card
+   begin on the same line. The grid's row gap sets the space beneath it, so its
+   own margin would double-count. */
+.operator-workbench > .operator-crumb {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
 }
 
 .operator-workbench-record,
@@ -3350,11 +3420,20 @@
      collapsed to its content and the composer floated mid-column with dead space
      beneath, which read as an unfinished pane rather than a resting one. */
   position: sticky;
-  top: 24px;
+  /*
+   * Below the topbar, which is `position: sticky; top: 0` at 65px with a
+   * higher stacking level. At the previous 24px the pane pinned INTO the bar
+   * once the record scrolled, hiding the Concierge title behind it, so the
+   * pane looked shorter than it was and lost its heading at exactly the
+   * moment an operator was reading down the record.
+   */
+  top: var(--op-topbar-clearance);
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 118px);
-  min-height: 460px;
+  /* Reserve the clearance again at the foot so the composer clears the
+     viewport edge, and nothing more: the transcript wants every pixel left. */
+  height: calc(100vh - var(--op-topbar-clearance) - 16px);
+  min-height: 520px;
 }
 
 /* ---------------------------------------------------------- surface */
@@ -3412,7 +3491,7 @@
 }
 
 .operator-concierge-sub {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
   line-height: 1.6;
   color: var(--op-muted);
@@ -3424,7 +3503,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 7px;
-  margin-top: 14px;
+  margin-top: 10px;
   color: var(--op-faint);
   font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-label);
@@ -3578,16 +3657,45 @@
   mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
 }
 
+/*
+ * Scrolled content leaving at the TOP was cut square against the capability
+ * block above it, so a half-height row of capitals read as a broken glyph
+ * rather than as "there is more above". The fade exists only once the scroller
+ * has actually been scrolled, so nothing is dimmed at rest.
+ */
+.operator-concierge-body[data-scrolled='true'] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 22px),
+    transparent
+  );
+}
+
+/*
+ * The opening invitation. It read as a disabled input rather than an offer,
+ * for two reasons that were both in this rule.
+ *
+ * The second gradient stop mixed `--op-source-database` (#0b7168, the teal
+ * that marks database provenance elsewhere on the desk) into warm paper. Four
+ * percent of a saturated teal is enough to pull the whole panel cold against
+ * a cream page, and it coded provenance onto a panel that carries none. The
+ * wash is now the desk's own warmth: a whisper of authority over paper.
+ *
+ * And 15px of `--op-muted`, the faintest ink, is the register for a caption,
+ * not for the one sentence telling an operator what this pane is for.
+ */
 .operator-concierge-empty {
   min-height: 118px;
   padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--op-authority) 10%, var(--op-rule));
+  border: 1px solid color-mix(in srgb, var(--op-authority) 12%, var(--op-rule));
   border-radius: 11px;
   background:
     linear-gradient(
       125deg,
-      color-mix(in srgb, var(--op-authority) 5%, var(--op-paper)),
-      color-mix(in srgb, var(--op-source-database) 4%, var(--op-paper))
+      color-mix(in srgb, var(--op-authority) 5%, var(--op-paper)) 0%,
+      color-mix(in srgb, var(--op-authority) 2%, var(--op-paper-2)) 100%
     );
 }
 
@@ -3596,7 +3704,7 @@
   max-width: 46ch;
   font-size: 15px;
   line-height: 1.7;
-  color: var(--op-muted);
+  color: var(--op-ink-2);
   text-wrap: pretty;
 }
 
@@ -3799,11 +3907,13 @@
   padding: 12px 14px 13px;
   border: 1px solid color-mix(in srgb, var(--op-source-memory) 22%, var(--op-rule));
   border-radius: 8px;
+  /* One provenance tone in the fill, not two. Blending a second hue in at a
+     few percent cancels both and returns cool grey on warm paper. */
   background:
     linear-gradient(
       110deg,
-      color-mix(in srgb, var(--op-source-memory) 5%, var(--op-paper)),
-      color-mix(in srgb, var(--op-source-database) 4%, var(--op-paper))
+      color-mix(in srgb, var(--op-source-memory) 5%, var(--op-paper)) 0%,
+      var(--op-paper) 60%
     );
 }
 
@@ -3968,6 +4078,17 @@
   --op-source-tone: var(--op-source-handoff);
 }
 
+/*
+ * Provenance belongs on the border and in the meta line, which name the graph
+ * and the target. It does not belong in the fill.
+ *
+ * This blended two different provenance tones across the panel: the graph
+ * plum (#7a3e57) into one corner and the database teal (#0b7168) into the
+ * other. Two hues at four to six percent over warm paper cancel into a cool
+ * grey, so the panel read cold on a cream page and the nodes inside it, whose
+ * own fill is 84% paper over this gradient, picked the cast up through their
+ * translucency and looked olive-bordered.
+ */
 .operator-concierge-graph {
   margin: 12px 0 0;
   padding: 14px;
@@ -3976,8 +4097,8 @@
   background:
     linear-gradient(
       145deg,
-      color-mix(in srgb, var(--op-source-graph) 6%, var(--op-paper)),
-      color-mix(in srgb, var(--op-source-database) 4%, var(--op-paper))
+      color-mix(in srgb, var(--op-source-graph) 5%, var(--op-paper)) 0%,
+      var(--op-paper) 60%
     );
 }
 

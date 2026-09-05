@@ -416,7 +416,10 @@ describe('OperatorFrame review link', () => {
     )
     const badge = await screen.findByTestId('operator-reviews-count')
     expect(badge).toHaveAttribute('data-count', 'sign-in')
-    expect(badge).toHaveTextContent('Sign in required')
+    // State, not a third copy of the instruction: the topbar already carries a
+    // sign-in control and the gated page carries its own primary action.
+    expect(badge).toHaveTextContent('Locked')
+    expect(badge).not.toHaveTextContent('Sign in required')
     expect(badge).not.toHaveTextContent('Queue unavailable')
     expect(badge).toHaveAccessibleDescription(/sign in as an operator/i)
   })

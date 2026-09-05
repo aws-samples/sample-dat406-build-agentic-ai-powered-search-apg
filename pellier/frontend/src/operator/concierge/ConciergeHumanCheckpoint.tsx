@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { ArrowRight, CheckCircle2, ShieldCheck, UserCheck } from 'lucide-react'
+import { CheckCircle2, ShieldCheck, UserCheck } from 'lucide-react'
 
 import type {
   OperatorClientRecord,
@@ -144,7 +144,6 @@ const ConciergeHumanCheckpoint: React.FC<Props> = ({
         }}
       >
         Prepare for human review
-        <ArrowRight size={15} aria-hidden="true" />
       </button>
     </section>
   )

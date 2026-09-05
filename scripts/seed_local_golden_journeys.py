@@ -172,6 +172,20 @@ SELECT
   FROM pellier.orders o
  WHERE o.customer_id = 'CUST-THEO'
    AND o.product_id = '37'
+   -- Idempotent across the whole lifecycle, not just while the row is open.
+   -- `approvals_open_per_action_idx` is a PARTIAL unique index scoped to
+   -- `status = 'pending'`, so the ON CONFLICT below stops a second row only
+   -- until the first one is decided. After that the seeded review leaves the
+   -- index, and the next seed run inserts another copy: a workshop box that
+   -- had been reseeded twice showed two identical decided Theo returns in the
+   -- Action Queue's history. The source turn is this row's identity anyway --
+   -- the block directly below calls it "the canonical Theo review" and reads
+   -- it back by exactly this value.
+   AND NOT EXISTS (
+         SELECT 1
+           FROM pellier.approvals a
+          WHERE a.source_turn_id = '{SOURCE_TURN_ID}'
+       )
  ORDER BY o.placed_at DESC, o.id DESC
  LIMIT 1
 ON CONFLICT (customer_id, tool, action_hash) WHERE status = 'pending'

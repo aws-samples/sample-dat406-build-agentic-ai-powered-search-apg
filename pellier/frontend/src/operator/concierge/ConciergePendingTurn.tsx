@@ -7,7 +7,7 @@
  * complete before it is.
  */
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, LoaderCircle } from 'lucide-react'
 
 import type {
@@ -23,7 +23,26 @@ interface Props {
 }
 
 const ConciergePendingTurn: React.FC<Props> = ({ request, steps, answer }) => {
+  /*
+   * Open while the work is happening, closed once it is done.
+   *
+   * The steps are worth watching live: they name the systems the answer came
+   * from as each one responds. They are not worth keeping open afterwards,
+   * when the answer is the thing to read and the trace pushes it down a
+   * viewport-height column. So it collapses itself on completion and stays one
+   * click away, with the step count still on the row.
+   *
+   * An operator who opened or closed it by hand has said what they want, and
+   * that decision outranks the automatic one.
+   */
   const [open, setOpen] = useState(true)
+  const toggledByHand = useRef(false)
+  const settled = answer !== null
+
+  useEffect(() => {
+    if (settled && !toggledByHand.current) setOpen(false)
+  }, [settled])
+
   const current = steps.at(-1)
   const activeLabel = answer
     ? 'Answer saved to the conversation'
@@ -49,7 +68,10 @@ const ConciergePendingTurn: React.FC<Props> = ({ request, steps, answer }) => {
           type="button"
           className="operator-concierge-investigation-head"
           aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => {
+            toggledByHand.current = true
+            setOpen((value) => !value)
+          }}
         >
           <span className="operator-concierge-activity-status" aria-hidden="true">
             <ActiveIcon size={15} strokeWidth={1.9} />
@@ -62,6 +84,7 @@ const ConciergePendingTurn: React.FC<Props> = ({ request, steps, answer }) => {
           </span>
           <span className="operator-concierge-investigation-meta">
             {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+            {settled && !open ? ' · show' : ''}
           </span>
           <ChevronDown
             className="operator-concierge-disclosure-icon"

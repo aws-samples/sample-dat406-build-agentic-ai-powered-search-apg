@@ -109,7 +109,12 @@ const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
           data-testid="operator-reviews-count"
           title="Sign in as an operator to read the action queue"
         >
-          Sign in required
+          {/* The slot carries queue state. Spelling out the instruction here
+              made it the third "sign in" on a gated screen, beside the topbar
+              control and the page's own primary action, so it states the
+              state and leaves the asking to them. The title attribute keeps
+              the full explanation for anyone who needs it. */}
+          Locked
         </span>
       ) : unreachable ? (
         <span
@@ -145,7 +150,7 @@ const OperatorAuthControl: React.FC = () => {
   if (loading) {
     return (
       <span
-        className="operator-auth-control operator-auth-loading"
+        className="pellier-account-pill operator-auth-control operator-auth-loading"
         aria-label="Checking operator sign-in"
       />
     )
@@ -155,7 +160,7 @@ const OperatorAuthControl: React.FC = () => {
     return (
       <button
         type="button"
-        className="operator-auth-control"
+        className="pellier-account-pill operator-auth-control"
         onClick={logout}
         title={`Signed in as ${user.email}`}
       >

@@ -152,7 +152,7 @@ const ClientRecord: React.FC = () => {
           )
         }
         reason={error}
-        action={authenticationRequired ? <OperatorSignInAction /> : undefined}
+        action={authenticationRequired ? <OperatorSignInAction unlocks="open this client record" /> : undefined}
       />
     )
   }
@@ -183,10 +183,14 @@ const ClientRecord: React.FC = () => {
     // had; the Concierge is ADDED beside it rather than replacing it, so the left
     // column is not reduced to a SaaS sidebar.
     <div className="operator-workbench" data-testid="operator-record">
-      <div className="operator-workbench-record">
       {/* Destination, then the record's own identifier. The customer id is
           the value an operator pastes into a query, so it is shown as data
-          rather than hidden. */}
+          rather than hidden.
+
+          Above the two columns, not inside the record one. As a child of the
+          left column it pushed the record band down by its own height while
+          the Concierge card started at the grid's top edge, so the two panes
+          opened on different content and read as misaligned. */}
       <nav className="operator-crumb" aria-label="Breadcrumb">
         <Link to="/operator" className="operator-back">
           ← Clients
@@ -196,6 +200,7 @@ const ClientRecord: React.FC = () => {
         </span>
         <span className="operator-crumb-id">{client.customerId}</span>
       </nav>
+      <div className="operator-workbench-record">
 
       {/* An editorial band, not a row of fields: portrait, name in the display
           face, rung, and the one link back to the shop. The governance note
