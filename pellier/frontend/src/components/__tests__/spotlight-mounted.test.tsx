@@ -52,7 +52,9 @@ describe('first-visit orientation', () => {
     expect(screen.getByRole('heading', { name: 'Begin with the edit.' })).toBeInTheDocument();
     expect(screen.getByRole('img')).toHaveAttribute(
       'src',
-      expect.stringContaining('marco-leather-weekend-holdall-960.webp'),
+      // The 16:9 hero. The 4:5 product frame it replaced was cropped to a
+      // hard zoom by this band's aspect ratio.
+      expect.stringContaining('landing-hero-weekender-1600.webp'),
     );
     // The welcome remains a deliberately short arrival sequence.
     const dots = screen.getAllByRole('button', { name: /Show / });
@@ -89,12 +91,18 @@ describe('first-visit orientation', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent(
       'through retrieval, managed execution, policy, and Aurora.',
     );
-    await waitFor(() =>
-      expect(screen.getAllByRole('img').at(-1)).toHaveAttribute(
-        'src',
-        expect.stringContaining('tour-observatory-top-panel-960.webp'),
-      ),
-    );
+    // The four people the evidence is followed for, not a screenshot of the
+    // surface that follows it. One accessible name covers the strip, and each
+    // portrait comes from LAB_EXERCISES so the names cannot drift from the
+    // Governed Lab Collection.
+    const strip = await screen.findByRole('img', {
+      name: /The four people each lab follows/i,
+    });
+    for (const anchor of ['Marco', 'Anna', 'Theo', 'Jessica']) {
+      expect(strip).toHaveAccessibleName(new RegExp(anchor));
+      expect(strip).toHaveTextContent(new RegExp(anchor, 'i'));
+    }
+    expect(strip.querySelectorAll('img')).toHaveLength(4);
   });
 
   it('contains keyboard focus and restores it after dismissal', () => {

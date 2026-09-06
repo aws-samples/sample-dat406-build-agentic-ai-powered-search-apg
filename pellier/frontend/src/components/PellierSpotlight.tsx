@@ -16,14 +16,25 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, X } from 'lucide-react'
 import { imageSrc } from '../utils/assetPath'
+import { LAB_EXERCISES } from '../observatory/labs/labCatalog'
+
+/**
+ * A slide's media.
+ *
+ * `photo` is one catalog photograph. `personas` is the four lab anchors as a
+ * portrait strip, built from `LAB_EXERCISES` so the names, numbers and images
+ * cannot drift from the Governed Lab Collection they mirror.
+ */
+type SpotlightMedia =
+  | { kind: 'photo'; src: string; alt: string }
+  | { kind: 'personas' }
 
 interface SpotlightStep {
   label: string
   eyebrow: string
   headline: string
   body: string
-  image: string
-  imageAlt: string
+  media: SpotlightMedia
 }
 
 const STEPS: SpotlightStep[] = [
@@ -32,24 +43,36 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Welcome to Pellier',
     headline: 'Begin with the edit.',
     body: 'Choose a point of view, then browse a collection shaped by the details that matter to that shopper.',
-    image: '/products/marco-leather-weekend-holdall-960.webp',
-    imageAlt: 'Leather Weekend Holdall on travertine beside folded linen in warm daylight',
+    // A 16:9 hero, not the 4:5 product shot. This band is ~2.85:1, so
+    // `object-cover` on a portrait frame cropped away most of the bag and left
+    // a hard zoom on its middle.
+    media: {
+      kind: 'photo',
+      src: '/products/landing-hero-weekender-1600.webp',
+      alt: 'Leather Weekend Holdall on travertine beside folded linen in warm daylight',
+    },
   },
   {
     label: 'Ask',
     eyebrow: 'Ask Pellier',
     headline: 'Use your own words.',
     body: 'Ask for a piece or occasion. Pellier reads the current catalog and your chosen point of view before it recommends a place to start.',
-    image: '/products/hero-anna.png',
-    imageAlt: 'Wrapped gift, beeswax candles, and a ceramic ring dish',
+    // The webp of the same frame: the PNG beside it is 1.8 MB for a 552px band.
+    media: {
+      kind: 'photo',
+      src: '/products/hero-anna-1600.webp',
+      alt: 'Wrapped gift, beeswax candles, and a ceramic ring dish',
+    },
   },
   {
     label: 'Trace',
     eyebrow: 'Operator and Observatory',
     headline: 'Follow the evidence.',
     body: 'When a recommendation becomes a case, the Operator workspace and Observatory follow the evidence from grounded answers through retrieval, managed execution, policy, and Aurora.',
-    image: '/products/tour-observatory-top-panel-960.webp',
-    imageAlt: 'Pellier Observatory top panel with the current four-stage evidence journey',
+    // The four people the evidence is followed for, rather than a screenshot of
+    // the surface that follows it. A cropped UI capture read as washed-out
+    // chrome at this size and dated the moment the panel changed.
+    media: { kind: 'personas' },
   },
 ]
 
@@ -196,7 +219,6 @@ export default function PellierSpotlight() {
 
   const current = STEPS[step]
   const isLast = step === STEPS.length - 1
-  const currentImageSrc = imageSrc(current.image)
 
   return (
     <AnimatePresence>
@@ -236,19 +258,63 @@ export default function PellierSpotlight() {
 
           <div className="h-[194px] overflow-hidden bg-cream-2 sm:h-[208px]">
             <AnimatePresence initial={false} mode="wait">
-              <motion.img
-                key={current.image}
-                src={currentImageSrc}
-                alt={current.imageAlt}
-                className="h-full w-full object-cover"
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.035 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.02 }}
-                transition={{
-                  duration: reduceMotion ? 0.1 : 0.28,
-                  ease: MOTION_EASE,
-                }}
-              />
+              {current.media.kind === 'photo' ? (
+                <motion.img
+                  key={current.media.src}
+                  src={imageSrc(current.media.src)}
+                  alt={current.media.alt}
+                  className="h-full w-full object-cover"
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.035 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.02 }}
+                  transition={{
+                    duration: reduceMotion ? 0.1 : 0.28,
+                    ease: MOTION_EASE,
+                  }}
+                />
+              ) : (
+                /* One label for the whole strip: four portraits announced
+                   separately would read as four unrelated images between the
+                   headline and the controls. */
+                <motion.div
+                  key="personas"
+                  role="img"
+                  aria-label={`The four people each lab follows: ${LAB_EXERCISES.map(
+                    (lab) => `${lab.anchorName}, lab ${Number(lab.number)}, ${lab.shortTitle}`,
+                  ).join('; ')}`}
+                  className="grid h-full w-full grid-cols-4"
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.035 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.02 }}
+                  transition={{
+                    duration: reduceMotion ? 0.1 : 0.28,
+                    ease: MOTION_EASE,
+                  }}
+                >
+                  {LAB_EXERCISES.map((lab) => (
+                    <div
+                      key={lab.id}
+                      className="relative overflow-hidden border-r border-cream-warm/40 last:border-r-0"
+                    >
+                      <img
+                        src={imageSrc(lab.image)}
+                        alt=""
+                        width={lab.imageWidth}
+                        height={lab.imageHeight}
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgba(24,26,31,0.82)] via-[rgba(24,26,31,0.45)] to-transparent px-1.5 pb-1.5 pt-6 text-center">
+                        <span className="block font-mono text-[9px] uppercase leading-tight tracking-[0.12em] text-white">
+                          {lab.anchorName}
+                        </span>
+                        <span className="block font-mono text-[9px] uppercase leading-tight tracking-[0.1em] text-white/70">
+                          {`Lab ${Number(lab.number)}`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
 
