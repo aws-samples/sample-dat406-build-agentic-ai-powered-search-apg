@@ -1,6 +1,8 @@
-# Pellier Design System
+# Pellier design tokens
 
-The visual foundation for the Pellier frontend redesign. Every component in the rebuilt storefront (Pellier) and observatory (Observatory) surfaces draws from this module. Colors, typography, spacing, shadows, radii, animation timing, breakpoints, and fluid layout values are defined once in `tokens.ts` and consumed by the 11 reusable primitives in `primitives/`.
+The token module behind the Pellier frontend. Colors, typography, spacing, shadows, radii, animation timing, breakpoints, and fluid layout values are defined once in `tokens.ts` and extended into the Tailwind config, which is how most of the application consumes them.
+
+**This module is not the whole design system, and it never was.** The authority on the visual world is the repository-root `DESIGN.md`; the shipped surface contracts live in `observatory/styles/base.css`, `styles/`, `operator/styles/`, and the shared components in `src/shared/`. This file documents `tokens.ts` and the two primitives that are actually mounted.
 
 ---
 
@@ -8,22 +10,24 @@ The visual foundation for the Pellier frontend redesign. Every component in the 
 
 All color tokens are exported from `tokens.ts` and extended into the Tailwind config.
 
-| Token          | Hex       | Usage                                         |
-| -------------- | --------- | --------------------------------------------- |
-| `cream`        | `#F7F3EE` | Primary background (Pellier), light surfaces |
-| `sand`         | `#E8DFD4` | Secondary background, muted fills             |
-| `espresso`     | `#3B2F2F` | Dark text, primary actions                    |
-| `olive`        | `#6B705C` | Accent green, tags, secondary indicators      |
-| `terracotta`   | `#C44536` | Accent red, CTAs, active states, links        |
-| `ink`          | `#2D1810` | Primary text, dark actions (preserved)        |
-| `inkSoft`      | `#6B4A35` | Secondary text (preserved)                    |
-| `inkQuiet`     | `#A68668` | Tertiary text, metadata (preserved)           |
-| `dusk`         | `#3D2518` | Dark surfaces, hover states (preserved)       |
-| `creamWarm`    | `#F5E8D3` | Secondary background, hover fills (preserved) |
-| `espressoDark` | `#1F1410` | Observatory sidebar background                    |
-| `espressoMid`  | `#2A1E18` | Observatory dark surface mid-tone                 |
+| Token          | Hex       | Usage                                              |
+| -------------- | --------- | -------------------------------------------------- |
+| `cream`        | `#f7f3ec` | Page background (warm canvas)                       |
+| `sand`         | `#f1ece1` | Recessed and nested surfaces                        |
+| `espresso`     | `#1f1410` | Strongest ink and the neutral primary action        |
+| `olive`        | `#6B705C` | Material storytelling. Never a proof status         |
+| `terracotta`   | `#9a3412` | Storefront warmth and selective brand emphasis      |
+| `ink`          | `#1f1410` | Primary text                                        |
+| `inkSoft`      | `#3a3833` | Long-form prose                                     |
+| `inkQuiet`     | `#6b665d` | Captions, timestamps, secondary metadata            |
+| `dusk`         | `#1f1410` | Dark surfaces and hover states                      |
+| `creamWarm`    | `#fbf8f2` | Raised paper: cards, panels, fields                 |
+| `espressoDark` | `#1f1410` | Dark surface base                                   |
+| `espressoMid`  | `#2a2724` | Dark surface mid-tone                               |
 
-> **Naming note:** The Tailwind class is `cream-50` (not `cream-new`). This avoids collision with the existing `cream` token (`#fbf4e8`) which remains for backward compatibility until all phases are complete.
+These are the values in `tokens.ts`, and they resolve to the same swatches
+`DESIGN.md` names. `ink`, `dusk`, `espresso` and `espressoDark` are four names
+for one colour; that convergence is deliberate and predates this file.
 
 ---
 
@@ -143,57 +147,14 @@ Continuous scaling values used via CSS `clamp()` so layouts adapt smoothly acros
 
 ## Primitives
 
-All 11 primitives live in `src/design/primitives/` and are re-exported from `primitives/index.ts`.
+Two primitives live in `src/design/primitives/` and are re-exported from
+`primitives/index.ts`. Both are mounted by `components/Header.tsx`.
 
-### Button
-
-Versatile action button with three visual variants and three sizes.
-
-- **Variants:** `primary` (filled), `secondary` (outlined), `ghost` (text-only)
-- **Sizes:** `sm`, `md`, `lg`
-- **Key props:** `variant`, `size`, `disabled`, `onClick`, `children`
-- Includes visible focus indicator for keyboard navigation
-
-### Chip
-
-Suggestion and tag chip with toggle state.
-
-- **States:** `active` (filled), `inactive` (outlined)
-- **Key props:** `active`, `onClick`, `children`
-
-### Card
-
-Borderless container with warm-tinted soft shadows.
-
-- **Variants:** `default`, `product`, `recommendation`, `reasoning`
-- **Key props:** `variant`, `className`, `children`
-
-### Input
-
-Text input with search bar variant.
-
-- **Variants:** `search` (with mic icon and command-K hint), `text` (standard)
-- **Key props:** `variant`, `placeholder`, `value`, `onChange`
-- Includes visible focus indicator
-
-### Modal
-
-Overlay dialog rendered via `createPortal` to `document.body`.
-
-- Traps keyboard focus (Tab/Shift+Tab cycle within modal)
-- Closes on Escape key press
-- **Key props:** `open`, `onClose`, `ariaLabel`, `children`
-
-### Drawer
-
-Slide-in panel with Framer Motion animation.
-
-- Animates at 240ms ease-out matching the slide timing token
-- Rendered via `createPortal` to `document.body`
-- Focus trap while open
-- **Sides:** `left`, `right`
-- **Key props:** `open`, `onClose`, `side`, `ariaLabel`, `children`
-- Respects `prefers-reduced-motion`
+Nine others once sat beside them — Button, Card, Chip, Input, Modal, Drawer,
+Pill, Sidebar, Timeline — fully written, fully exported, and imported by
+nothing. They have been removed. If you need a control the two below do not
+cover, take the pattern from the surface stylesheet that already draws it
+rather than reviving a parallel one here.
 
 ### Avatar
 
@@ -202,43 +163,17 @@ Circular monogram display.
 - **Sizes:** `sm`, `md`, `lg`
 - **Key props:** `initial` (single character), `bgColor`, `size`
 
-### Pill
-
-Status indicator badge.
-
-- **Variants:** `live` (pulsing dot), `confidence`, `default`
-- **Key props:** `variant`, `children`
-
 ### IconButton
 
 Circular ghost button for icon-only actions (header, toolbars).
 
-- **Sizes:** `sm`, `md`
+- **Sizes:** `sm` (32px), `md` (44px, the touch floor)
 - **Key props:** `icon`, `size`, `ariaLabel`, `onClick`
-- Includes visible focus indicator
-
-### Sidebar
-
-Navigation sidebar with dark and light variants.
-
-- **Dark variant:** Espresso `#1F1410` background, cream text (Observatory)
-- **Light variant:** Cream background, ink text (Pellier)
-- **Key props:** `variant`, `items` (array of `SidebarItem`), `activeItem`, `onItemClick`
-- `SidebarItem`: `{ id, label, icon?, badge? }`
-
-### Timeline
-
-Vertical numbered step sequence with connecting lines.
-
-- **Step statuses:** `pending` (muted), `in-progress` (pulsing), `complete` (filled), `skipped` (dimmed with skip indicator)
-- **Key props:** `steps` (array of `TimelineStep`)
-- `TimelineStep`: `{ number, label, status, content? }`
-- Respects `prefers-reduced-motion` for pulsing animation
+- Includes a visible focus indicator, and does not shrink as a flex item
 
 ---
 
 ## Notes
 
 - The `expansionStack` token (1280px) defines where the Observatory three-column expansion area transitions from 3 equal columns to a 2+1 stacked layout. This is separate from the `mobile` breakpoint.
-- `cream-50` (`#F7F3EE`) was chosen over `cream-new` to follow Tailwind's numeric shade convention and avoid confusion with the existing `cream` token (`#fbf4e8`).
 - The body text narrow `clamp()` range (14px to 16px) is intentional — reading distance doesn't change meaningfully between laptop sizes, so body text stays near-constant while display type does the scaling work.

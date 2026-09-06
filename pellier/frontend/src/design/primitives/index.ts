@@ -1,20 +1,14 @@
 /**
- * Barrel export — Design System Primitives
+ * Barrel export — the two primitives the storefront header actually mounts.
  *
- * Single entry point for all 11 primitives. Import from here
- * rather than individual files:
- *
- *   import { Button, Card, Modal } from '@/design/primitives'
+ * Nine more once lived here (Button, Card, Chip, Input, Modal, Drawer, Pill,
+ * Sidebar, Timeline). Every one was exported, none was imported: the surfaces
+ * had each grown its own control vocabulary in CSS, and the module described a
+ * design system that no rendered pixel came from. A component tree nobody
+ * mounts is not a system, it is a second answer to questions already settled
+ * elsewhere, so it has been removed rather than deprecated. Shared visual
+ * contracts live in `observatory/styles/base.css`, `styles/`, and `shared/`.
  */
 
-export { Button, type ButtonProps } from './Button'
-export { Chip, type ChipProps } from './Chip'
-export { Card, type CardProps } from './Card'
-export { Input, type InputProps } from './Input'
-export { Modal, type ModalProps } from './Modal'
-export { Drawer, type DrawerProps } from './Drawer'
 export { Avatar, type AvatarProps } from './Avatar'
-export { Pill, type PillProps } from './Pill'
 export { IconButton, type IconButtonProps } from './IconButton'
-export { Sidebar, type SidebarProps, type SidebarItem } from './Sidebar'
-export { Timeline, type TimelineProps, type TimelineStep } from './Timeline'
