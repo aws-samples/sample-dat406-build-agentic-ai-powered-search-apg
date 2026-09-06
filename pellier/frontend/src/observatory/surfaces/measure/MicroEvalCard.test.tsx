@@ -44,6 +44,41 @@ const PAYLOAD = {
   ],
 };
 
+/**
+ * The same run as PAYLOAD, from a backend that reports the cold/warm split.
+ *
+ * PAYLOAD deliberately omits these fields: a runtime deployed before the split
+ * existed still answers, and the card has to say "not reported" rather than
+ * render an absent measurement as zero.
+ */
+const MEASURED_PAYLOAD = {
+  ...PAYLOAD,
+  variants: [
+    {
+      ...PAYLOAD.variants[0],
+      latency_cold_ms: 812,
+      latency_warm_ms_p50: 41,
+      latency_samples: { cold: 1, warm: 2 },
+      rerank_cache: {
+        enabled: true,
+        ttl_seconds: 120,
+        note: 'repetitions send an identical rerank request',
+      },
+    },
+    {
+      ...PAYLOAD.variants[1],
+      latency_cold_ms: 512,
+      latency_warm_ms_p50: 33,
+      latency_samples: { cold: 1, warm: 2 },
+      rerank_cache: {
+        enabled: true,
+        ttl_seconds: 120,
+        note: 'repetitions send an identical rerank request',
+      },
+    },
+  ],
+};
+
 function stubFetch(response: () => Response) {
   const fetchMock = vi.fn(async () => response());
   vi.stubGlobal('fetch', fetchMock);
@@ -101,6 +136,59 @@ describe('MicroEvalCard', () => {
     ).querySelectorAll('td');
     expect(violations[0]).toHaveTextContent('0');
     expect(violations[1]).toHaveTextContent('2');
+  });
+
+  // The cold pass and the cache-hit repetitions are different measurements.
+  // Averaging them produced a figure that described neither and moved with the
+  // repetition count, so the card reports them apart and says what each rests
+  // on.
+  it('reports the cold pass and the warm median as separate rows', async () => {
+    stubFetch(
+      () => new Response(JSON.stringify(MEASURED_PAYLOAD), { status: 200 }),
+    );
+    await runCard();
+
+    const table = await screen.findByRole('table', {
+      name: /rerank pool comparison/i,
+    });
+
+    const cold = row(table, /latency, cold pass/i).querySelectorAll('td');
+    expect(cold[0]).toHaveTextContent('812 ms');
+    expect(cold[1]).toHaveTextContent('512 ms');
+
+    const warm = row(table, /latency, warm median/i).querySelectorAll('td');
+    expect(warm[0]).toHaveTextContent('41 ms');
+    expect(warm[1]).toHaveTextContent('33 ms');
+
+    // The old pair claimed a distribution over one observation.
+    expect(within(table).queryByText(/Latency p50/i)).not.toBeInTheDocument();
+    expect(within(table).queryByText(/Latency p95/i)).not.toBeInTheDocument();
+  });
+
+  it('says how many samples each latency figure rests on', async () => {
+    stubFetch(
+      () => new Response(JSON.stringify(MEASURED_PAYLOAD), { status: 200 }),
+    );
+    await runCard();
+
+    const note = await screen.findByTestId('micro-eval-samples');
+    expect(note).toHaveTextContent(/1 cold pass and 2 warm repetitions/i);
+    expect(note).toHaveTextContent(/cache hits \(120s TTL\)/i);
+  });
+
+  it('names an absent latency figure rather than rendering it as zero', async () => {
+    // PAYLOAD is the older runtime shape: no cold/warm fields at all.
+    stubFetch(() => new Response(JSON.stringify(PAYLOAD), { status: 200 }));
+    await runCard();
+
+    const table = await screen.findByRole('table', {
+      name: /rerank pool comparison/i,
+    });
+    const cold = row(table, /latency, cold pass/i).querySelectorAll('td');
+    expect(cold[0]).toHaveTextContent(/not reported/i);
+    expect(cold[0]).not.toHaveTextContent('0 ms');
+
+    expect(screen.queryByTestId('micro-eval-samples')).not.toBeInTheDocument();
   });
 
   it('states the canonical query and the repetition count the run reported', async () => {

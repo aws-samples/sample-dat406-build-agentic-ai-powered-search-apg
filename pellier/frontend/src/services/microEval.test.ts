@@ -117,6 +117,42 @@ describe('poolCostReading', () => {
     expect(reading).toContain('300 ms')
   })
 
+  // The endpoint measures one cold pass per pool and reports the cache-hit
+  // repetitions separately, so the saved time is a cold-vs-cold difference.
+  // Reading it off `latency_ms_p50` and calling it a p50 dressed a single
+  // observation as a distribution.
+  it('reads the saved time off the cold pass and says so', () => {
+    const reading = poolCostReading(
+      variant({
+        pool_k: 20,
+        candidate_coverage: 0.94,
+        latency_ms_p50: 812,
+        latency_cold_ms: 812,
+        latency_warm_ms_p50: 41,
+      }),
+      variant({
+        pool_k: 3,
+        candidate_coverage: 0.41,
+        latency_ms_p50: 512,
+        latency_cold_ms: 512,
+        latency_warm_ms_p50: 33,
+      }),
+    )
+    expect(reading).toContain('300 ms on the cold pass')
+    expect(reading).not.toMatch(/at p50/)
+    // The warm medians differ by 8 ms; quoting that as the saving would
+    // compare two cache hits and call it the cost of a bigger pool.
+    expect(reading).not.toContain('8 ms')
+  })
+
+  it('falls back to the reported percentile when a runtime omits the cold figure', () => {
+    const reading = poolCostReading(
+      variant({ pool_k: 20, candidate_coverage: 0.94, latency_ms_p50: 812 }),
+      variant({ pool_k: 3, candidate_coverage: 0.41, latency_ms_p50: 512 }),
+    )
+    expect(reading).toContain('300 ms on the cold pass')
+  })
+
   it('says so plainly when the smaller pool costs no coverage', () => {
     const reading = poolCostReading(
       variant({ pool_k: 20, candidate_coverage: 0.9, latency_ms_p50: 800 }),

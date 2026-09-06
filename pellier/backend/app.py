@@ -2385,21 +2385,50 @@ async def micro_eval_search_strategies(
         )
         return execution, (time.perf_counter() - started) * 1000
 
+    # Cold and warm are different measurements, and averaging them is neither.
+    #
+    # `services/rerank.py` caches on (query, documents, top_n, model_id) for 120
+    # seconds, and every repetition here sends an identical request. So pass 1
+    # pays the Bedrock Rerank call and passes 2..N are cache hits. Blending them
+    # into one p50/p95 produced a number that describes neither the first
+    # shopper nor the second, and moved with the repetition count rather than
+    # with anything about the system.
+    #
+    # Report them apart, and say how many samples each rests on. Three samples
+    # are exploratory either way; the response says so rather than implying a
+    # distribution.
+    #
+    # Whether the warm samples are cache hits at all is a property of this
+    # process, not of a pool size, so it is read once and attached to each
+    # variant rather than re-read per iteration.
+    rerank_cache_state = {
+        "enabled": get_cache() is not None,
+        "ttl_seconds": settings.RERANK_CACHE_TTL_SEC,
+        "note": (
+            "repetitions send an identical rerank request, so warm samples "
+            "are cache hits, not a second Bedrock call"
+        ),
+    }
     variants: List[Dict[str, Any]] = []
     for pool_size in pool_sizes:
         scored, first_ms = await _one_pass(pool_size)
-        latencies_ms: List[float] = [first_ms]
+        warm_ms: List[float] = []
         for _ in range(passes - 1):
             _, elapsed_ms = await _one_pass(pool_size)
-            latencies_ms.append(elapsed_ms)
-        variants.append(
-            micro_eval_variant(
-                scored,
-                latencies_ms=latencies_ms,
-                golden_ids=CANONICAL_ANNA_GOLDEN_IDS,
-                limit=limit,
-            )
+            warm_ms.append(elapsed_ms)
+        variant = micro_eval_variant(
+            scored,
+            latencies_ms=[first_ms],
+            golden_ids=CANONICAL_ANNA_GOLDEN_IDS,
+            limit=limit,
         )
+        variant["latency_cold_ms"] = round(first_ms, 1)
+        variant["latency_warm_ms_p50"] = (
+            round(sorted(warm_ms)[len(warm_ms) // 2], 1) if warm_ms else None
+        )
+        variant["latency_samples"] = {"cold": 1, "warm": len(warm_ms)}
+        variant["rerank_cache"] = dict(rerank_cache_state)
+        variants.append(variant)
     return {
         "query": q,
         "limit": limit,
@@ -2601,7 +2630,7 @@ async def explain_search(query: str):
             ])
         rerank_meta = (
             "Cohere Rerank v3.5 reads the query + each candidate and assigns a "
-            "calibrated relevance score in [0,1]. ▲/▼ shows how far a product "
+            "relevance score in [0,1]. ▲/▼ shows how far a product "
             "moved from its RRF position — that movement is what the rerank "
             "spend buys you."
         )

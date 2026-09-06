@@ -143,10 +143,23 @@ def test_micro_eval_envelope_matches_the_frontend_contract(stub_services: _Reran
         "citation_coverage",
         "latency_ms_p50",
         "latency_ms_p95",
+        # Cold and warm reported apart: repetitions send an identical rerank
+        # request, so every sample after the first is a cache hit rather than a
+        # second Bedrock call. One blended percentile described neither.
+        "latency_cold_ms",
+        "latency_warm_ms_p50",
+        "latency_samples",
+        "rerank_cache",
     }
     for variant in body["variants"]:
         assert set(variant) == expected_keys
         assert variant["latency_ms_p95"] >= variant["latency_ms_p50"] >= 0
+        assert variant["latency_cold_ms"] >= 0
+        assert variant["latency_samples"]["cold"] == 1
+        assert variant["latency_samples"]["warm"] == (
+            retrieval_module.MICRO_EVAL_REPETITIONS_DEFAULT - 1
+        )
+        assert "ttl_seconds" in variant["rerank_cache"]
 
 
 def test_a_pool_of_three_covers_fewer_golden_ids_than_a_pool_of_twenty(

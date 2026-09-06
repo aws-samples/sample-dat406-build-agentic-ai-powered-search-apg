@@ -17,6 +17,25 @@ import { API_BASE_URL } from './apiBase'
 const MICRO_EVAL_PATH =
   '/api/observatory/search-strategies/micro-eval?pool_k=20&pool_k=3'
 
+/**
+ * How many observations each latency figure rests on.
+ *
+ * Stated because the two figures are not the same kind of measurement: `cold`
+ * is always a single pass, so a percentile over it is that one number wearing
+ * a statistic's name.
+ */
+export interface MicroEvalLatencySamples {
+  cold: number
+  warm: number
+}
+
+/** Whether the warm samples are cache hits, and for how long they stay so. */
+export interface MicroEvalRerankCache {
+  enabled: boolean
+  ttl_seconds: number
+  note: string
+}
+
 export interface MicroEvalVariant {
   pool_k: number
   candidate_coverage: number
@@ -25,8 +44,29 @@ export interface MicroEvalVariant {
   hard_constraint_violations: number
   short_result_rate: number
   citation_coverage: number
+  /**
+   * Percentiles over whatever the endpoint measured.
+   *
+   * The endpoint passes the cold pass alone, so today these are that one
+   * observation and p50 equals p95. Prefer `latency_cold_ms` and
+   * `latency_warm_ms_p50`, which say which path they describe.
+   */
   latency_ms_p50: number
   latency_ms_p95: number
+  /**
+   * The first pass, which pays the Bedrock Rerank call.
+   *
+   * Optional because a runtime deployed before this field existed does not
+   * send it, and an absent figure is unknown, not zero.
+   */
+  latency_cold_ms?: number
+  /**
+   * Median of the repetitions, which are cache hits while the rerank cache is
+   * enabled. `null` when only one pass ran, so there is no warm path to report.
+   */
+  latency_warm_ms_p50?: number | null
+  latency_samples?: MicroEvalLatencySamples
+  rerank_cache?: MicroEvalRerankCache
 }
 
 export interface MicroEvalResult {
@@ -60,6 +100,10 @@ const NUMERIC_FIELDS: Array<keyof MicroEvalVariant> = [
   'latency_ms_p95',
 ]
 
+// The optional latency fields are deliberately absent from NUMERIC_FIELDS. A
+// runtime older than they are still returns a usable variant, and requiring
+// them here would reject the whole payload over a field the card renders as
+// "not reported".
 function isVariant(value: unknown): value is MicroEvalVariant {
   if (!value || typeof value !== 'object') return false
   const record = value as Record<string, unknown>
@@ -122,11 +166,17 @@ export function poolCostReading(
   wide: MicroEvalVariant,
   narrow: MicroEvalVariant,
 ): string {
-  const savedMs = Math.round(wide.latency_ms_p50 - narrow.latency_ms_p50)
+  // Cold, not p50. The endpoint measures one cold pass per pool and reports the
+  // cache-hit repetitions separately, so `latency_ms_p50` is that same single
+  // observation. Calling this difference a p50 would dress one sample as a
+  // distribution -- the exact claim the split was made to stop making.
+  const wideCold = wide.latency_cold_ms ?? wide.latency_ms_p50
+  const narrowCold = narrow.latency_cold_ms ?? narrow.latency_ms_p50
+  const savedMs = Math.round(wideCold - narrowCold)
   const savings =
     savedMs > 0
-      ? `saves ${savedMs} ms at p50`
-      : `costs ${Math.abs(savedMs)} ms at p50`
+      ? `saves ${savedMs} ms on the cold pass`
+      : `costs ${Math.abs(savedMs)} ms on the cold pass`
   const lost = points(wide.candidate_coverage, narrow.candidate_coverage)
   const violations =
     narrow.hard_constraint_violations - wide.hard_constraint_violations

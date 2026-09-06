@@ -24,14 +24,30 @@ import {
   fetchMicroEval,
   poolCostReading,
   type MicroEvalResult,
-  type MicroEvalVariant,
 } from '../../../services/microEval';
 
 type Format = 'rate' | 'ratio' | 'count' | 'flag' | 'ms';
 
+/**
+ * The variant fields this table renders as a single number.
+ *
+ * Named explicitly rather than as `keyof MicroEvalVariant`, which now also
+ * covers the sample-count and cache objects: those describe the measurement
+ * and belong in the disclosure line under the table, not in a cell.
+ */
+type NumericField =
+  | 'candidate_coverage'
+  | 'context_precision'
+  | 'mrr'
+  | 'hard_constraint_violations'
+  | 'short_result_rate'
+  | 'citation_coverage'
+  | 'latency_cold_ms'
+  | 'latency_warm_ms_p50';
+
 interface MetricRow {
   label: string;
-  field: keyof MicroEvalVariant;
+  field: NumericField;
   format: Format;
   /** What the backend computes for this field, in the participant's terms. */
   note: string;
@@ -76,26 +92,35 @@ const METRICS: readonly MetricRow[] = [
     note: 'the pass returned fewer rows than the limit asked for',
   },
   {
-    label: 'Citation coverage',
+    label: 'Citable-result coverage',
     field: 'citation_coverage',
     format: 'rate',
-    note: 'returned rows carrying a citable product id',
+    note: 'returned rows carrying a citable product id — not whether the answer’s claims are supported',
+  },
+  // Cold and warm are reported apart because they measure different paths, and
+  // the endpoint no longer blends them. There is exactly one cold pass, so a
+  // percentile over it would be that single number wearing a statistic's name
+  // -- which is what the old "Latency p50 / p95" pair displayed, twice, from
+  // the same observation.
+  {
+    label: 'Latency, cold pass',
+    field: 'latency_cold_ms',
+    format: 'ms',
+    note: 'the first pass, which pays the Bedrock Rerank call',
   },
   {
-    label: 'Latency p50',
-    field: 'latency_ms_p50',
+    label: 'Latency, warm median',
+    field: 'latency_warm_ms_p50',
     format: 'ms',
-    note: 'median across the repetitions',
-  },
-  {
-    label: 'Latency p95',
-    field: 'latency_ms_p95',
-    format: 'ms',
-    note: '95th percentile across the repetitions',
+    note: 'median of the repetitions, which are rerank cache hits while the cache is on',
   },
 ];
 
-function formatValue(value: number, format: Format): string {
+// An absent figure is unknown, not zero: a runtime older than the cold/warm
+// split does not send these, and a single-pass run has no warm path to report.
+// Rendering either as "0 ms" would invent a measurement.
+function formatValue(value: number | null | undefined, format: Format): string {
+  if (value === null || value === undefined) return 'not reported';
   if (format === 'rate') return `${Math.round(value * 100)}%`;
   // A reciprocal rank is 1, 1/2, 1/3 ...: a position, not a rate. Rendering
   // it as a percentage invited "83% of what?".
@@ -232,6 +257,23 @@ const MicroEvalCard: React.FC = () => {
   const sorted = [...result.variants].sort((a, b) => b.pool_k - a.pool_k);
   const [wide, narrow] = sorted;
 
+  // What the two latency rows rest on, said out loud. The cold figure is one
+  // pass by construction, so without this a reader carries the repetition
+  // count in the caption down onto both rows and reads a distribution into a
+  // single observation.
+  const samples = wide?.latency_samples;
+  const cache = wide?.rerank_cache;
+  const cacheClause = cache
+    ? cache.enabled
+      ? ` The repetitions are rerank cache hits (${cache.ttl_seconds}s TTL), not repeat Bedrock calls.`
+      : ' The rerank cache is off, so every repetition pays its own Bedrock call.'
+    : '';
+  const samplesNote = samples
+    ? `Latency rests on ${samples.cold} cold pass and ${samples.warm} warm ${
+        samples.warm === 1 ? 'repetition' : 'repetitions'
+      } per pool.${cacheClause}`
+    : null;
+
   return (
     <ExpCard>
       <Eyebrow label="Rerank pool micro-eval" />
@@ -331,6 +373,21 @@ const MicroEvalCard: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {samplesNote ? (
+        <p
+          data-testid="micro-eval-samples"
+          style={{
+            margin: '10px 0 0',
+            fontFamily: 'var(--obs-sans)',
+            fontSize: '12px',
+            lineHeight: 1.5,
+            color: 'var(--obs-ink-3)',
+          }}
+        >
+          {samplesNote}
+        </p>
+      ) : null}
 
       {wide && narrow ? (
         <p

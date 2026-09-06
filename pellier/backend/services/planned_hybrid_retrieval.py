@@ -92,12 +92,17 @@ CANONICAL_ANNA_GOLDEN_IDS: tuple[str, ...] = ()
 # Below three documents the reranker has nothing to reorder.
 RERANK_POOL_MIN = 3
 
-# The micro-eval repeats each pool-size variant so its latency percentiles
-# describe a distribution rather than one observation. Repetitions buy nothing
-# else: over a fixed pool the quality metrics are deterministic, so they are
-# scored once from the first pass. Every extra repetition is two SQL round
-# trips and one Bedrock Rerank call, which is why the ceiling is low and the
-# default is lower.
+# The micro-eval repeats each pool-size variant to measure the warm path, and
+# the endpoint reports cold and warm apart rather than blending them. Every
+# repetition sends an identical rerank request, and `services/rerank.py` caches
+# on (query, documents, top_n, model_id), so with the cache enabled the first
+# pass pays Bedrock and passes 2..N are cache hits. A single p50 over both
+# describes neither, and moves with the repetition count rather than with
+# anything about the system. Repetitions buy nothing else: over a fixed pool
+# the quality metrics are deterministic, so they are scored once from the first
+# pass. Every extra repetition is still two SQL round trips -- and one more
+# Bedrock Rerank call when the cache is off -- which is why the ceiling is low
+# and the default is lower.
 MICRO_EVAL_REPETITIONS_DEFAULT = 3
 MICRO_EVAL_REPETITIONS_MAX = 5
 
@@ -453,7 +458,15 @@ def micro_eval_variant(
             short_result_rate: 1.0 when the pass returned fewer than ``limit``
                 rows, else 0.0. A rate over one deterministic observation.
             citation_coverage: returned rows carrying a citable id / returned.
-            latency_ms_p50 / p95: percentiles over the repetition latencies.
+                This is *citable-result* coverage: whether a row could be
+                cited, not whether the answer's claims were supported by
+                citations. Answer-level citation support is a separate
+                measurement over generated text and is not scored here.
+            latency_ms_p50 / p95: percentiles over whatever ``latencies_ms``
+                holds. The caller decides what that is, and the micro-eval
+                endpoint passes the cold pass alone, so read these as
+                percentiles over the samples given -- not as evidence that
+                more than one sample was taken.
     """
     golden = {str(value) for value in golden_ids}
     pool_ids = set(_product_ids(execution.rerank_pool))
