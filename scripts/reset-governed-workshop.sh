@@ -34,6 +34,10 @@ set -euo pipefail
 
 REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
+# The systemd unit's EnvironmentFile. `lab3-start.sh` writes the managed-rail
+# switch here first and falls back to ENV_FILE, so a reset that clears only one
+# of the two leaves the box on whichever copy it missed.
+RUN_ENV_FILE="${PELLIER_RUN_ENV:-/etc/pellier/run.env}"
 PYTHON="${REPO}/pellier/backend/.venv/bin/python"
 
 GREEN='\033[32m'; RED='\033[31m'; YEL='\033[33m'; NC='\033[0m'
@@ -346,7 +350,16 @@ _assert_no_active_execution() {
        AND query ILIKE '%pellier.%'
        AND query NOT ILIKE '%pg_stat_activity%';
   " 2>/dev/null | tr -d '[:space:]')" || active=""
-  if [[ -n "$active" && "$active" != "0" ]]; then
+  # An unreadable probe is not quiescence. Converting a failed read into "" and
+  # then reporting PASS is how a truncate ends up running underneath a live
+  # application: the one condition this function exists to rule out is exactly
+  # the one an empty string cannot rule out. Refuse before mutating.
+  if [[ -z "$active" ]]; then
+    fail "Could not read pg_stat_activity; quiescence is unestablished, not proven."
+    fail "Reset refuses to truncate on an unverified box. Check the database connection and re-run."
+    exit 1
+  fi
+  if [[ "$active" != "0" ]]; then
     fail "${active} database session(s) are actively running Pellier statements."
     fail "Reset refuses to truncate underneath them. Stop the application and re-run."
     exit 1
@@ -356,10 +369,100 @@ _assert_no_active_execution() {
   claims="$(_psql_scalar "
     SELECT count(*) FROM pellier.write_operations WHERE completed_at IS NULL;
   " 2>/dev/null | tr -d '[:space:]')" || claims=""
-  if [[ -n "$claims" && "$claims" != "0" ]]; then
+  if [[ -z "$claims" ]]; then
+    fail "Could not count unfinished idempotency claims; this box's write state is unknown."
+    exit 1
+  fi
+  if [[ "$claims" != "0" ]]; then
     warn "${claims} idempotency claim(s) never completed. They are interrupted residue and the reset clears them."
   else
     pass "No unfinished idempotency claim"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Restore the STARTING execution path.
+#
+# `lab3-start.sh` switches the storefront onto the managed Runtime by writing
+# USE_AGENTCORE_RUNTIME=true (run.env first, ENV_FILE on fallback), and
+# `services/execution_rail.py::resolve_rail` reads that setting and nothing
+# else. A reset that restores Lab 1's starter code but leaves the switch on
+# hands the next participant a box where their local edit cannot change the
+# answer: the storefront keeps executing the previously deployed Runtime
+# package. Source state and execution state are two different resets, and this
+# is the second one.
+_env_declares_managed_rail() {
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  grep -qiE '^[[:space:]]*(export[[:space:]]+)?USE_AGENTCORE_RUNTIME[[:space:]]*=[[:space:]]*"?(1|true|yes|on)"?[[:space:]]*$' "$file"
+}
+
+# Same contract as lab3-start.sh's `_upsert_env`: never evaluate, never widen the
+# mode, never truncate on a read failure. Falls back to `sudo -n` because run.env
+# lives under /etc and a participant shell may not own it.
+_reset_upsert_env() {
+  local file="$1" key="$2" value="$3" dir tmp status
+  dir="$(dirname "$file")"
+  [[ -d "$dir" ]] || mkdir -p "$dir" 2>/dev/null || sudo -n mkdir -p "$dir" 2>/dev/null || return 1
+  tmp="$(mktemp "${TMPDIR:-/tmp}/pellier-env.XXXXXX")" || return 1
+  if [[ -f "$file" ]]; then
+    grep -v -E "^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=" "$file" > "$tmp"
+    status=$?
+    if [[ "$status" -gt 1 ]]; then rm -f "$tmp"; return 1; fi
+  fi
+  printf '%s=%s\n' "$key" "$value" >> "$tmp" || { rm -f "$tmp"; return 1; }
+  chmod 600 "$tmp" 2>/dev/null
+  if cat "$tmp" > "$file" 2>/dev/null; then rm -f "$tmp"; return 0; fi
+  if sudo -n tee "$file" < "$tmp" >/dev/null 2>&1; then
+    sudo -n chmod 600 "$file" 2>/dev/null
+    rm -f "$tmp"; return 0
+  fi
+  rm -f "$tmp"; return 1
+}
+
+_restore_execution_rail() {
+  local file restored=0
+  for file in "$RUN_ENV_FILE" "$ENV_FILE"; do
+    [[ -f "$file" ]] || continue
+    if ! _reset_upsert_env "$file" "USE_AGENTCORE_RUNTIME" "false"; then
+      fail "Could not clear USE_AGENTCORE_RUNTIME in ${file}."
+      fail "The next participant would edit Lab 1 locally while the storefront answered from the deployed Runtime."
+      exit 1
+    fi
+    restored=$((restored + 1))
+  done
+  # Assert the RESULT, not the writes. A file this script never saw -- an
+  # operator's own copy, a path override -- would otherwise pass silently.
+  for file in "$RUN_ENV_FILE" "$ENV_FILE"; do
+    if _env_declares_managed_rail "$file"; then
+      fail "Baseline: ${file} still enables the managed rail after the reset wrote to it"
+      exit 1
+    fi
+  done
+  if [[ "$restored" -eq 0 ]]; then
+    warn "No env file found at $RUN_ENV_FILE or $ENV_FILE; execution rail left as configured"
+  else
+    pass "Execution rail restored to in-process (USE_AGENTCORE_RUNTIME=false in ${restored} file(s))"
+  fi
+}
+
+# `workshop_runs` is truncated below, so the run id cached on disk names a run
+# the database no longer has. Leaving it makes every later evidence query scope
+# to an id with no rows and report NOT YET for work that was really done.
+# `workshop-start` mints a fresh one.
+_clear_local_run_state() {
+  local f cleared=0
+  for f in "$HOME/.pellier/run_id" "$HOME/.pellier/run_persona"; do
+    [[ -e "$f" ]] || continue
+    if rm -f "$f" 2>/dev/null; then cleared=$((cleared + 1)); else
+      fail "Could not clear stale run state at $f"
+      exit 1
+    fi
+  done
+  if [[ "$cleared" -gt 0 ]]; then
+    pass "Stale local run state cleared; workshop-start will mint a fresh run id"
+  else
+    pass "No stale local run state to clear"
   fi
 }
 
@@ -368,6 +471,8 @@ echo "------------------------------------------------------------"
 
 _quiesce_services
 _assert_no_active_execution
+_restore_execution_rail
+_clear_local_run_state
 
 if ! "$PYTHON" "$REPO/scripts/reset_participant_exercises.py" \
     --repo "$REPO" >/tmp/pellier-governed-reset-exercises.log 2>&1; then
