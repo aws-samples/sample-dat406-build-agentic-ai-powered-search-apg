@@ -1356,6 +1356,14 @@ async def get_session(
             )
         summary = dict(rows[0])
         principal_sub = str((user or {}).get("sub") or "")
+        # A replay carries the shopper's own words, the arguments every tool
+        # was called with, and the ledger. Both branches below answer the same
+        # question -- is this session the caller's, and only the caller's --
+        # and the second branch used to be missing entirely, so a signed-out
+        # reader could open any named shopper's turn by guessing a session id
+        # while a signed-in one could not. Anonymous means anonymous: a session
+        # is visible without a token only while no identified principal has
+        # ever taken a turn in it.
         if principal_sub:
             visible = await db.fetch_one(
                 """
@@ -1377,6 +1385,27 @@ async def get_session(
                 principal_sub,
             )
             if not visible:
+                raise HTTPException(
+                    status_code=404,
+                    detail=OBSERVATORY_COPY["SESSION_EVIDENCE_NOT_FOUND"],
+                )
+        else:
+            # `fetch_one` returning nothing is the visible case here, which
+            # inverts the branch above: the query looks for a reason to
+            # refuse. A session with no receipts at all is a genuinely
+            # anonymous storefront session and stays readable, which is what
+            # keeps the Observatory usable before anybody signs in.
+            claimed = await db.fetch_one(
+                """
+                SELECT 1 AS claimed
+                  FROM pellier.governed_turn_receipts
+                 WHERE session_id = %s
+                   AND COALESCE(principal_sub, '') <> ''
+                 LIMIT 1
+                """,
+                session_id,
+            )
+            if claimed:
                 raise HTTPException(
                     status_code=404,
                     detail=OBSERVATORY_COPY["SESSION_EVIDENCE_NOT_FOUND"],
