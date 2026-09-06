@@ -237,6 +237,42 @@ def _event(
     }
 
 
+def _denied_then_executed(events: List[Dict[str, Any]]) -> List[str]:
+    """Tools a policy DENY covers that an execution row proves ran anyway.
+
+    ``pellier.tool_audit`` records ALLOWed calls that actually execute, so a
+    DENY and an execution row naming the same tool on the same turn cannot both
+    be true. One of the two receipts is wrong, and which one is a question for
+    the operator -- but the ledger has to say the pair disagrees rather than
+    reporting two independently satisfied checks. Collapsing this into
+    "satisfied" (an execution exists) or "missing" (no evidence) is how a
+    receipt ends up asserting a non-execution that did execute.
+
+    Matching is by tool name because that is the field both sides carry: the
+    policy event from ``governed_turn_receipts.policy_events`` and the tool
+    event from ``tool_audit``.
+    """
+    denied = {
+        str((event.get("details") or {}).get("tool"))
+        for event in events
+        if event.get("eventKind") == "policy"
+        and event.get("status") == "denied"
+        and (event.get("details") or {}).get("tool")
+    }
+    # Presence, not `succeeded`. A tool event exists only when a tool_audit row
+    # exists, and a row exists only for a call that executed -- a null result
+    # means the call ran and returned nothing, not that it never ran. Requiring
+    # `succeeded` here would quietly miss the contradiction in exactly the case
+    # where the executed call went wrong, which is the case most worth seeing.
+    executed = {
+        str((event.get("details") or {}).get("tool"))
+        for event in events
+        if event.get("eventKind") == "tool"
+        and (event.get("details") or {}).get("tool")
+    }
+    return sorted(denied & executed)
+
+
 def _sufficiency(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     kinds = {event["eventKind"] for event in events}
     by_kind = {
@@ -246,6 +282,13 @@ def _sufficiency(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     policy_events = [event for event in events if event["eventKind"] == "policy"]
     policy_not_reached = bool(policy_events) and all(
         event["status"] == "not_enforced" for event in policy_events
+    )
+    contradicted = _denied_then_executed(events)
+    contradiction_detail = (
+        "A DENY and an execution row both name "
+        f"{', '.join(contradicted)}. tool_audit records only calls that ran, "
+        "so these two receipts cannot both hold; read them side by side before "
+        "concluding anything about this turn."
     )
     return [
         {
@@ -288,7 +331,9 @@ def _sufficiency(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "id": "tool-execution",
             "label": "Tool execution evidence",
             "status": (
-                "satisfied"
+                "contradicted"
+                if contradicted
+                else "satisfied"
                 if any(
                     event["status"] == "succeeded"
                     for event in by_kind.get("tool", [])
@@ -299,19 +344,29 @@ def _sufficiency(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 if any(event["status"] == "denied" for event in policy_events)
                 else "not_applicable"
             ),
-            "detail": "A tool event exists only when tool_audit proves the target ran.",
+            "detail": (
+                contradiction_detail
+                if contradicted
+                else "A tool event exists only when tool_audit proves the target ran."
+            ),
         },
         {
             "id": "policy-decision",
             "label": "Policy decision",
             "status": (
-                "not_enforced"
+                "contradicted"
+                if contradicted
+                else "not_enforced"
                 if policy_not_reached
                 else "satisfied"
                 if policy_events
                 else "unavailable"
             ),
-            "detail": "NOT_EVALUATED is distinct from ALLOW and DENY.",
+            "detail": (
+                contradiction_detail
+                if contradicted
+                else "NOT_EVALUATED is distinct from ALLOW and DENY."
+            ),
         },
         {
             "id": "trace-correlation",

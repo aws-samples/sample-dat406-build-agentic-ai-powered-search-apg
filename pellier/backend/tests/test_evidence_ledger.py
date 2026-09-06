@@ -10,6 +10,7 @@ import pytest
 
 from services.evidence_ledger import (
     EvidenceLedgerProjectionError,
+    _sufficiency,
     project_session_ledger,
     project_turn_ledger,
 )
@@ -308,3 +309,56 @@ def test_strict_projection_distinguishes_unavailable_from_not_found() -> None:
                 raise_on_error=True,
             )
         )
+
+
+# ---------------------------------------------------------------------------
+# Contradiction: two canonical receipts that cannot both be true
+# ---------------------------------------------------------------------------
+def _event(kind: str, status: str, tool: str | None = None) -> dict[str, Any]:
+    return {
+        "eventKind": kind,
+        "status": status,
+        "details": {"tool": tool} if tool else {},
+    }
+
+
+def _check(checks: list[dict[str, Any]], check_id: str) -> dict[str, Any]:
+    return next(check for check in checks if check["id"] == check_id)
+
+
+def test_deny_with_an_execution_row_for_the_same_tool_reads_contradicted() -> None:
+    """A DENY and a tool_audit row naming one tool cannot both hold.
+
+    tool_audit records only calls that ran. Reporting this pair as two
+    satisfied checks is exactly how a receipt asserts a non-execution that did
+    execute, so the ledger names the disagreement instead.
+    """
+    checks = _sufficiency(
+        [
+            _event("response", "succeeded"),
+            _event("policy", "denied", "issue_credit"),
+            _event("tool", "succeeded", "issue_credit"),
+        ]
+    )
+
+    assert _check(checks, "tool-execution")["status"] == "contradicted"
+    assert _check(checks, "policy-decision")["status"] == "contradicted"
+    assert "issue_credit" in _check(checks, "tool-execution")["detail"]
+
+
+def test_deny_and_execution_of_different_tools_is_not_a_contradiction() -> None:
+    """One tool refused while another runs is ordinary governed behaviour.
+
+    The guard against a false positive: a contradiction is a claim refuted by
+    its own evidence, not merely a DENY sharing a turn with an execution.
+    """
+    checks = _sufficiency(
+        [
+            _event("response", "succeeded"),
+            _event("policy", "denied", "issue_credit"),
+            _event("tool", "succeeded", "check_inventory"),
+        ]
+    )
+
+    assert _check(checks, "tool-execution")["status"] == "satisfied"
+    assert _check(checks, "policy-decision")["status"] == "satisfied"

@@ -69,6 +69,71 @@ describe('TurnReceipt', () => {
     expect(screen.queryByText('Evidence recorded')).not.toBeInTheDocument()
   })
 
+  // "We read the ledger and it came back short" and "we have not looked" are
+  // different findings. They rendered identically until the receipt carried a
+  // third state, which made a contradicted turn indistinguishable from an
+  // unexamined one on the surface an operator reads first.
+  it('marks a read-but-unsatisfied ledger incomplete on the inspection surface', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(ledger(['satisfied', 'contradicted']))),
+    )
+    render(
+      <TurnReceipt
+        reference="trace-abc"
+        turnId="turn-1"
+        complete
+        surface="observatory"
+      />,
+    )
+
+    expect(await screen.findByText('Evidence incomplete')).toBeInTheDocument()
+    expect(screen.queryByText('Evidence recorded')).not.toBeInTheDocument()
+    expect(screen.getByTestId('turn-receipt')).toHaveAttribute(
+      'data-evidence',
+      'incomplete',
+    )
+  })
+
+  it('separates an unsatisfied ledger from one that was never read', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 404 })))
+    render(
+      <TurnReceipt
+        reference="trace-abc"
+        turnId="turn-1"
+        complete
+        surface="observatory"
+      />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId('turn-receipt')).toHaveAttribute(
+        'data-evidence',
+        'unknown',
+      ),
+    )
+    expect(screen.queryByText('Evidence incomplete')).not.toBeInTheDocument()
+  })
+
+  it('leaves the storefront receipt free of a governance verdict', async () => {
+    // The shopper is owed the answer. The absent "Evidence recorded" badge is
+    // already the honest signal there, so the finding stays on the Observatory.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(ledger(['satisfied', 'contradicted']))),
+    )
+    render(<TurnReceipt reference="trace-abc" turnId="turn-1" complete />)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('turn-receipt')).toHaveAttribute(
+        'data-evidence',
+        'incomplete',
+      ),
+    )
+    expect(screen.queryByText('Evidence incomplete')).not.toBeInTheDocument()
+    expect(screen.queryByText('Evidence recorded')).not.toBeInTheDocument()
+  })
+
   it('shows Evidence recorded only when every required check is satisfied', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse(ledger(['satisfied', 'satisfied', 'not_applicable'])),

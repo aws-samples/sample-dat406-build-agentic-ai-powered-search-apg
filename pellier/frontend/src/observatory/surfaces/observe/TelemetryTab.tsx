@@ -23,6 +23,7 @@ import { RetrievalReceipt } from '../../components/RetrievalReceipt';
 import { parseRetrievalReceipt } from '../../labs/retrievalReceipt';
 import { BEDROCK_INFERENCE_PROFILES } from '../../constants/bedrockModels';
 import { EmptyState } from '../../../shared';
+import type { EvidenceSufficiencyStatus } from '../../../shared/evidenceLedger';
 import { resolveProductImageUrl } from '../../../utils/resolveProductImageUrl';
 import {
   blurbForProduct,
@@ -1389,6 +1390,21 @@ function WorkshopBedrockProfilesStrip() {
   );
 }
 
+/**
+ * The colour reinforcing one sufficiency status.
+ *
+ * `contradicted` is called out explicitly rather than left to the default:
+ * it is a claim refuted by its own evidence, and the muted tone that suits
+ * "does not apply" would have rendered a policy DENY sitting beside an
+ * execution row for the same tool as though nothing notable had happened.
+ * The visible status text remains the carrier; colour only reinforces it.
+ */
+function sufficiencyColor(status: EvidenceSufficiencyStatus): string {
+  if (status === 'satisfied') return 'var(--obs-green-1)'
+  if (status === 'missing' || status === 'contradicted') return 'var(--obs-red-1)'
+  return 'var(--obs-ink-4)'
+}
+
 const TelemetryTab: React.FC = () => {
   const { session } = useOutletContext<SessionOutletContext>();
   const location = useLocation();
@@ -1607,12 +1623,7 @@ const TelemetryTab: React.FC = () => {
                         display: 'block',
                         fontFamily: 'var(--obs-mono)',
                         fontSize: 'var(--text-label)',
-                        color:
-                          check.status === 'satisfied'
-                            ? 'var(--obs-green-1)'
-                            : check.status === 'missing'
-                              ? 'var(--obs-red-1)'
-                              : 'var(--obs-ink-4)',
+                        color: sufficiencyColor(check.status),
                         textTransform: 'uppercase',
                         letterSpacing: '0.06em',
                       }}

@@ -846,6 +846,15 @@ export const CHAT_TRUST = {
   RESPONSE_COMPLETE: "Response complete",
   /** Every required evidence-sufficiency check for the turn is satisfied. */
   EVIDENCE_RECORDED: "Evidence recorded",
+  /**
+   * The ledger was read and at least one required check is not satisfied.
+   *
+   * Distinct from showing nothing, which is what "we have not looked" looks
+   * like. A refuted or incomplete ledger that renders identically to an
+   * unchecked one is the same conflation the sufficiency states exist to
+   * prevent, one surface further out.
+   */
+  EVIDENCE_INCOMPLETE: "Evidence incomplete",
   COPY_REFERENCE: "Copy turn reference",
   COPIED_REFERENCE: "Reference copied",
 } as const;

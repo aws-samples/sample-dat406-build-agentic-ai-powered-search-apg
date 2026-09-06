@@ -1191,6 +1191,133 @@ describe('Pellier Observatory live agent workbench', () => {
     );
   }
 
+  // A DENY says the tool never ran; a tool event exists only when a tool_audit
+  // row proves it did. The receipt strip is where the three receipts are read
+  // together, so it is where the disagreement has to be stated rather than left
+  // for the reader to spot between two neighbouring cells.
+  function ledgerWith(events: unknown[]) {
+    return {
+      version: '1.0',
+      authority: 'canonical-receipt-projection',
+      principalScoped: true,
+      turnId: 'turn-1',
+      sessionId: 'session-1',
+      events,
+      evidenceSufficiency: [],
+    };
+  }
+
+  function policyEvent(tool: string, decision: string, status: string) {
+    return {
+      sequence: 2,
+      eventKind: 'policy',
+      phase: 'governance',
+      status,
+      provenance: 'aurora-receipt',
+      turnId: 'turn-1',
+      evidenceRef: { kind: 'governed_turn_receipt_policy', id: 'turn-1:1' },
+      title: 'Policy decision',
+      summary: `Policy outcome: ${decision}.`,
+      details: { decision, tool },
+    };
+  }
+
+  function toolEvent(tool: string) {
+    return {
+      sequence: 3,
+      eventKind: 'tool',
+      phase: 'execution',
+      status: 'succeeded',
+      provenance: 'aurora-receipt',
+      turnId: 'turn-1',
+      evidenceRef: { kind: 'tool_audit', id: '77' },
+      title: 'Tool execution',
+      summary: `agent executed ${tool}.`,
+      details: { tool, caller: 'agent' },
+    };
+  }
+
+  const routeEvent = {
+    sequence: 1,
+    eventKind: 'route',
+    phase: 'routing',
+    status: 'succeeded',
+    provenance: 'aurora-receipt',
+    turnId: 'turn-1',
+    evidenceRef: { kind: 'governed_turn_receipt', id: 'turn-1' },
+    title: 'Execution route recorded',
+    summary: 'gateway-mcp rail captured at terminal persistence.',
+    details: { rail: 'gateway-mcp' },
+  };
+
+  function streamLedger(events: unknown[]) {
+    mocks.sendChatMessageStreaming.mockImplementation(
+      async (
+        _query: string,
+        _history: unknown[],
+        onUpdate: (event: unknown) => void,
+      ) => {
+        const evidenceLedger = ledgerWith(events);
+        onUpdate({
+          type: 'complete',
+          response: {
+            response: 'Answer.',
+            products: [],
+            evidence_ledger: evidenceLedger,
+          },
+        });
+        return {
+          response: 'Answer.',
+          products: [],
+          suggestions: [],
+          evidence_ledger: evidenceLedger,
+        };
+      },
+    );
+  }
+
+  it('names a DENY and an execution of the same tool as a conflict', async () => {
+    streamLedger([
+      routeEvent,
+      policyEvent('issue_credit', 'DENY', 'denied'),
+      toolEvent('issue_credit'),
+    ]);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+
+    const conflict = await screen.findByTestId('observatory-receipt-conflict');
+    expect(conflict).toHaveTextContent(/issue_credit/);
+    expect(conflict).toHaveTextContent(/denied and executed/i);
+  });
+
+  it('stays quiet when a DENY and an execution name different tools', async () => {
+    // Ordinary governed behaviour: one tool refused, another allowed and run.
+    streamLedger([
+      routeEvent,
+      policyEvent('issue_credit', 'DENY', 'denied'),
+      toolEvent('check_inventory'),
+    ]);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+
+    expect(await screen.findByTestId('observatory-receipt-strip')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('observatory-receipt-conflict'),
+    ).not.toBeInTheDocument();
+  });
+
   it('reconciles live events to the durable principal-scoped ledger', async () => {
     mocks.sendChatMessageStreaming.mockImplementation(
       async (

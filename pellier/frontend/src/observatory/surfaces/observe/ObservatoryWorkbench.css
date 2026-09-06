@@ -104,16 +104,19 @@
   scrollbar-width: thin;
 }
 
+/* Layout only. Typography belongs to `.observatory-root .observatory-page-title`
+   in observatory/styles/base.css, which is the single title step for the whole
+   surface — this route was the one outlier, forcing sans/600 with `!important`
+   while every other Observatory title rendered in the display face.
+   The `font-size: 28px` that used to sit here never applied: base.css matches at
+   (0,2,0) against this rule's (0,1,0), so only the `!important` declarations
+   were ever in effect. Removing them is what makes the route consistent; a
+   route needing a different rhythm should move the token, not re-declare the
+   element. */
 .observatory-page-title {
   flex: 0 0 auto;
   margin: 0;
-  color: var(--pl-ink);
-  font-family: var(--pl-sans) !important;
-  font-size: 28px;
-  font-weight: 600 !important;
-  letter-spacing: -0.035em !important;
   line-height: 1.08;
-  white-space: nowrap;
 }
 
 .observatory-workbench .labs-index-inner {
@@ -1492,6 +1495,22 @@
   background: var(--obs-red-deep);
 }
 
+/* A claim refuted by its own evidence: a policy DENY beside an execution row
+   naming the same tool. It is not `missing` (nothing found) and not
+   `not_applicable` (muted, out of scope), so it gets the one treatment that
+   pulls the eye — a filled marker and a left rule. The status word beside it
+   still carries the meaning; this only stops the row reading as routine. */
+.observatory-evidence-sufficiency li[data-status='contradicted'] {
+  border-color: var(--obs-red-deep);
+  border-left-width: 3px;
+}
+
+.observatory-evidence-sufficiency li[data-status='contradicted'] > span {
+  background: var(--obs-red-deep);
+  /* --obs-red-deep (#8f1d16) at 18%; no --obs-red-deep-rgb token exists. */
+  box-shadow: 0 0 0 3px rgba(143, 29, 22, 0.18);
+}
+
 .observatory-evidence-sufficiency li > div {
   display: grid;
   min-width: 0;
@@ -1526,6 +1545,11 @@
 
 .observatory-evidence-sufficiency li[data-status='missing'] em {
   color: var(--obs-red-deep);
+}
+
+.observatory-evidence-sufficiency li[data-status='contradicted'] em {
+  color: var(--obs-red-deep);
+  font-weight: 600;
 }
 
 .observatory-verified-claims ul {
@@ -2548,6 +2572,25 @@
   font-size: 12px;
   color: var(--obs-ink-1);
   overflow-wrap: anywhere;
+}
+
+/* A conflict is not a fourth receipt. It is a statement that two of the three
+   above cannot both be true, so it spans the row instead of sitting beside them
+   as a peer, and carries the one accent on the strip. The sentence in the `dd`
+   is the carrier; the colour only stops it reading as routine. */
+.observatory-root
+  .observatory-receipt-strip
+  > div.observatory-receipt-conflict {
+  grid-column: 1 / -1;
+  border-color: var(--obs-red-deep);
+  border-left-width: 3px;
+}
+
+.observatory-root
+  .observatory-receipt-strip
+  > div.observatory-receipt-conflict
+  dt {
+  color: var(--obs-red-deep);
 }
 
 @media (max-width: 760px) {

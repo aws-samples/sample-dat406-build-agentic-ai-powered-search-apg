@@ -224,6 +224,14 @@ type ReceiptStripSummary = {
   policy: string;
   execution: string;
   data: string;
+  /**
+   * Set only when two receipts for this turn cannot both be true.
+   *
+   * The strip exists so the three receipts can be read together; leaving a
+   * reader to notice "DENY ×1" sitting beside "1 tool call audited" is how the
+   * conflation the strip was built to prevent survives anyway.
+   */
+  conflict: string | null;
 };
 
 /**
@@ -235,6 +243,28 @@ function summarizeReceipts(steps: JourneyStep[]): ReceiptStripSummary {
   const decisions = steps
     .filter((step) => step.eventKind === 'policy')
     .map((step) => String(step.details?.decision ?? step.status).toUpperCase());
+  // A DENY means the tool never ran, and a tool event exists only when a
+  // tool_audit row proves it did. One tool named by both is a claim refuted by
+  // its own evidence, and it is reported as a conflict rather than as two
+  // independent facts the reader is left to reconcile.
+  const deniedTools = new Set(
+    steps
+      .filter(
+        (step) =>
+          step.eventKind === 'policy' &&
+          String(step.details?.decision ?? step.status).toUpperCase() === 'DENY',
+      )
+      .map((step) => String(step.details?.tool ?? ''))
+      .filter(Boolean),
+  );
+  const conflicted = [
+    ...new Set(
+      steps
+        .filter((step) => step.eventKind === 'tool')
+        .map((step) => String(step.details?.tool ?? ''))
+        .filter((tool) => tool && deniedTools.has(tool)),
+    ),
+  ];
   const tools = steps.filter((step) => step.eventKind === 'tool');
   const aurora = steps.filter(
     (step) => step.eventKind === 'aurora' || step.eventKind === 'write',
@@ -254,6 +284,11 @@ function summarizeReceipts(steps: JourneyStep[]): ReceiptStripSummary {
           rejected.length ? `, ${rejected.length} rejected` : ''
         }`
       : 'nothing reached Aurora',
+    conflict: conflicted.length
+      ? `${conflicted.join(', ')} was denied and executed on this turn. ` +
+        'tool_audit records only calls that ran, so these two receipts ' +
+        'disagree; read both before drawing a conclusion.'
+      : null,
   };
 }
 
@@ -1853,6 +1888,15 @@ export default function ObservatoryWorkbench() {
                             <dt>Data</dt>
                             <dd>{receipts.data}</dd>
                           </div>
+                          {receipts.conflict ? (
+                            <div
+                              className="observatory-receipt-conflict"
+                              data-testid="observatory-receipt-conflict"
+                            >
+                              <dt>Conflict</dt>
+                              <dd>{receipts.conflict}</dd>
+                            </div>
+                          ) : null}
                         </>
                       );
                     })()}

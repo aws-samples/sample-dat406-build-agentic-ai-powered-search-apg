@@ -12,7 +12,7 @@
  * nothing about evidence.
  */
 import { useEffect, useState } from 'react'
-import { Check, Copy, FileCheck2 } from 'lucide-react'
+import { Check, Copy, FileCheck2, FileWarning } from 'lucide-react'
 import { useOptionalAuth } from '../contexts/AuthContext'
 import { CHAT_TRUST } from '../copy'
 import {
@@ -105,7 +105,16 @@ export default function TurnReceipt({
       className={`turn-receipt turn-receipt--${surface}`}
       data-testid="turn-receipt"
       data-complete={complete ? 'true' : 'false'}
-      data-evidence={evidenceRecorded === true ? 'recorded' : 'unknown'}
+      /* Three states, not two. `false` means the ledger was read and a
+         required check is not satisfied; `null` means nothing was read.
+         Collapsing them made a refuted turn look like an unexamined one. */
+      data-evidence={
+        evidenceRecorded === true
+          ? 'recorded'
+          : evidenceRecorded === false
+            ? 'incomplete'
+            : 'unknown'
+      }
     >
       <span className="turn-receipt__badges">
         {complete ? (
@@ -121,6 +130,19 @@ export default function TurnReceipt({
           >
             <FileCheck2 size={13} aria-hidden="true" />
             {CHAT_TRUST.EVIDENCE_RECORDED}
+          </span>
+        ) : null}
+        {/* Stated on the inspection surface only. An operator reading the
+            Observatory needs to know the ledger was checked and came back
+            short; the storefront's shopper is owed the answer, not a
+            governance verdict, and the absent badge is already honest there. */}
+        {evidenceRecorded === false && surface === 'observatory' ? (
+          <span
+            className="turn-receipt__status turn-receipt__status--incomplete"
+            data-testid="turn-evidence-incomplete"
+          >
+            <FileWarning size={13} aria-hidden="true" />
+            {CHAT_TRUST.EVIDENCE_INCOMPLETE}
           </span>
         ) : null}
       </span>

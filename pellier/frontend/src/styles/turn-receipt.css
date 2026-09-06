@@ -41,6 +41,13 @@
   color: var(--ink-1, var(--dl-ink));
 }
 
+/* A short ledger is a finding, so it does not borrow the green the transport
+   badge wears. The label carries it; the colour only keeps it from reading as
+   another confirmation. */
+.turn-receipt__status--incomplete {
+  color: var(--obs-red-deep, #8f1d16);
+}
+
 .turn-receipt code {
   min-width: 0;
   overflow: hidden;

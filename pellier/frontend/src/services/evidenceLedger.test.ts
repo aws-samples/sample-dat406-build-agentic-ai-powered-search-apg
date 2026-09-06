@@ -24,7 +24,14 @@ describe('requiredEvidenceSatisfied', () => {
     ).toBe(true)
   })
 
-  it.each(['missing', 'unavailable', 'not_reached', 'not_enforced'] as const)(
+  it.each([
+    'missing',
+    'unavailable',
+    'not_reached',
+    'not_enforced',
+    // A refuted claim is the strongest reason of all to withhold the seal.
+    'contradicted',
+  ] as const)(
     'is false when any required check reads %s',
     (status) => {
       expect(

@@ -67,6 +67,17 @@ export interface EvidenceLedgerEvent {
 
 export type EvidenceSufficiencyStatus =
   | 'satisfied'
+  /**
+   * The claim is refuted by its own evidence.
+   *
+   * Distinct from `missing` (nothing was found) and from `unavailable` (no
+   * look was possible): here two canonical receipts were read and they
+   * disagree — a policy DENY beside a tool_audit row naming the same tool.
+   * Collapsing it into either of the others is how a receipt ends up
+   * asserting a non-execution that did execute, so it must never be rendered
+   * in the muted "does not apply" treatment.
+   */
+  | 'contradicted'
   | 'missing'
   | 'unavailable'
   | 'not_applicable'
