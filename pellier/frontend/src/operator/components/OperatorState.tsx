@@ -44,6 +44,8 @@ export interface OperatorStateProps {
   action?: React.ReactNode
   /** A back link, rendered above the state and outside its reading column. */
   lead?: React.ReactNode
+  /** Heading rank for the headline. `1` when this state replaces the page. */
+  level?: 1 | 2 | 3
   surface?: OperatorStateSurface
   'data-testid': string
 }
@@ -55,6 +57,7 @@ const OperatorState: React.FC<OperatorStateProps> = ({
   reason,
   action,
   lead,
+  level = 2,
   surface = 'paper',
   'data-testid': testId,
 }) => (
@@ -81,6 +84,7 @@ const OperatorState: React.FC<OperatorStateProps> = ({
         body={body}
         reason={reason}
         action={action}
+        level={level}
       />
     </div>
   </div>

@@ -152,6 +152,8 @@ const headerStyle: React.CSSProperties = {
 
 const runButtonStyle: React.CSSProperties = {
   marginTop: '14px',
+  /* 44px is the touch floor in DESIGN.md; the authored padding gave 39px. */
+  minHeight: '44px',
   padding: '9px 18px',
   border: '1px solid var(--obs-ink-1)',
   borderRadius: '4px',

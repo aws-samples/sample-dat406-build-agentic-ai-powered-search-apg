@@ -230,6 +230,7 @@ const ReviewQueue: React.FC = () => {
     const unavailable = error === 'operator_unavailable'
     return (
       <OperatorState
+        level={1}
         data-testid="operator-reviews-error"
         surface={authenticationRequired ? 'plate' : 'paper'}
         eyebrow="Action queue"
@@ -275,6 +276,7 @@ const ReviewQueue: React.FC = () => {
   if (!queue) {
     return (
       <OperatorState
+        level={1}
         data-testid="operator-reviews-loading"
         eyebrow="Action queue"
         headline="Reading the action queue from Aurora…"
@@ -356,6 +358,7 @@ const ReviewQueue: React.FC = () => {
           up on, and a celebration over an empty queue reads as filler. */}
       {pending.length === 0 ? (
         <OperatorState
+          level={1}
           data-testid="operator-reviews-empty"
           eyebrow="Action queue"
           headline="No actions waiting"

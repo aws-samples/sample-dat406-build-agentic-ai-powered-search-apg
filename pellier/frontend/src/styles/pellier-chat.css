@@ -517,9 +517,12 @@
 
 /* ---- Thinking block (collapsible) ---- */
 .ec-thinking {
+  /* One hairline the whole way round. This carried a 2px accent bar down the
+     left with the left corners squared off to meet it — the side-tab motif
+     DESIGN.md excludes, and it appeared on every thinking block rather than
+     marking anything. The header below still names the block. */
   border: 1px solid var(--rule-1);
-  border-left: 2px solid var(--red-1);
-  border-radius: 0 8px 8px 0;
+  border-radius: 8px;
   background: var(--cream-2);
   overflow: hidden;
   transition: border-color 200ms ease, background-color 200ms ease;

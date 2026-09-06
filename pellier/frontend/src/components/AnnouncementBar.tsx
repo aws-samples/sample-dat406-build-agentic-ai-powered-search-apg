@@ -20,6 +20,11 @@ import { cssVar as c } from '../design/cssVars'
 
 const MONO_STACK = 'var(--mono)'
 
+/* The strip is espresso, so it takes the burgundy raised for dark grounds.
+   `--accent` here measured 1.61:1 against the bar and neither the label nor
+   the presence dot could be read. */
+const ON_DARK_ACCENT = 'var(--pellier-burgundy-on-dark)'
+
 const CYCLE_MS = 5000
 
 export default function AnnouncementBar() {
@@ -88,7 +93,7 @@ export default function AnnouncementBar() {
                 width: 8,
                 height: 8,
                 borderRadius: 999,
-                background: c.accent,
+                background: ON_DARK_ACCENT,
                 flexShrink: 0,
               }}
             >
@@ -97,7 +102,8 @@ export default function AnnouncementBar() {
                   position: 'absolute',
                   inset: -6,
                   borderRadius: 999,
-                  background: 'color-mix(in srgb, var(--accent) 35%, transparent)',
+                  background:
+                    'color-mix(in srgb, var(--pellier-burgundy-on-dark) 35%, transparent)',
                   animation: reduceMotion
                     ? 'none'
                     : 'pelliers-floor-pulse 1.8s ease-out infinite',
@@ -113,7 +119,7 @@ export default function AnnouncementBar() {
                   fontSize: '13px',
                   letterSpacing: '0.22em',
                   textTransform: 'uppercase',
-                  color: c.accent,
+                  color: ON_DARK_ACCENT,
                   whiteSpace: 'nowrap',
                 }}
               >

@@ -21,12 +21,18 @@
  *   action    at most one. Two actions in an empty state means the surface
  *             does not know what it wants the reader to do.
  *
- * The headline renders as a `<p>`, not a heading. `base.css` forces every
- * `h1`-`h6` under `.observatory-root` to the sans stack with `!important`
- * unless it carries `.font-display`, and `index.css` then forces
- * `.pellier-page-surface .font-display` back to sans. A paragraph with an
- * inline family is the one form that keeps Fraunces on both surfaces, and an
- * empty state is not page structure anyway.
+ * The headline is a real heading. Two stylesheets fight over it: `base.css`
+ * forces every `h1`-`h6` under `.observatory-root` to the sans stack with
+ * `!important` unless it carries `.font-display`, and `index.css` then forces
+ * `.pellier-page-surface .font-display` back to sans. Carrying `.font-display`
+ * opts out of the first rule, and the inline family outranks the second, which
+ * is a plain class selector. That combination keeps Fraunces on both surfaces
+ * without giving up the heading.
+ *
+ * It matters because the desk's signed-out state is a whole page whose only
+ * sentence is this one: rendered as a paragraph, `/operator` reached a reader
+ * with no headings at all. `level` names where the state sits — `1` when the
+ * state IS the page, the default `2` when it stands in for one panel.
  */
 import type React from 'react'
 
@@ -43,6 +49,8 @@ export interface EmptyStateProps {
   reason?: React.ReactNode
   /** At most one action. */
   action?: React.ReactNode
+  /** Heading rank for the headline. `1` when this state replaces the page. */
+  level?: 1 | 2 | 3
   align?: 'start' | 'center'
   className?: string
   'data-testid'?: string
@@ -54,11 +62,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   body,
   reason,
   action,
+  level = 2,
   align = 'start',
   className,
   'data-testid': testId,
 }) => {
   const centered = align === 'center'
+  const Headline = `h${level}` as 'h1' | 'h2' | 'h3'
 
   return (
     <div
@@ -75,7 +85,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     >
       <SectionEyebrow tone="muted">{eyebrow}</SectionEyebrow>
 
-      <p
+      <Headline
+        className="font-display"
         style={{
           margin: 0,
           maxWidth: '46ch',
@@ -88,7 +99,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         }}
       >
         {headline}
-      </p>
+      </Headline>
 
       {body ? (
         <p

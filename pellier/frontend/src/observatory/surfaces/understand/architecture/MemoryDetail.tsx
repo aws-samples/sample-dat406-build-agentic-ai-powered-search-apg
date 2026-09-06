@@ -390,7 +390,7 @@ const MemoryDetail: React.FC = () => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: '20px',
               marginBottom: '36px',
             }}
@@ -472,7 +472,7 @@ GROUP BY tool;`}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: '16px',
             }}
           >
@@ -498,7 +498,7 @@ GROUP BY tool;`}
 
 const MemoryLoadingState: React.FC = () => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}

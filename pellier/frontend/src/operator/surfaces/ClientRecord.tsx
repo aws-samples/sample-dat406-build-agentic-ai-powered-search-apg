@@ -110,6 +110,7 @@ const ClientRecord: React.FC = () => {
     const unavailable = error === 'operator_unavailable'
     return (
       <OperatorState
+        level={1}
         data-testid="operator-record-error"
         surface={authenticationRequired ? 'plate' : 'paper'}
         eyebrow="Client record"
@@ -159,6 +160,7 @@ const ClientRecord: React.FC = () => {
   if (!record) {
     return (
       <OperatorState
+        level={1}
         data-testid="operator-record-loading"
         eyebrow="Client record"
         headline="Reading the client record from Aurora…"

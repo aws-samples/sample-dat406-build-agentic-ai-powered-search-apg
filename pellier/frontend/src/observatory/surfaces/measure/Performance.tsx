@@ -87,8 +87,9 @@ const UnrecordedPanel: React.FC<{ label: string; panel: string }> = ({ label, pa
         maxWidth: '52ch',
       }}
     >
-      Not recorded in this window. Run a benchmark from the measure controls
-      below to populate it.
+      Not recorded in this window. The controls below choose which recorded
+      window is read; the samples themselves come from a benchmark run against
+      the managed Runtime.
     </p>
   </EvidenceCard>
 );
@@ -96,11 +97,19 @@ const UnrecordedPanel: React.FC<{ label: string; panel: string }> = ({ label, pa
 const StatCard: React.FC<StatCardProps> = ({ label, value, unit, detail }) => (
   <ExpCard>
     <Eyebrow label={label} variant="muted" />
-    <div style={{ marginTop: '14px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+    <div
+      style={{
+        marginTop: '14px',
+        display: 'flex',
+        alignItems: 'baseline',
+        flexWrap: 'wrap',
+        gap: '6px',
+      }}
+    >
       <span
         style={{
           fontFamily: 'var(--obs-sans)',
-          fontSize: '48px',
+          fontSize: 'clamp(34px, 5vw, 48px)',
           fontWeight: 400,
           letterSpacing: '-0.03em',
           lineHeight: 1,
@@ -1562,6 +1571,7 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
           <button
             key={w}
             type="button"
+            className="observatory-window-pill"
             onClick={() => onWindowChange(w)}
             aria-pressed={activeWindow === w}
             aria-label={`Time window: ${w}`}
@@ -1600,16 +1610,13 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
         </span>
         <input
           type="range"
+          className="observatory-range"
           min={50}
           max={2000}
           step={50}
           value={sampleSize}
           onChange={(e) => onSampleSizeChange(Number(e.target.value))}
           aria-label="Sample size"
-          style={{
-            width: '120px',
-            accentColor: 'var(--obs-red-1)',
-          }}
         />
         <span
           style={{
@@ -1624,29 +1631,37 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
         </span>
       </div>
 
-      {/* Run benchmark button */}
-      <button
-        type="button"
-        disabled
-        aria-label="Run benchmark – coming soon"
-        title="Benchmark runner is wired in a later workshop step."
+      {/* Where a cold-start measurement comes from. This was a button reading
+          "Run benchmark", permanently `disabled`, with its unavailability only
+          in a `title` a touch device never shows. A control that can never run
+          is worse than no control on a surface whose argument is that it only
+          reports what happened; the sentence names the thing that does run. */}
+      <p
         style={{
+          margin: 0,
+          maxWidth: '38ch',
           fontFamily: 'var(--obs-sans)',
-          fontSize: '15px',
-          fontWeight: 500,
-          color: 'var(--obs-cream-1)',
-          backgroundColor: 'var(--obs-ink-1)',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '9px 22px',
-          cursor: 'not-allowed',
-          opacity: 0.55,
-          letterSpacing: '0.02em',
-          transition: 'opacity 0.15s ease',
+          fontSize: '13px',
+          lineHeight: 1.5,
+          color: 'var(--obs-ink-2)',
         }}
       >
-        Run benchmark
-      </button>
+        The window and sample size read what Aurora already recorded. New
+        cold-start samples come from{' '}
+        <code
+          style={{
+            fontFamily: 'var(--obs-mono)',
+            fontSize: '12px',
+            padding: '1px 5px',
+            borderRadius: '4px',
+            background: 'var(--obs-cream-2)',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          scripts/bench_runtime_coldstart.py
+        </code>
+        , which invokes the managed Runtime rather than simulating it.
+      </p>
     </div>
   </ExpCard>
 );
@@ -1826,8 +1841,17 @@ const Performance: React.FC = () => {
 
       {!loading && !error && data && !isEmpty && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Stat cards row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {/* Stat cards row. `auto-fit` rather than `1fr 1fr`: at 390px two
+              fixed columns left 125px per card, and the 48px reading clipped
+              its own unit against the card's `overflow: hidden` — the number
+              survived and the word `median` did not. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '16px',
+            }}
+          >
             {data.coldStartP50 > 0 ? (
               <StatCard
                 label="P50 cold start"

@@ -37,13 +37,29 @@ describe('EmptyState', () => {
     })
   })
 
-  it('renders the headline as a paragraph, not a heading', () => {
-    // A heading here would be captured by the two !important family rules on
-    // the Observatory and would render sans, and an empty state is not page
-    // structure anyway.
+  it('renders the headline as a heading that keeps the display face', () => {
+    // Both halves matter and they used to be in tension. `.font-display`
+    // exempts the element from the Observatory's !important family rule, and
+    // the inline family outranks the storefront's plain-class rule that would
+    // otherwise pull it back to sans. Losing either one silently costs the
+    // page its heading or its voice.
     render(<EmptyState eyebrow="Empty" headline="Nothing was recorded." />)
-    expect(screen.getByText('Nothing was recorded.').tagName).toBe('P')
-    expect(screen.queryByRole('heading')).toBeNull()
+    const headline = screen.getByRole('heading', { level: 2 })
+    expect(headline.tagName).toBe('H2')
+    expect(headline).toHaveTextContent('Nothing was recorded.')
+    expect(headline.classList.contains('font-display')).toBe(true)
+    expect(headline).toHaveStyle({ fontFamily: 'var(--display)' })
+  })
+
+  it('takes the rank of the thing it stands in for', () => {
+    // `/operator` signed out is a whole page whose only sentence is this one;
+    // rendered at the default rank it reached a reader with no h1 at all.
+    render(
+      <EmptyState eyebrow="Client book" headline="Sign in required." level={1} />,
+    )
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Sign in required.',
+    )
   })
 
   it('opens with the eyebrow in the shared label recipe', () => {
@@ -82,8 +98,11 @@ describe('EmptyState', () => {
       <EmptyState eyebrow="Empty" headline="Nothing was recorded." />,
     )
     expect(container.querySelector('[data-empty-reason]')).toBeNull()
-    // eyebrow + headline only.
-    expect(container.querySelectorAll('p')).toHaveLength(1)
+    // The eyebrow and the headline, and nothing standing in for the slots
+    // that were not given. The headline is the heading, so no paragraph
+    // belongs to this state at all.
+    expect(container.querySelectorAll('p')).toHaveLength(0)
+    expect(container.querySelectorAll('h2')).toHaveLength(1)
   })
 
   it('renders the single action it is given', () => {

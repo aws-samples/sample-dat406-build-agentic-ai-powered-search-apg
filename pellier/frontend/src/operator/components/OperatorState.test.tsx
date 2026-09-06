@@ -35,23 +35,25 @@ describe('OperatorState', () => {
     expect(state).toHaveTextContent('client_book_empty')
   })
 
-  it('sets the absence in the display face rather than as a heading', () => {
+  it('sets the absence in the display face, as a heading', () => {
     render(
       <OperatorState
+        level={1}
         data-testid="operator-book-empty"
         eyebrow="Client book"
         headline="No clients seeded"
       />,
     )
 
-    // A heading would be page structure, and an empty panel is not. The
-    // shared primitive renders a <p> with an inline family for exactly this
-    // reason; asserting the tag keeps a later refactor from turning it into an
-    // h2 and losing Fraunces to the two surfaces' sans overrides.
-    const headline = screen.getByText('No clients seeded')
-    expect(headline.tagName).toBe('P')
+    // Every one of these states replaces the whole page, so each is that
+    // page's h1. The desk's signed-out state is the case that mattered:
+    // rendered as a paragraph it left `/operator` with no headings at all,
+    // which is the first thing an unauthenticated operator meets. Fraunces
+    // survives via `.font-display` plus the inline family, so the heading
+    // costs nothing.
+    const headline = screen.getByRole('heading', { level: 1 })
+    expect(headline).toHaveTextContent('No clients seeded')
     expect(headline).toHaveStyle({ fontFamily: 'var(--display)' })
-    expect(screen.queryByRole('heading')).toBeNull()
   })
 
   it('rests on paper by default and carries no photograph', () => {

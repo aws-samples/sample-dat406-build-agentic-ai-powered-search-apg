@@ -232,6 +232,7 @@ const ReviewRecord: React.FC = () => {
     const operatorRequired = error === 'operator_group_required'
     return (
       <OperatorState
+        level={1}
         data-testid="operator-review-error"
         surface={authenticationRequired ? 'plate' : 'paper'}
         eyebrow="Prepared action"
@@ -271,6 +272,7 @@ const ReviewRecord: React.FC = () => {
   if (!detail) {
     return (
       <OperatorState
+        level={1}
         data-testid="operator-review-loading"
         eyebrow="Prepared action"
         headline="Reading action details from Aurora…"

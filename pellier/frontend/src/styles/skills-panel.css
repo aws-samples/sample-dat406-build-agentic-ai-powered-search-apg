@@ -505,7 +505,8 @@
   margin-top: 12px;
   padding: 10px 14px;
   background: var(--cream-2);
-  border-left: 2px solid var(--red-1);
+  /* A hairline, not a 2px accent tab with the corners squared to meet it. */
+  border-left: 1px solid var(--rule-1);
   border-radius: 0 6px 6px 0;
   font-family: var(--serif);
   font-style: italic;
@@ -827,7 +828,7 @@
   border-radius: 3px;
 }
 .sk-modal-body blockquote {
-  border-left: 2px solid var(--red-1);
+  border-left: 1px solid var(--rule-1);
   padding: 4px 0 4px 14px;
   margin: 10px 0;
   font-style: italic;

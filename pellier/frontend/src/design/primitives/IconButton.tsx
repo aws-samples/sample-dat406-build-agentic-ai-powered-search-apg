@@ -1,5 +1,4 @@
 import React from 'react';
-import { colors } from '../tokens';
 
 export interface IconButtonProps {
   icon: React.ReactNode;
@@ -9,9 +8,12 @@ export interface IconButtonProps {
   className?: string;
 }
 
+/* `shrink-0` because the header lays these out in a flex row: without it the
+   44px square is a shrinkable flex item and the storefront's menu control
+   measured 42px wide, just under the touch floor it was written to meet. */
 const sizeClasses: Record<NonNullable<IconButtonProps['size']>, string> = {
-  sm: 'w-8 h-8',
-  md: 'w-[44px] h-[44px]',
+  sm: 'w-8 h-8 shrink-0',
+  md: 'w-[44px] h-[44px] shrink-0',
 };
 
 /**
@@ -47,7 +49,5 @@ export const IconButton: React.FC<IconButtonProps> = ({
     </button>
   );
 };
-
-void colors;
 
 export default IconButton;

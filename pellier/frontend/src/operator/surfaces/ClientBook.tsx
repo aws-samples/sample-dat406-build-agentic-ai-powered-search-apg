@@ -78,6 +78,7 @@ const ClientBook: React.FC = () => {
     const unavailable = error === 'operator_unavailable'
     return (
       <OperatorState
+        level={1}
         data-testid="operator-book-error"
         surface={authenticationRequired ? 'plate' : 'paper'}
         eyebrow="Client book"
@@ -123,6 +124,7 @@ const ClientBook: React.FC = () => {
   if (!book) {
     return (
       <OperatorState
+        level={1}
         data-testid="operator-book-loading"
         eyebrow="Client book"
         headline="Reading the live client book…"
@@ -165,6 +167,7 @@ const ClientBook: React.FC = () => {
   if (book.total === 0) {
     return (
       <OperatorState
+        level={1}
         data-testid="operator-book-empty"
         eyebrow="Client book"
         headline="No clients seeded"

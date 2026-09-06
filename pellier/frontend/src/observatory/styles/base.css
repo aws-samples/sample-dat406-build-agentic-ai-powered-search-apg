@@ -1912,6 +1912,11 @@
 .observatory-exp-card {
   position: relative;
   overflow: hidden;
+  /* The card clips, so anything that cannot wrap is lost rather than
+     scrolled. Tool names, ARNs and idempotency keys are exactly the
+     unbreakable tokens these cards carry, and at 390px a two-column row
+     leaves ~110px of text column. Break inside the word instead. */
+  overflow-wrap: anywhere;
   padding: 24px;
   border: 1px solid var(--obs-card-border);
   border-radius: var(--obs-card-radius);
@@ -2657,4 +2662,123 @@
 
 .observatory-root .pellier-governed-proof-panel pre {
   overflow-x: auto;
+}
+
+/* -----------------------------------------------------------------------
+ * Measure controls
+ *
+ * A range input is one of the surfaces nobody draws. Left alone it ships the
+ * platform's own slider — a blue-grey track with a chrome thumb — onto a warm
+ * paper instrument, and `accent-color` alone only tints the fill. It is also
+ * 16px tall, which is not a target on a phone. Both halves are drawn here.
+ * ----------------------------------------------------------------------- */
+
+.observatory-root .observatory-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 132px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.observatory-root .observatory-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--obs-card-border);
+}
+
+.observatory-root .observatory-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--obs-card-border);
+}
+
+.observatory-root .observatory-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  /* Centres the 14px thumb on a 3px track. */
+  margin-top: -5.5px;
+  border: none;
+  border-radius: 999px;
+  background: var(--obs-red-1);
+  box-shadow: 0 1px 3px rgb(60 40 10 / 0.28);
+  transition: transform var(--gov-motion-fast, 140ms) ease;
+}
+
+.observatory-root .observatory-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--obs-red-1);
+  box-shadow: 0 1px 3px rgb(60 40 10 / 0.28);
+}
+
+.observatory-root .observatory-range:hover::-webkit-slider-thumb,
+.observatory-root .observatory-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.observatory-root .observatory-range:focus-visible {
+  outline: 2px solid var(--obs-red-1);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .observatory-root .observatory-range::-webkit-slider-thumb {
+    transition: none;
+  }
+
+  .observatory-root .observatory-range:hover::-webkit-slider-thumb,
+  .observatory-root .observatory-range:active::-webkit-slider-thumb {
+    transform: none;
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * The 44px touch floor
+ *
+ * DESIGN.md sets it, and named rules kept missing it. Most of these controls
+ * are authored with an inline `style` object carrying pointer-sized padding,
+ * and an inline declaration outranks any class rule that is not `!important`
+ * — so a floor written against `.observatory-tab` reached the two components
+ * that used the class and none of the pills, chips, filters and toggles that
+ * did not. Measured on a 390px viewport, controls came in at 16px, 31px, 34px,
+ * 35px and 37px across Performance, Memory, Sessions and the Workbench.
+ *
+ * `min-height` and `min-width` are the two properties those inline objects
+ * never set, so this floor applies without an `!important` arms race. Rows
+ * that would rather stay compact should wrap, which they already do.
+ *
+ * Anchors are deliberately excluded: many are prose links, several already
+ * stretch a pseudo-element over a whole table row, and giving a mid-sentence
+ * link a 44px box breaks the line it sits in.
+ * ----------------------------------------------------------------------- */
+@media (pointer: coarse), (max-width: 760px) {
+  .observatory-root :is(button, [role='button'], [role='tab'], [role='switch'], select),
+  .observatory-root input:not([type='hidden']):not([type='range']):not([type='checkbox']):not([type='radio']) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* A range input is sized, not padded, so it takes the floor directly. */
+  .observatory-root .observatory-range {
+    height: 44px;
+  }
+
+  .observatory-root .observatory-range::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+    margin-top: -8.5px;
+  }
+
+  .observatory-root .observatory-range::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
 }

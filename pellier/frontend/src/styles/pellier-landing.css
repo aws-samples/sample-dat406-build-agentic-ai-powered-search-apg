@@ -44,6 +44,12 @@
      colour under pressure rather than as a second hue. */
   --pellier-burgundy-deep: #55181f;
   --pellier-burgundy-rgb: 109, 31, 40;
+  /* The same authority, lightened for espresso grounds. `--pellier-burgundy`
+     on `--ink` measures 1.61:1, so the announcement strip's label and its
+     presence dot were invisible on the one bar every shopper passes through.
+     This is that hue carried up until it clears AA: 5.6:1 on #1f1410. Use it
+     wherever burgundy has to speak on a dark surface; never gray. */
+  --pellier-burgundy-on-dark: #c17c83;
 
   /* Editorial rhythm for the landing bands. */
   --pellier-band-y: clamp(48px, 5.5vw, 88px);
