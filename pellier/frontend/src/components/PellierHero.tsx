@@ -308,10 +308,14 @@ export default function PellierHero({
           )}
         </div>
 
-        {/* The chooser is the tour's job on a first visit. Once the tour has
-            run, the header pill carries the persona choice and this card
-            retires rather than asking the same question a third time. */}
-        {spotlightSeen ? null : <PersonaConcierge />}
+        {/* The chooser waits for the tour to finish, then takes over.
+            While the spotlight is open it owns the "choose a point of view"
+            ask, and this card rendered underneath it was unreachable behind a
+            modal; it then retired on dismissal, which is the one moment a
+            shopper could have acted on it. Shown after, it is the hero's
+            single next step, and `PersonaConcierge` returns null once a
+            profile is active so it never asks twice. */}
+        {spotlightSeen ? <PersonaConcierge /> : null}
       </div>
     </section>
   )

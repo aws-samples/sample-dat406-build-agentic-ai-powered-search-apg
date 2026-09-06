@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PellierHero from './PellierHero'
 import { SPOTLIGHT_SEEN_KEY } from './PellierSpotlight'
 
@@ -108,6 +108,14 @@ describe('PellierHero', () => {
     openDrawerWithQuery.mockReset()
     openModal.mockReset()
     vi.stubGlobal('fetch', vi.fn(liveFetch))
+    // The default for these tests is a shopper past the welcome tour, which is
+    // when the hero owns the profile choice. While the spotlight is still open
+    // it owns that ask and the chooser is deliberately absent.
+    window.sessionStorage.setItem(SPOTLIGHT_SEEN_KEY, 'true')
+  })
+
+  afterEach(() => {
+    window.sessionStorage.removeItem(SPOTLIGHT_SEEN_KEY)
   })
 
   it('keeps profile selection in the hero without a duplicate edit rail', async () => {
@@ -143,15 +151,20 @@ describe('PellierHero', () => {
     ).toBeInTheDocument()
   })
 
-  it('retires the profile chooser once the welcome tour has been seen', () => {
+  it('offers the profile chooser once the welcome tour has been seen', () => {
     persona = null
-    window.sessionStorage.setItem(SPOTLIGHT_SEEN_KEY, 'true')
-    try {
-      render(<PellierHero />)
-      expect(screen.queryByTestId('persona-concierge')).not.toBeInTheDocument()
-    } finally {
-      window.sessionStorage.removeItem(SPOTLIGHT_SEEN_KEY)
-    }
+    render(<PellierHero />)
+    expect(screen.getByTestId('persona-concierge')).toBeInTheDocument()
+  })
+
+  // It used to render only while the spotlight covered it and retire on
+  // dismissal, so the one thing the hero says a shopper acts on first was
+  // visible only when it could not be clicked.
+  it('holds the chooser back while the welcome tour is still asking', () => {
+    persona = null
+    window.sessionStorage.removeItem(SPOTLIGHT_SEEN_KEY)
+    render(<PellierHero />)
+    expect(screen.queryByTestId('persona-concierge')).not.toBeInTheDocument()
   })
 
   it('removes the profile chooser after a profile is active', () => {
