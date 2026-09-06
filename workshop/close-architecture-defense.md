@@ -10,7 +10,9 @@ Run it in three moves: the contradiction, the four questions, the translation.
 
 ## Move 1 — The contradiction (3 minutes)
 
-Put this evidence set on screen. It is deliberately incomplete.
+Put this evidence set on screen. It is an **illustration**, not a row read from
+this box: a constructed shape used to ask one question. The live query below is
+where the box speaks for itself.
 
 ```text
 Policy decision      ALLOW
@@ -40,29 +42,61 @@ dangerous thing on the screen.
 
 ### Produce it from live evidence
 
-Better than a slide. This finds real turns with that exact shape, if any exist:
+Better than a slide. This searches **this run** for a keyed consequential call
+that was authorized, reached the tool, and left nothing durable behind:
 
 ```sql
--- Authorized, reached the tool, left no durable effect.
+-- Authorized, reached the tool, left no durable effect -- in this run,
+-- for one named write, with both durable-effect tables checked.
+WITH run AS (
+    SELECT run_id, started_at
+      FROM pellier.workshop_runs
+     ORDER BY started_at DESC
+     LIMIT 1
+)
 SELECT gr.receipt_id,
        gr.decision,
        ta.audit_id,
        ta.tool,
-       wo.idempotency_key,
-       wo.completed_at
-  FROM pellier.governed_receipts gr
-  JOIN pellier.tool_audit ta ON ta.audit_id = gr.audit_id
+       ta.args->>'idempotency_key' AS operation_key,
+       ta.result->>'status'        AS tool_reported_status,
+       wo.completed_at,
+       led.ledger_rows
+  FROM run
+  JOIN pellier.governed_receipts gr
+    ON gr.run_id = run.run_id
+    OR (gr.run_id IS NULL AND gr.created_at >= run.started_at)
+  JOIN pellier.tool_audit ta
+    ON ta.audit_id = gr.audit_id
   LEFT JOIN pellier.write_operations wo
          ON wo.idempotency_key = ta.args->>'idempotency_key'
+  CROSS JOIN LATERAL (
+        SELECT count(*) AS ledger_rows
+          FROM pellier.inventory_ledger il
+         WHERE il.idempotency_key = ta.args->>'idempotency_key'
+       ) led
  WHERE gr.decision = 'ALLOW'
-   AND (wo.idempotency_key IS NULL OR wo.completed_at IS NULL)
+   -- Only a named write can have its absence proved. An unkeyed read has
+   -- no durable effect to look for, so it is not a contradiction.
+   AND ta.args ? 'idempotency_key'
+   -- Migration 010 seeds a *successful* historical return whose audit row
+   -- carries no key. Without these two lines it answers this query and the
+   -- room is shown a false contradiction.
+   AND gr.identity_source <> 'seeded'
+   AND coalesce(ta.result->>'seeded_incident', 'false') <> 'true'
+   -- Durable effect means either table. Neither one alone is the answer.
+   AND wo.completed_at IS NULL
+   AND led.ledger_rows = 0
  ORDER BY gr.receipt_id DESC
  LIMIT 5;
 ```
 
-An empty result is also a good outcome, and worth saying out loud: on this box
-every authorized execution did commit. The query is what makes that a finding
-rather than an assumption.
+An empty result is the common outcome, and worth saying out loud precisely:
+**no contradiction was found in the rows this query searched** -- this run's
+keyed writes, excluding seeded history. That is a narrower claim than "every
+authorized execution committed", and the narrower claim is the one the evidence
+supports. Say the scope out loud; it is the same discipline the receipt applies
+when it prints `UNCHECKED`.
 
 ---
 

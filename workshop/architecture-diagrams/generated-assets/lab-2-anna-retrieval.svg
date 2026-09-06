@@ -12,122 +12,138 @@
 <!-- anna&#45;&gt;planner -->
 <g id="edge1" class="edge">
 <title>anna&#45;&gt;planner</title>
-<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M228.44,-484C228.44,-484 339.1,-484 339.1,-484"/>
-<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="339.1,-486.73 346.9,-484 339.1,-481.27 339.1,-486.73"/>
+<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M229.08,-504C229.08,-504 339.74,-504 339.74,-504"/>
+<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="339.74,-506.73 347.54,-504 339.74,-501.27 339.74,-506.73"/>
 </g>
 <!-- planner&#45;&gt;candidates -->
 <g id="edge2" class="edge">
 <title>planner&#45;&gt;candidates</title>
-<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M571.52,-484C571.52,-484 687.87,-484 687.87,-484"/>
-<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="687.87,-486.73 695.67,-484 687.87,-481.27 687.87,-486.73"/>
+<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M571.85,-504C571.85,-504 690.52,-504 690.52,-504"/>
+<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="690.52,-506.73 698.32,-504 690.52,-501.27 690.52,-506.73"/>
 </g>
 <!-- candidates&#45;&gt;rrf -->
 <g id="edge3" class="edge">
 <title>candidates&#45;&gt;rrf</title>
-<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M736.68,-450.35C736.68,-411.24 736.68,-352 736.68,-352 736.68,-352 255.16,-352 255.16,-352 255.16,-352 255.16,-315.11 255.16,-315.11"/>
-<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="257.89,-315.11 255.16,-307.31 252.43,-315.11 257.89,-315.11"/>
-<text xml:space="preserve" text-anchor="middle" x="713.45" y="-373.5" font-family="Helvetica Neue" font-size="10.00" fill="#5a2a0a">vector_rank + fts_rank</text>
+<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M737.82,-470.11C737.82,-444.24 737.82,-413 737.82,-413 737.82,-413 254.34,-413 254.34,-413 254.34,-413 254.34,-396.55 254.34,-396.55"/>
+<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="257.07,-396.55 254.34,-388.75 251.61,-396.55 257.07,-396.55"/>
+<text xml:space="preserve" text-anchor="middle" x="716.09" y="-424.5" font-family="Helvetica Neue" font-size="10.00" fill="#5a2a0a">vector_rank + fts_rank</text>
 </g>
 <!-- rrf&#45;&gt;eligibility -->
 <g id="edge4" class="edge">
 <title>rrf&#45;&gt;eligibility</title>
-<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M283.27,-281C283.27,-281 398.5,-281 398.5,-281"/>
-<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="398.5,-283.73 406.3,-281 398.5,-278.27 398.5,-283.73"/>
+<path fill="none" stroke="#9a3412" stroke-width="2.3" d="M280.82,-362C280.82,-362 397.05,-362 397.05,-362"/>
+<polygon fill="#9a3412" stroke="#9a3412" stroke-width="2.3" points="397.05,-364.73 404.85,-362 397.05,-359.27 397.05,-364.73"/>
 </g>
 <!-- rrf&#45;&gt;receipt -->
-<g id="edge7" class="edge">
+<g id="edge8" class="edge">
 <title>rrf&#45;&gt;receipt</title>
-<path fill="none" stroke="#3f6212" stroke-width="1.7" d="M191.95,-236.09C191.95,-236.09 191.95,-100.12 191.95,-100.12"/>
-<polygon fill="#3f6212" stroke="#3f6212" stroke-width="1.7" points="194.68,-100.12 191.95,-92.32 189.22,-100.12 194.68,-100.12"/>
-<text xml:space="preserve" text-anchor="middle" x="256.95" y="-159.5" font-family="Helvetica Neue" font-size="10.00" fill="#3f6212">WRITE · ranking evidence</text>
+<path fill="none" stroke="#3f6212" stroke-width="1.7" d="M195.59,-316.82C195.59,-316.82 195.59,-241.19 195.59,-241.19"/>
+<polygon fill="#3f6212" stroke="#3f6212" stroke-width="1.7" points="198.32,-241.19 195.59,-233.39 192.86,-241.19 198.32,-241.19"/>
+<text xml:space="preserve" text-anchor="middle" x="259.59" y="-270.5" font-family="Helvetica Neue" font-size="10.00" fill="#3f6212">WRITE · ranking evidence</text>
 </g>
 <!-- eligibility&#45;&gt;answer -->
 <g id="edge5" class="edge">
 <title>eligibility&#45;&gt;answer</title>
-<path fill="none" stroke="#3f6212" stroke-width="2.3" d="M635.88,-270C635.88,-270 761.64,-270 761.64,-270"/>
-<polygon fill="#3f6212" stroke="#3f6212" stroke-width="2.3" points="761.64,-272.73 769.44,-270 761.64,-267.27 761.64,-272.73"/>
+<path fill="none" stroke="#3f6212" stroke-width="2.3" d="M634.85,-351C634.85,-351 761.29,-351 761.29,-351"/>
+<polygon fill="#3f6212" stroke="#3f6212" stroke-width="2.3" points="761.29,-353.73 769.09,-351 761.29,-348.27 761.29,-353.73"/>
 </g>
 <!-- eligibility&#45;&gt;receipt -->
-<g id="edge8" class="edge">
+<g id="edge9" class="edge">
 <title>eligibility&#45;&gt;receipt</title>
-<path fill="none" stroke="#3f6212" stroke-width="1.7" d="M410.04,-259C379.68,-259 355.08,-259 355.08,-259 355.08,-259 355.08,-99.89 355.08,-99.89"/>
-<polygon fill="#3f6212" stroke="#3f6212" stroke-width="1.7" points="357.81,-99.89 355.08,-92.09 352.35,-99.89 357.81,-99.89"/>
-<text xml:space="preserve" text-anchor="middle" x="428.33" y="-159.5" font-family="Helvetica Neue" font-size="10.00" fill="#3f6212">WRITE · eligibility evidence</text>
+<path fill="none" stroke="#3f6212" stroke-width="1.7" d="M408.5,-340C360.7,-340 315.88,-340 315.88,-340 315.88,-340 315.88,-241.26 315.88,-241.26"/>
+<polygon fill="#3f6212" stroke="#3f6212" stroke-width="1.7" points="318.61,-241.26 315.88,-233.46 313.15,-241.26 318.61,-241.26"/>
+<text xml:space="preserve" text-anchor="middle" x="428.97" y="-270.5" font-family="Helvetica Neue" font-size="10.00" fill="#3f6212">WRITE · eligibility evidence</text>
 </g>
 <!-- eligibility&#45;&gt;boundary -->
-<g id="edge9" class="edge">
+<g id="edge10" class="edge">
 <title>eligibility&#45;&gt;boundary</title>
-<path fill="none" stroke="#b45309" stroke-width="1.2" stroke-dasharray="5,2" d="M522.95,-236.09C522.95,-196.02 522.95,-129.75 522.95,-89.75"/>
+<path fill="none" stroke="#b45309" stroke-width="1.2" stroke-dasharray="5,2" d="M521.59,-316.82C521.59,-291.21 521.59,-256.34 521.59,-230.82"/>
 </g>
 <!-- answer&#45;&gt;anna -->
 <g id="edge6" class="edge">
 <title>answer&#45;&gt;anna</title>
-<path fill="none" stroke="#3f6212" stroke-width="2.3" d="M839.95,-303.99C839.95,-343.1 839.95,-402 839.95,-402 839.95,-402 164.64,-402 164.64,-402 164.64,-402 164.64,-446.32 164.64,-446.32"/>
-<polygon fill="#3f6212" stroke="#3f6212" stroke-width="2.3" points="161.91,-446.32 164.64,-454.12 167.37,-446.32 161.91,-446.32"/>
-<text xml:space="preserve" text-anchor="middle" x="439.45" y="-373.5" font-family="Helvetica Neue" font-size="10.00" fill="#3f6212">choice + evidence ID</text>
+<path fill="none" stroke="#3f6212" stroke-width="2.3" d="M841.09,-385.14C841.09,-410.97 841.09,-442 841.09,-442 841.09,-442 169.74,-442 169.74,-442 169.74,-442 169.74,-466.43 169.74,-466.43"/>
+<polygon fill="#3f6212" stroke="#3f6212" stroke-width="2.3" points="167.01,-466.43 169.74,-474.23 172.47,-466.43 167.01,-466.43"/>
+<text xml:space="preserve" text-anchor="middle" x="441.09" y="-424.5" font-family="Helvetica Neue" font-size="10.00" fill="#3f6212">choice + evidence ID</text>
+</g>
+<!-- receipt&#45;&gt;lab2a -->
+<g id="edge7" class="edge">
+<title>receipt&#45;&gt;lab2a</title>
+<path fill="none" stroke="#9a3412" stroke-width="1.7" stroke-dasharray="5,2" d="M226.59,-163.42C226.59,-163.42 226.59,-96.06 226.59,-96.06"/>
+<polygon fill="#9a3412" stroke="#9a3412" stroke-width="1.7" points="229.32,-96.06 226.59,-88.26 223.86,-96.06 229.32,-96.06"/>
+<text xml:space="preserve" text-anchor="middle" x="295.97" y="-116.5" font-family="Helvetica Neue" font-size="10.00" fill="#7c2d12">READ · recorded ranks + score</text>
 </g>
 <!-- anna -->
 <g id="node1" class="node">
 <title>anna</title>
-<polygon fill="#1f1410" stroke="#cbc1ad" stroke-width="1.2" points="227.85,-509.8 4.05,-509.8 4.05,-458.2 227.85,-458.2 227.85,-509.8"/>
-<text xml:space="preserve" text-anchor="middle" x="115.95" y="-487.6" font-family="Helvetica Neue" font-size="12.00" fill="#fbf8f2">01 · ANNA IN STOREFRONT</text>
-<text xml:space="preserve" text-anchor="middle" x="115.95" y="-472.6" font-family="Helvetica Neue" font-size="12.00" fill="#fbf8f2">Morning ritual · under $100 · in stock</text>
+<polygon fill="#1f1410" stroke="#cbc1ad" stroke-width="1.2" points="228.49,-529.8 4.69,-529.8 4.69,-478.2 228.49,-478.2 228.49,-529.8"/>
+<text xml:space="preserve" text-anchor="middle" x="116.59" y="-507.6" font-family="Helvetica Neue" font-size="12.00" fill="#fbf8f2">01 · ANNA IN STOREFRONT</text>
+<text xml:space="preserve" text-anchor="middle" x="116.59" y="-492.6" font-family="Helvetica Neue" font-size="12.00" fill="#fbf8f2">Morning ritual · under $100 · in stock</text>
 </g>
 <!-- planner -->
 <g id="node2" class="node">
 <title>planner</title>
-<polygon fill="#fbf8f2" stroke="#cbc1ad" stroke-width="1.2" points="570.98,-517.3 350.93,-517.3 350.93,-450.7 570.98,-450.7 570.98,-517.3"/>
-<text xml:space="preserve" text-anchor="middle" x="460.95" y="-495.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">02 · SEARCH PLAN</text>
-<text xml:space="preserve" text-anchor="middle" x="460.95" y="-480.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">Intent + hard constraints</text>
-<text xml:space="preserve" text-anchor="middle" x="460.95" y="-465.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">from bounded conversation context</text>
+<polygon fill="#fbf8f2" stroke="#cbc1ad" stroke-width="1.2" points="571.62,-537.3 351.57,-537.3 351.57,-470.7 571.62,-470.7 571.62,-537.3"/>
+<text xml:space="preserve" text-anchor="middle" x="461.59" y="-515.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">02 · SEARCH PLAN</text>
+<text xml:space="preserve" text-anchor="middle" x="461.59" y="-500.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">Intent + hard constraints</text>
+<text xml:space="preserve" text-anchor="middle" x="461.59" y="-485.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">from bounded conversation context</text>
 </g>
 <!-- candidates -->
 <g id="node3" class="node">
 <title>candidates</title>
-<polygon fill="#fbf8f2" stroke="#cbc1ad" stroke-width="1.2" points="906.23,-517.3 699.68,-517.3 699.68,-450.7 906.23,-450.7 906.23,-517.3"/>
-<text xml:space="preserve" text-anchor="middle" x="802.95" y="-495.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">03 · POSTGRESQL CANDIDATES</text>
-<text xml:space="preserve" text-anchor="middle" x="802.95" y="-480.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">pgvector semantic rank</text>
-<text xml:space="preserve" text-anchor="middle" x="802.95" y="-465.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">FTS lexical rank</text>
+<polygon fill="#fbf8f2" stroke="#cbc1ad" stroke-width="1.2" points="908.87,-537.3 702.32,-537.3 702.32,-470.7 908.87,-470.7 908.87,-537.3"/>
+<text xml:space="preserve" text-anchor="middle" x="805.59" y="-515.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">03 · POSTGRESQL CANDIDATES</text>
+<text xml:space="preserve" text-anchor="middle" x="805.59" y="-500.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">pgvector semantic rank</text>
+<text xml:space="preserve" text-anchor="middle" x="805.59" y="-485.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">FTS lexical rank</text>
 </g>
 <!-- rrf -->
 <g id="node4" class="node">
 <title>rrf</title>
-<polygon fill="#fbf8f2" stroke="#9a3412" stroke-width="2" points="282.48,-303.3 101.43,-303.3 101.43,-236.7 282.48,-236.7 282.48,-303.3"/>
-<text xml:space="preserve" text-anchor="middle" x="191.95" y="-281.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">04 · PARTICIPANT RRF</text>
-<text xml:space="preserve" text-anchor="middle" x="191.95" y="-266.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">Fuse ranks with explicit SQL</text>
-<text xml:space="preserve" text-anchor="middle" x="191.95" y="-251.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">before optional reranking</text>
+<polygon fill="#fbf8f2" stroke="#9a3412" stroke-width="2" points="280.19,-384.3 110.99,-384.3 110.99,-317.7 280.19,-317.7 280.19,-384.3"/>
+<text xml:space="preserve" text-anchor="middle" x="195.59" y="-362.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">04 · APPLICATION RRF</text>
+<text xml:space="preserve" text-anchor="middle" x="195.59" y="-347.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">Fuse ranks in SQL</text>
+<text xml:space="preserve" text-anchor="middle" x="195.59" y="-332.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">before optional reranking</text>
 </g>
 <!-- eligibility -->
 <g id="node5" class="node">
 <title>eligibility</title>
-<polygon fill="#fbf8f2" stroke="#3f6212" stroke-width="2" points="635.23,-303.3 410.68,-303.3 410.68,-236.7 635.23,-236.7 635.23,-303.3"/>
-<text xml:space="preserve" text-anchor="middle" x="522.95" y="-281.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">05 · ELIGIBILITY GATE</text>
-<text xml:space="preserve" text-anchor="middle" x="522.95" y="-266.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">price &lt; $100 · stock &gt; 0</text>
-<text xml:space="preserve" text-anchor="middle" x="522.95" y="-251.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">PostgreSQL owns the hard boundary</text>
+<polygon fill="#fbf8f2" stroke="#3f6212" stroke-width="2" points="633.87,-384.3 409.32,-384.3 409.32,-317.7 633.87,-317.7 633.87,-384.3"/>
+<text xml:space="preserve" text-anchor="middle" x="521.59" y="-362.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">05 · ELIGIBILITY GATE</text>
+<text xml:space="preserve" text-anchor="middle" x="521.59" y="-347.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">price at or under $100 · stock &gt; 0</text>
+<text xml:space="preserve" text-anchor="middle" x="521.59" y="-332.1" font-family="Helvetica Neue" font-size="12.00" fill="#1f1410">PostgreSQL owns the hard boundary</text>
 </g>
 <!-- answer -->
 <g id="node6" class="node">
 <title>answer</title>
-<polygon fill="#fbf8f2" stroke="#3f6212" stroke-width="2" points="956.23,-303.3 773.68,-303.3 773.68,-236.7 956.23,-236.7 956.23,-303.3"/>
-<text xml:space="preserve" text-anchor="middle" x="864.95" y="-281.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">06 · BOUNDED SHORTLIST</text>
-<text xml:space="preserve" text-anchor="middle" x="864.95" y="-266.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">Two stable product identities</text>
-<text xml:space="preserve" text-anchor="middle" x="864.95" y="-251.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">one justified choice</text>
+<polygon fill="#fbf8f2" stroke="#3f6212" stroke-width="2" points="955.87,-384.3 773.32,-384.3 773.32,-317.7 955.87,-317.7 955.87,-384.3"/>
+<text xml:space="preserve" text-anchor="middle" x="864.59" y="-362.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">06 · BOUNDED SHORTLIST</text>
+<text xml:space="preserve" text-anchor="middle" x="864.59" y="-347.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">Two stable product identities</text>
+<text xml:space="preserve" text-anchor="middle" x="864.59" y="-332.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">one justified choice</text>
 </g>
 <!-- receipt -->
 <g id="node7" class="node">
 <title>receipt</title>
-<polygon fill="#eef4e6" stroke="#3f6212" stroke-width="1.2" points="359.23,-89.3 98.68,-89.3 98.68,-22.7 359.23,-22.7 359.23,-89.3"/>
-<text xml:space="preserve" text-anchor="middle" x="228.95" y="-67.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">REQUIRED PROOF · retrieval_receipts</text>
-<text xml:space="preserve" text-anchor="middle" x="228.95" y="-52.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">candidate IDs · vector rank · FTS rank · RRF</text>
-<text xml:space="preserve" text-anchor="middle" x="228.95" y="-37.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">price · stock · selected IDs</text>
+<polygon fill="#eef4e6" stroke="#3f6212" stroke-width="1.2" points="356.87,-230.3 96.32,-230.3 96.32,-163.7 356.87,-163.7 356.87,-230.3"/>
+<text xml:space="preserve" text-anchor="middle" x="226.59" y="-208.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">REQUIRED PROOF · retrieval_receipts</text>
+<text xml:space="preserve" text-anchor="middle" x="226.59" y="-193.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">candidate IDs · vector rank · FTS rank · RRF</text>
+<text xml:space="preserve" text-anchor="middle" x="226.59" y="-178.1" font-family="Helvetica Neue" font-size="12.00" fill="#3f6212">price · stock · selected IDs</text>
+</g>
+<!-- lab2a -->
+<g id="node8" class="node">
+<title>lab2a</title>
+<polygon fill="#fff7ed" stroke="#9a3412" stroke-width="2" points="356.19,-84.8 96.99,-84.8 96.99,-3.2 356.19,-3.2 356.19,-84.8"/>
+<text xml:space="preserve" text-anchor="middle" x="226.59" y="-62.6" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">BUILD 2a · RECONSTRUCT AND VERIFY</text>
+<text xml:space="preserve" text-anchor="middle" x="226.59" y="-47.6" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">workshop/lab&#45;2&#45;rrf.sql</text>
+<text xml:space="preserve" text-anchor="middle" x="226.59" y="-32.6" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">Recompute RRF from the recorded ranks</text>
+<text xml:space="preserve" text-anchor="middle" x="226.59" y="-17.6" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">and check it against recorded_rrf</text>
 </g>
 <!-- boundary -->
-<g id="node8" class="node">
+<g id="node9" class="node">
 <title>boundary</title>
-<polygon fill="#fff7ed" stroke="#b45309" stroke-width="1.2" points="638.15,-89.3 407.75,-89.3 407.75,-22.7 638.15,-22.7 638.15,-89.3"/>
-<text xml:space="preserve" text-anchor="middle" x="522.95" y="-67.1" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">BOUNDARY</text>
-<text xml:space="preserve" text-anchor="middle" x="522.95" y="-52.1" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">The model may propose relevance.</text>
-<text xml:space="preserve" text-anchor="middle" x="522.95" y="-37.1" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">PostgreSQL enforces eligibility.</text>
+<polygon fill="#fff7ed" stroke="#b45309" stroke-width="1.2" points="636.79,-230.3 406.39,-230.3 406.39,-163.7 636.79,-163.7 636.79,-230.3"/>
+<text xml:space="preserve" text-anchor="middle" x="521.59" y="-208.1" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">BOUNDARY</text>
+<text xml:space="preserve" text-anchor="middle" x="521.59" y="-193.1" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">The model may propose relevance.</text>
+<text xml:space="preserve" text-anchor="middle" x="521.59" y="-178.1" font-family="Helvetica Neue" font-size="12.00" fill="#7c2d12">PostgreSQL enforces eligibility.</text>
 </g>
 </g>
 </svg>

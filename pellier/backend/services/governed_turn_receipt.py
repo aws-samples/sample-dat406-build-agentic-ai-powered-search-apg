@@ -191,6 +191,14 @@ def _trace_metadata(trace: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         "runtime": trace.get("runtime"),
         "rail": trace.get("rail"),
         "evidenceProvenance": trace.get("evidenceProvenance"),
+        # Which revision answered. Without these three the fingerprint
+        # comparison lives only in the in-memory runtime receipt and dies with
+        # the backend, so nothing durable can say whether the managed rail ran
+        # the participant's package or the deployment before it -- and the
+        # build receipt had no way to make that claim.
+        "buildFingerprint": trace.get("buildFingerprint"),
+        "localBuildFingerprint": trace.get("localBuildFingerprint"),
+        "buildState": trace.get("buildState"),
         "traceId": trace.get("traceId"),
         "runtimeRequestId": trace.get("runtimeRequestId"),
         "sessionId": trace.get("sessionId"),

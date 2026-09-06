@@ -27,13 +27,23 @@ the full vocabulary to compute what it is deliberately not publishing.
 
 ## Baseline authorization on a fresh stack
 
-Three policies, not one per tool:
+Five policies, not one per tool. `scripts/deploy/render_agentcore_project.py`
+is the source; this table is checked against it by
+`pellier/backend/tests/test_fresh_policy_set.py`.
 
 | policy | effect | shape |
 |---|---|---|
 | `baseline_permit_workshop_tools` | permit | `action in [...]` over 13 explicit action ids. No wildcard, so a tool published later is denied by default. |
+| `get_customer_preferences_identity_scope` | forbid | customer-scope guard on the preferences read: the authenticated principal may only read its own |
+| `get_audit_trail_identity_scope` | forbid | the same guard on the audit-trail read |
 | `initiate_return_damaged_only` | permit | conditional on `context.input.reason == "damaged"` |
 | `initiate_return_deny_other_reasons` | forbid | the complement |
+
+The two `*_identity_scope` policies matter to how Lab 4 is described: the
+customer-read boundary on the managed rail is **Cedar**, evaluated before the
+tool runs. Aurora Row-Level Security is a second, independent refusal on the
+database session, and Lab 4 proves them separately for exactly that reason. A
+claim that "RLS scopes what the agent can read" is only half the sentence.
 
 `restock_inventory` is published **without** a baseline permit. Published and
 unauthorized is a real Cedar DENY rather than a missing tool, which is what the operator

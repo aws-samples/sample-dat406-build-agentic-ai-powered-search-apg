@@ -583,3 +583,37 @@ def test_the_application_catalogue_reconciles_with_the_workshop_contract() -> No
     )
     assert catalogue - WORKSHOP_DEFERRED_TOOLS == workshop_published_tools()
     assert len(LOCAL_MCP_TOOL_NAMES) == len(catalogue), "a name is listed twice"
+
+def test_the_handoff_contract_names_every_baseline_policy() -> None:
+    """The doc that tells a facilitator what ships must not drift from what ships.
+
+    ``docs/HANDOFF-SOURCE-CONTRACT.md`` listed three policies while the renderer
+    defined five; the two ``*_identity_scope`` guards were missing, which is
+    exactly the pair that decides whether the managed customer-read boundary is
+    attributed to Cedar or blanket-credited to Row-Level Security. A prose table
+    nobody checks is a claim, not a contract.
+    """
+    handoff = (
+        pathlib.Path(__file__).resolve().parents[3]
+        / "docs"
+        / "HANDOFF-SOURCE-CONTRACT.md"
+    )
+    text = handoff.read_text(encoding="utf-8")
+    rendered = set(_by_name())
+
+    section = text.split("## Baseline authorization on a fresh stack", 1)[1]
+    section = section.split("\n## ", 1)[0]
+
+    for name in rendered:
+        assert f"`{name}`" in section, (
+            f"{name} is rendered onto a fresh stack but absent from the handoff "
+            "contract's baseline table"
+        )
+    documented = set(re.findall(r"^\| `([a-z0-9_]+)` \|", section, re.M))
+    assert documented == rendered, (
+        f"handoff table and renderer disagree: "
+        f"only in doc {documented - rendered}, only in code {rendered - documented}"
+    )
+    assert f"{len(rendered)} policies" in section.lower() or (
+        "five policies" in section.lower() and len(rendered) == 5
+    ), "the table's stated count must match the number of rendered policies"

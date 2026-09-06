@@ -50,12 +50,12 @@ digraph Lab2AnnaRetrieval {
     label="03 · POSTGRESQL CANDIDATES\npgvector semantic rank\nFTS lexical rank"
   ];
   rrf [
-    label="04 · PARTICIPANT RRF\nFuse ranks with explicit SQL\nbefore optional reranking",
+    label="04 · APPLICATION RRF\nFuse ranks in SQL\nbefore optional reranking",
     color="#9a3412",
     penwidth=2
   ];
   eligibility [
-    label="05 · ELIGIBILITY GATE\nprice < $100 · stock > 0\nPostgreSQL owns the hard boundary",
+    label="05 · ELIGIBILITY GATE\nprice at or under $100 · stock > 0\nPostgreSQL owns the hard boundary",
     color="#3f6212",
     penwidth=2
   ];
@@ -79,6 +79,21 @@ digraph Lab2AnnaRetrieval {
     fillcolor="#eef4e6",
     fontcolor="#3f6212",
     width=3.6
+  ];
+  lab2a [
+    label="BUILD 2a · RECONSTRUCT AND VERIFY\nworkshop/lab-2-rrf.sql\nRecompute RRF from the recorded ranks\nand check it against recorded_rrf",
+    color="#9a3412",
+    fillcolor="#fff7ed",
+    fontcolor="#7c2d12",
+    width=3.6,
+    penwidth=2
+  ];
+  receipt -> lab2a [
+    label="READ · recorded ranks + score",
+    color="#9a3412",
+    fontcolor="#7c2d12",
+    style=dashed,
+    penwidth=1.7
   ];
   boundary [
     label="BOUNDARY\nThe model may propose relevance.\nPostgreSQL enforces eligibility.",

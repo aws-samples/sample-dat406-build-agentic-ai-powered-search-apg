@@ -47,7 +47,23 @@ This is a **400-level (expert)** workshop application. "Level 400" is the AWS de
 
 **You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
 
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: each lab has one build. Lab 1 completes two marked regions in code, the Inventory Agent definition and its `check_inventory` tool; Labs 2, 3 and 4 each complete a single artifact — `workshop/lab-2-rrf.sql`, `workshop/lab-4-otel-contract.jq`, and `workshop/lab-4-rls.sql` — and every one has a reference copy under `solutions/` if you need it. Around those builds you run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
+**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: **each lab has two builds, `a` and `b`** — eight in all, each one a marked region in a single file, each with a reference copy under `solutions/` if you need it. Around those builds you run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
+
+| Build | You author | In |
+|---|---|---|
+| **1a** | the Inventory Agent definition | `pellier/backend/agents/inventory_agent.py` |
+| **1b** | the `check_inventory` tool body | `pellier/backend/services/agent_tools.py` |
+| **2a** | the Reciprocal Rank Fusion expression | `workshop/lab-2-rrf.sql` |
+| **2b** | the labelled golden set the eval divides by | `pellier/backend/services/planned_hybrid_retrieval.py` |
+| **3a** | publishing the Gateway tool the specialist needs | `scripts/deploy/gateway_tool_schemas.py` |
+| **3b** | reconciling the Runtime catalogue with the Gateway | `pellier/backend/services/agentcore_gateway.py` |
+| **4a** | the identity-to-customer Cedar rule | `policies/workshop_identity_match_forbid.cedar` |
+| **4b** | the OpenTelemetry trace contract | `workshop/lab-4-otel-contract.jq` |
+
+`workshop/lab-4-rls.sql` is a **proof** artifact, not a build: Lab 4 runs it to
+show PostgreSQL refusing another shopper's rows. `scripts/build_receipt.py`
+grades all eight regions above, so `receipt` is the fastest check on which ones
+are still starters.
 
 > **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** Each lab asks for one small build, and every one has a documented recovery path. Everything else is there to explore at your own pace.
 
@@ -214,9 +230,12 @@ identifies the policy record, and `audit_id` links an ALLOW to the Aurora tool
 row. A DENY has no `audit_id`; the absence is proof only after the receipt
 helper verifies that no matching execution row exists.
 
-RLS, column protection, pgAudit, CloudTrail, and Dogwood temporal policy are
+Column protection, pgAudit, CloudTrail, and Dogwood temporal policy are
 documented production layers, not hidden claims about this sample. The required
-workshop does not configure them. The checked-in
+workshop does not configure them. Row-Level Security is the exception and is
+**not** in that list: migration `016_runtime_roles_rls.sql` ships it, and Lab 4
+step 5 runs `workshop/lab-4-rls.sql` to prove PostgreSQL refuses another
+shopper's rows even for a permitted tool holding a valid token. The checked-in
 [`advanced_verified_customer_context.dogwood`](policies/advanced_verified_customer_context.dogwood)
 shows how a session-history rule could require a successful context lookup
 before a sensitive write. It also states the critical permit interaction:

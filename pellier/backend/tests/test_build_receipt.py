@@ -9,11 +9,13 @@ non-execution is only claimed when the row was actually searched for.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import json
+import os
 import re
-import sqlite3
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -126,38 +128,69 @@ class TestGovernanceChain:
         assert found["allow_executed"] == PROVED
         assert found["durable_effect"] == NOT_YET
 
-    def test_deny_with_no_audit_row_proves_non_execution(self) -> None:
-        found = self._findings(
-            [
-                {
-                    "decision": "DENY",
-                    "audit_id": None,
-                    "completed_at": None,
-                    "policy_name": "p",
-                    "idempotency_key": None,
-                }
-            ]
-        )
+    @staticmethod
+    def _deny(key: str | None, absence: dict[str, int] | None) -> dict[str, Any]:
+        return {
+            "decision": "DENY",
+            "audit_id": None,
+            "completed_at": None,
+            "policy_name": "p",
+            "idempotency_key": None,
+            "declared_key": key,
+            "absence": absence,
+            "receipt_id": 1,
+        }
+
+    _CLEAN = {
+        "execution_rows": 0,
+        "write_rows": 0,
+        "completed_writes": 0,
+        "ledger_rows": 0,
+    }
+
+    def test_a_searched_key_found_nowhere_proves_non_execution(self) -> None:
+        found = self._findings([self._deny("key-1", dict(self._CLEAN))])
         assert found["deny_seen"] == PROVED
         assert found["deny_did_not_execute"] == PROVED
+        assert found["deny_absence_search"]["searched_key"] == "key-1"
 
-    def test_deny_that_left_an_execution_row_does_not_prove_non_execution(
-        self,
-    ) -> None:
-        """The contradiction case: a denial that nevertheless ran."""
-        found = self._findings(
-            [
-                {
-                    "decision": "DENY",
-                    "audit_id": 4128,
-                    "completed_at": None,
-                    "policy_name": "p",
-                    "idempotency_key": None,
-                }
-            ]
-        )
+    def test_a_deny_that_named_no_key_cannot_claim_absence(self) -> None:
+        """A null audit_id is not a search. Nothing was looked for."""
+        found = self._findings([self._deny(None, None)])
         assert found["deny_seen"] == PROVED
-        assert found["deny_did_not_execute"] == NOT_YET
+        assert found["deny_did_not_execute"] == UNCHECKED
+
+    @pytest.mark.parametrize(
+        "trace",
+        ["execution_rows", "write_rows", "completed_writes", "ledger_rows"],
+    )
+    def test_any_trace_of_the_denied_key_contradicts_the_claim(
+        self, trace: str
+    ) -> None:
+        """The audit's finding: a DENY whose own key completed scored PROVED.
+
+        Each of the four tables an execution would touch has to be able to
+        refute the claim on its own, because an execution that got far enough
+        to write any one of them is an execution.
+        """
+        absence = dict(self._CLEAN)
+        absence[trace] = 1
+        found = self._findings([self._deny("key-1", absence)])
+        assert found["deny_did_not_execute"] == receipt_module.CONTRADICTED
+        assert found["deny_absence_search"][trace] == 1
+
+    def test_a_contradiction_keeps_the_receipt_incomplete(self) -> None:
+        built = receipt_module.assemble(
+            {
+                "available": True,
+                "lab4": [self._deny("key-1", {**self._CLEAN, "completed_writes": 1})],
+            }
+        )
+        assert built["complete"] is False
+        assert any(
+            "deny_did_not_execute: CONTRADICTED" in item
+            for item in built["unproven"]
+        )
 
     def test_no_rows_at_all_is_unchecked_when_the_database_was_unreachable(
         self,
@@ -166,19 +199,65 @@ class TestGovernanceChain:
 
 
 class TestSourceState:
-    def test_this_checkout_reports_the_lab_one_starters_as_unwritten(self) -> None:
-        """A fresh governed checkout ships both Lab 1 sites as stubs."""
+    def test_a_fresh_checkout_reports_all_eight_builds_as_unwritten(self) -> None:
+        """Two builds per lab, eight in all, every one shipping as a starter."""
         state = receipt_module.collect_source_state()
-        assert state["inventory_tool"] == NOT_YET
-        assert state["inventory_agent_definition"] == NOT_YET
+        assert len(state) == 8
+        assert {entry["lab"] for entry in state.values()} == {
+            "01_ground_the_answer",
+            "02_measure_hybrid_retrieval",
+            "03_operate_the_managed_path",
+            "04_govern_and_prove",
+        }
+        for name, entry in state.items():
+            assert entry["state"] == NOT_YET, f"{name} does not read as a starter"
+
+    def test_every_build_flips_when_its_solution_is_the_source(self) -> None:
+        """A detector that never says PROVED would pass the test above too."""
+        solutions = {
+            "1a_inventory_agent_defined":
+                "solutions/waking-the-stock-keeper/agents/inventory_agent_solution.py",
+            "1b_inventory_tool_written":
+                "solutions/closing-marcos-gap/services/"
+                "agent_tools_check_inventory_solution.py",
+            "2a_rrf_expression_authored":
+                "solutions/the-quiet-search/sql/lab-2-rrf-solution.sql",
+            "2b_golden_set_labeled":
+                "solutions/the-quiet-search/eval/planned_hybrid_retrieval_solution.py",
+            "3a_gateway_tool_published":
+                "solutions/the-ledger/gateway/gateway_tool_schemas_solution.py",
+            "3b_runtime_catalogue_reconciled":
+                "solutions/the-ledger/services/agentcore_gateway.py",
+            "4a_identity_rule_authored":
+                "solutions/the-concierge/policies/identity_match_forbid.cedar",
+            "4b_trace_contract_authored":
+                "solutions/the-ledger/observability/lab-4-otel-contract-solution.jq",
+        }
+        for _lab, name, _path, region, markers in receipt_module._BUILDS:
+            solution = receipt_module.REPO / solutions[name]
+            assert solution.exists(), f"{name}: no solution at {solutions[name]}"
+            stub = (
+                receipt_module._region_reads_as_stub(solution, region, markers)
+                if region
+                else receipt_module._reads_as_stub(solution, markers)
+            )
+            assert receipt_module._source_state(stub) == PROVED, name
 
     def test_an_unreadable_file_is_unchecked(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(receipt_module, "BACKEND", Path("/nonexistent"))
+        monkeypatch.setattr(receipt_module, "REPO", Path("/nonexistent"))
+        monkeypatch.setattr(
+            receipt_module,
+            "_BUILDS",
+            tuple(
+                (lab, name, Path("/nonexistent") / path.name, region, markers)
+                for lab, name, path, region, markers in receipt_module._BUILDS
+            ),
+        )
         state = receipt_module.collect_source_state()
-        assert state["inventory_tool"] == UNCHECKED
-        assert state["inventory_agent_definition"] == UNCHECKED
+        assert all(entry["state"] == UNCHECKED for entry in state.values())
 
 
 class TestReporting:
@@ -232,7 +311,9 @@ class TestReporting:
         lab4 = built["labs"]["04_govern_and_prove"]
         assert lab4["allow_executed"] == PROVED
         assert lab4["durable_effect"] == PROVED
-        assert lab4["deny_did_not_execute"] == PROVED
+        # This fixture's DENY names no idempotency key, so there is nothing to
+        # search for and non-execution stays UNCHECKED rather than assumed.
+        assert lab4["deny_did_not_execute"] == UNCHECKED
 
 
 # ---------------------------------------------------------------------------
@@ -357,9 +438,27 @@ class TestRunScope:
         evidence = receipt_module.read_evidence(
             _env_file(tmp_path), None, run_id=RUN_ID, connect=lambda dsn: conn
         )
-        assert evidence["principal_sub"] == "sub-9"
+        # Named in the header, never bound into a lab filter. Marco's and
+        # Anna's turns are anonymous, so filtering on the newest signed-in
+        # identity discarded Labs 1 and 2 from a correctly finished run.
+        assert evidence["principals"] == ["sub-9"]
+        assert evidence["principal_sub"] == ""
+        assert evidence["principal_filtered"] is False
         principal_sql = [sql for sql, _ in conn.queries if "MAX(created_at)" in sql][0]
         assert "run_id = %(run)s" in principal_sql
+
+    def test_an_explicit_principal_is_the_only_thing_that_filters(
+        self, tmp_path: Path
+    ) -> None:
+        conn = FakeConn({"to_regclass": [{"installed": "pellier.workshop_runs"}]})
+        evidence = receipt_module.read_evidence(
+            _env_file(tmp_path), "sub-diagnostic", run_id=RUN_ID,
+            connect=lambda dsn: conn,
+        )
+        assert evidence["principal_filtered"] is True
+        assert evidence["principal_sub"] == "sub-diagnostic"
+        lab_params = [params for sql, params in conn.queries if "tool_audit" in sql]
+        assert lab_params and all(p["sub"] == "sub-diagnostic" for p in lab_params)
 
     def test_the_receipt_carries_the_run(self) -> None:
         built = receipt_module.assemble(
@@ -378,7 +477,16 @@ def _complete_evidence() -> dict[str, Any]:
         "run_scope": "run_id",
         "lab1": {"audit_id": 1},
         "lab2": {"receipt_id": 1},
-        "lab3": {"turn_id": "t", "rail": "gateway-mcp"},
+        # A complete run's managed turn carries the fingerprint comparison,
+        # so "the Runtime executed MY package" is answerable rather than
+        # assumed from a successful invocation.
+        "lab3": {
+            "turn_id": "t",
+            "rail": "gateway-mcp",
+            "build_state": "current",
+            "deployed_fingerprint": "abc123",
+            "local_fingerprint": "abc123",
+        },
         "lab3_memory": {"receipt_id": 1},
         "lab4": [
             {
@@ -387,6 +495,7 @@ def _complete_evidence() -> dict[str, Any]:
                 "completed_at": "now",
                 "policy_name": "p",
                 "idempotency_key": "k",
+                "declared_key": "k",
             },
             {
                 "decision": "DENY",
@@ -394,6 +503,15 @@ def _complete_evidence() -> dict[str, Any]:
                 "completed_at": None,
                 "policy_name": "p",
                 "idempotency_key": None,
+                "declared_key": "k-denied",
+                "receipt_id": 9,
+                # The denied key, searched and found nowhere.
+                "absence": {
+                    "execution_rows": 0,
+                    "write_rows": 0,
+                    "completed_writes": 0,
+                    "ledger_rows": 0,
+                },
             },
         ],
     }
@@ -405,7 +523,10 @@ class TestStrict:
         monkeypatch.setattr(
             receipt_module,
             "collect_source_state",
-            lambda: {"inventory_tool": PROVED, "inventory_agent_definition": PROVED},
+            lambda: {
+                name: {"lab": lab, "state": PROVED}
+                for lab, name, _p, _r, _m in receipt_module._BUILDS
+            },
         )
         monkeypatch.setattr(receipt_module, "collect_provenance", lambda: {})
 
@@ -504,36 +625,192 @@ class TestStrict:
 # Lab 3: what the managed rail actually leaves behind
 # ---------------------------------------------------------------------------
 
-_NAMED_PARAM = re.compile(r"%\((\w+)\)s")
 SUB = "sub-theo"
 
+# ---------------------------------------------------------------------------
+# The real engine, or none at all
+# ---------------------------------------------------------------------------
+# This used to be a SQLite harness. Its instinct was right -- ``FakeConn``
+# answers by SQL fragment and cannot catch a predicate no real row satisfies --
+# but SQLite is not the engine this SQL runs on, and the substitution hid a
+# total failure: every lab query carried ``%(sub)s IS NULL OR col = %(sub)s``,
+# which SQLite accepts and PostgreSQL rejects outright with
+# ``could not determine data type of parameter $1``. The receipt could not read
+# Aurora at all, and a green suite said otherwise.
+#
+# So: PostgreSQL or skip. A skipped test is honest about what it did not check;
+# a passing test on the wrong engine is not.
 
-class SqliteLab3:
-    """Runs the receipt's real Lab 3 SQL over fixture rows, in SQLite.
+_PG_DSN = os.environ.get("PELLIER_TEST_DSN") or os.environ.get("DATABASE_URL")
 
-    ``FakeConn`` answers by SQL fragment, so it cannot catch a predicate that no
-    row a real writer produces can satisfy. The Lab 3 query is ordinary SQL plus
-    the JSON ``->>`` operator, and SQLite understands both once the ``pellier``
-    schema is attached as a database and psycopg's ``%(name)s`` is rewritten to
-    ``:name``. The columns are the ones the real writers populate
-    (``services/governed_turn_receipt.py``, ``scripts/deploy/common/dataapi.py``)
-    plus migration 049's ``run_id``.
+
+def _pg_connection() -> Any:
+    """Open a scratch schema on a real PostgreSQL, or skip the test."""
+    psycopg = pytest.importorskip("psycopg", reason="psycopg is required")
+    if not _PG_DSN:
+        pytest.skip("set PELLIER_TEST_DSN to run the receipt's SQL on PostgreSQL")
+    try:
+        conn = psycopg.connect(_PG_DSN, row_factory=psycopg.rows.dict_row)
+    except Exception as exc:  # noqa: BLE001 - unreachable server is a skip
+        pytest.skip(f"no PostgreSQL at PELLIER_TEST_DSN: {type(exc).__name__}: {exc}")
+    return conn
+
+
+@pytest.fixture()
+def pg() -> Any:
+    """A disposable ``pellier`` schema carrying only what these queries read."""
+    conn = _pg_connection()
+    schema = f"pellier_receipt_test_{uuid.uuid4().hex[:8]}"
+    with conn.cursor() as cur:
+        cur.execute(f'CREATE SCHEMA "{schema}"')
+        cur.execute(f'SET search_path TO "{schema}"')
+        cur.execute(
+            "CREATE TABLE tool_audit (audit_id bigserial PRIMARY KEY, session_id text,"
+            " tool text, caller text, args jsonb, result jsonb, latency_ms int,"
+            " created_at timestamptz DEFAULT now(), run_id text)"
+        )
+        cur.execute(
+            "CREATE TABLE governed_turn_receipts (turn_id text PRIMARY KEY,"
+            " session_id text, principal_sub text, rail text, terminal_status text,"
+            " trace jsonb DEFAULT '{}'::jsonb, created_at timestamptz DEFAULT now(),"
+            " run_id text)"
+        )
+        cur.execute(
+            "CREATE TABLE retrieval_receipts (receipt_id bigserial PRIMARY KEY,"
+            " principal_sub text, turn_id text, query_preview text,"
+            " embedding_model text, rerank_model text,"
+            " retrieval_config jsonb DEFAULT '{}'::jsonb,"
+            " latency_breakdown jsonb DEFAULT '{}'::jsonb, modeled_cost_usd numeric,"
+            " citation_ids jsonb DEFAULT '[]'::jsonb,"
+            " rerank_scores jsonb DEFAULT '{}'::jsonb,"
+            " vector_ranks jsonb DEFAULT '{}'::jsonb,"
+            " lexical_ranks jsonb DEFAULT '{}'::jsonb,"
+            " rrf_scores jsonb DEFAULT '{}'::jsonb,"
+            " memory_record_ids_used jsonb DEFAULT '[]'::jsonb,"
+            " created_at timestamptz DEFAULT now(), run_id text)"
+        )
+        cur.execute(
+            "CREATE TABLE governed_receipts (receipt_id bigserial PRIMARY KEY,"
+            " audit_id bigint, principal_id text, tool text, caller text,"
+            " decision text, args jsonb DEFAULT '{}'::jsonb, policy_engine_id text,"
+            " policy_name text, verified_subject text, identity_source text,"
+            " created_at timestamptz DEFAULT now(), run_id text)"
+        )
+        cur.execute(
+            "CREATE TABLE write_operations (idempotency_key text PRIMARY KEY,"
+            " operation text, completed_at timestamptz)"
+        )
+        cur.execute(
+            "CREATE TABLE inventory_ledger (id bigserial PRIMARY KEY,"
+            " idempotency_key text)"
+        )
+        cur.execute(
+            "CREATE TABLE workshop_runs (run_id text PRIMARY KEY,"
+            " started_at timestamptz DEFAULT now())"
+        )
+        cur.execute("INSERT INTO workshop_runs (run_id) VALUES (%s)", (RUN_ID,))
+    conn.commit()
+    conn.schema = schema  # type: ignore[attr-defined]
+    try:
+        yield conn
+    finally:
+        conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute(f'DROP SCHEMA "{schema}" CASCADE')
+        conn.commit()
+        conn.close()
+
+
+def _run_lab_sql(conn: Any, sql: str, label: str, *, sub: Any, scoped: bool) -> Any:
+    """Execute one of the receipt's real queries, unmodified, on PostgreSQL."""
+    schema = conn.schema  # type: ignore[attr-defined]
+    text = receipt_module._scoped(sql, label, scoped).replace("pellier.", f'"{schema}".')
+    with conn.cursor() as cur:
+        cur.execute(text, {"sub": sub, "run": RUN_ID})
+        return cur.fetchall()
+
+
+class TestEveryQueryParsesOnPostgres:
+    """The regression the SQLite harness could not express.
+
+    Each query is executed against a real server with both parameter shapes the
+    tool actually uses: ``None`` (no ``--principal``, the default) and a subject
+    string (the explicit diagnostic).
     """
 
-    def __init__(self) -> None:
-        self._conn = sqlite3.connect(":memory:")
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("ATTACH DATABASE ':memory:' AS pellier")
-        self._conn.execute(
-            "CREATE TABLE pellier.tool_audit ("
-            "audit_id INTEGER PRIMARY KEY, session_id TEXT, tool TEXT, caller TEXT, "
-            "args TEXT, result TEXT, latency_ms INTEGER, run_id TEXT)"
+    @pytest.mark.parametrize("sub", [None, SUB])
+    @pytest.mark.parametrize("scoped", [True, False])
+    def test_every_receipt_query_executes(self, pg: Any, sub: Any, scoped: bool) -> None:
+        queries = (
+            ("principals", receipt_module._RUN_PRINCIPALS),
+            ("lab1", receipt_module._LAB1),
+            ("lab2", receipt_module._LAB2),
+            ("lab3", receipt_module._LAB3),
+            ("lab3_memory", receipt_module._LAB3_MEMORY),
+            ("lab4", receipt_module._LAB4),
         )
-        self._conn.execute(
-            "CREATE TABLE pellier.governed_turn_receipts ("
-            "turn_id TEXT PRIMARY KEY, session_id TEXT, principal_sub TEXT, rail TEXT, "
-            "terminal_status TEXT, created_at TEXT, run_id TEXT)"
-        )
+        for label, sql in queries:
+            _run_lab_sql(pg, sql, label, sub=sub, scoped=scoped)
+
+    def test_the_absence_probe_executes(self, pg: Any) -> None:
+        schema = pg.schema
+        with pg.cursor() as cur:
+            cur.execute(
+                receipt_module._DENY_ABSENCE.replace("pellier.", f'"{schema}".'),
+                {"key": "k"},
+            )
+            row = cur.fetchone()
+        assert row["execution_rows"] == 0
+        assert row["completed_writes"] == 0
+
+
+class TestAnonymousLabsSurviveTheDefaultScope:
+    """Marco and Anna never sign in. Their evidence must still be found."""
+
+    def test_a_four_persona_run_reports_every_lab(self, pg: Any) -> None:
+        schema = pg.schema
+        with pg.cursor() as cur:
+            cur.execute(f'SET search_path TO "{schema}"')
+            # Lab 1: anonymous.
+            cur.execute(
+                "INSERT INTO tool_audit (session_id, tool, caller, args, result, run_id)"
+                " VALUES ('s1','check_inventory','inprocess',"
+                " '{\"turn_id\":\"t1\"}'::jsonb,'{}'::jsonb,%s)", (RUN_ID,))
+            cur.execute(
+                "INSERT INTO governed_turn_receipts"
+                " (turn_id, principal_sub, rail, terminal_status, run_id)"
+                " VALUES ('t1', NULL, 'inprocess', 'complete', %s)", (RUN_ID,))
+            # Lab 2: anonymous.
+            cur.execute(
+                "INSERT INTO retrieval_receipts (principal_sub, turn_id, vector_ranks,"
+                " lexical_ranks, rrf_scores, run_id) VALUES (NULL,'t2',"
+                " '{\"1\":1}'::jsonb,'{\"1\":2}'::jsonb,'{\"1\":0.9}'::jsonb,%s)",
+                (RUN_ID,))
+            # Lab 3: signed in, and newer.
+            cur.execute(
+                "INSERT INTO governed_turn_receipts"
+                " (turn_id, principal_sub, rail, terminal_status, trace, run_id)"
+                " VALUES ('t3',%s,'gateway-mcp','complete',"
+                " '{\"buildState\":\"current\"}'::jsonb,%s)", (SUB, RUN_ID))
+        pg.commit()
+
+        lab1 = _run_lab_sql(pg, receipt_module._LAB1, "lab1", sub=None, scoped=True)
+        lab2 = _run_lab_sql(pg, receipt_module._LAB2, "lab2", sub=None, scoped=True)
+        assert lab1, "Marco's anonymous execution row was dropped"
+        assert lab2, "Anna's anonymous retrieval receipt was dropped"
+
+        # And the old behaviour, reproduced: filtering on the signed-in
+        # identity discards both.
+        assert not _run_lab_sql(pg, receipt_module._LAB1, "lab1", sub=SUB, scoped=True)
+        assert not _run_lab_sql(pg, receipt_module._LAB2, "lab2", sub=SUB, scoped=True)
+
+
+class _Lab3Rows:
+    """Writes the rows the real writers produce, then runs the real Lab 3 SQL."""
+
+    def __init__(self, conn: Any) -> None:
+        self._conn = conn
+        self._schema = conn.schema  # type: ignore[attr-defined]
 
     def turn(
         self,
@@ -541,43 +818,40 @@ class SqliteLab3:
         turn_id: str,
         run_id: str | None,
         rail: str = "gateway-mcp",
-        created_at: str = "2026-09-04T10:00:00Z",
+        trace: str = "{}",
     ) -> None:
-        """Record the turn receipt the application pool writes for one turn."""
-        self._conn.execute(
-            "INSERT INTO pellier.governed_turn_receipts "
-            "(turn_id, session_id, principal_sub, rail, terminal_status, created_at, "
-            "run_id) VALUES (?, 'lab3-start-1', ?, ?, 'complete', ?, ?)",
-            (turn_id, SUB, rail, created_at, run_id),
-        )
+        with self._conn.cursor() as cur:
+            cur.execute(f'SET search_path TO "{self._schema}"')
+            cur.execute(
+                "INSERT INTO governed_turn_receipts (turn_id, session_id,"
+                " principal_sub, rail, terminal_status, trace, run_id)"
+                " VALUES (%s,'lab3-start-1',%s,%s,'complete',%s::jsonb,%s)",
+                (turn_id, SUB, rail, trace, run_id),
+            )
+        self._conn.commit()
 
     def gateway_mutation(self, *, audit_id: int, turn_id: str) -> None:
-        """Record the row the MCP Lambda writes for a mutation. ``run_id`` is NULL."""
-        self._conn.execute(
-            "INSERT INTO pellier.tool_audit "
-            "(audit_id, session_id, tool, caller, args, result, latency_ms, run_id) "
-            "VALUES (?, 'gateway-CUST-THEO', 'initiate_return', 'gateway', ?, '{}', "
-            "412, NULL)",
-            (audit_id, json.dumps({"turn_id": turn_id})),
-        )
+        """The row the MCP Lambda writes for a mutation. ``run_id`` is NULL."""
+        with self._conn.cursor() as cur:
+            cur.execute(f'SET search_path TO "{self._schema}"')
+            cur.execute(
+                "INSERT INTO tool_audit (audit_id, session_id, tool, caller, args,"
+                " result, latency_ms, run_id) VALUES (%s,'gateway-CUST-THEO',"
+                "'initiate_return','gateway',%s::jsonb,'{}'::jsonb,412,NULL)",
+                (audit_id, json.dumps({"turn_id": turn_id})),
+            )
+        self._conn.commit()
 
     def lab3(self) -> Any:
-        sql = receipt_module._scoped(receipt_module._LAB3, "lab3", True)
-        cursor = self._conn.execute(
-            _NAMED_PARAM.sub(r":\1", sql), {"sub": SUB, "run": RUN_ID}
+        rows = _run_lab_sql(
+            self._conn, receipt_module._LAB3, "lab3", sub=None, scoped=True
         )
-        row = cursor.fetchone()
-        return dict(row) if row is not None else None
+        return rows[0] if rows else None
 
-    def close(self) -> None:
-        self._conn.close()
 
-    def __enter__(self) -> "SqliteLab3":
-        return self
-
-    def __exit__(self, *exc: Any) -> bool:
-        self.close()
-        return False
+@contextlib.contextmanager
+def _lab3_fixture(conn: Any) -> Any:
+    yield _Lab3Rows(conn)
 
 
 class TestLab3ManagedRailProof:
@@ -591,8 +865,8 @@ class TestLab3ManagedRailProof:
     and carrying the rail that served the turn.
     """
 
-    def test_lab3_as_designed_yields_a_row_with_no_gateway_mutation(self) -> None:
-        with SqliteLab3() as db:
+    def test_lab3_as_designed_yields_a_row_with_no_gateway_mutation(self, pg: Any) -> None:
+        with _lab3_fixture(pg) as db:
             db.turn(turn_id="turn-theo-ceramics", run_id=RUN_ID)
             row = db.lab3()
         assert row is not None, "a managed turn with no mutation must still prove Lab 3"
@@ -600,8 +874,8 @@ class TestLab3ManagedRailProof:
         assert row["turn_id"] == "turn-theo-ceramics"
         assert row["gateway_mutation_audit_id"] is None
 
-    def test_that_row_proves_the_managed_rail_in_the_receipt(self) -> None:
-        with SqliteLab3() as db:
+    def test_that_row_proves_the_managed_rail_in_the_receipt(self, pg: Any) -> None:
+        with _lab3_fixture(pg) as db:
             db.turn(turn_id="turn-theo-ceramics", run_id=RUN_ID)
             row = db.lab3()
         built = receipt_module.assemble(
@@ -609,9 +883,9 @@ class TestLab3ManagedRailProof:
         )
         assert built["labs"]["03_operate_the_managed_path"]["managed_rail"] == PROVED
 
-    def test_an_in_process_only_run_leaves_lab3_unproved(self) -> None:
+    def test_an_in_process_only_run_leaves_lab3_unproved(self, pg: Any) -> None:
         """The check cannot pass vacuously: an unswitched run still fails."""
-        with SqliteLab3() as db:
+        with _lab3_fixture(pg) as db:
             db.turn(turn_id="turn-in-process", run_id=RUN_ID, rail="in-process")
             row = db.lab3()
         assert row is None
@@ -620,14 +894,14 @@ class TestLab3ManagedRailProof:
         )
         assert built["labs"]["03_operate_the_managed_path"]["managed_rail"] == NOT_YET
 
-    def test_another_runs_managed_turn_does_not_count(self) -> None:
-        with SqliteLab3() as db:
+    def test_another_runs_managed_turn_does_not_count(self, pg: Any) -> None:
+        with _lab3_fixture(pg) as db:
             db.turn(turn_id="turn-someone-else", run_id="run-ffffffffffff")
             assert db.lab3() is None
 
-    def test_a_gateway_mutation_is_reported_as_labelled_detail(self) -> None:
+    def test_a_gateway_mutation_is_reported_as_labelled_detail(self, pg: Any) -> None:
         """Present it as the optional mutation evidence it is, not as the proof."""
-        with SqliteLab3() as db:
+        with _lab3_fixture(pg) as db:
             db.turn(turn_id="turn-theo-return", run_id=RUN_ID)
             db.gateway_mutation(audit_id=4127, turn_id="turn-theo-return")
             row = db.lab3()
@@ -639,17 +913,24 @@ class TestLab3ManagedRailProof:
         assert "gateway_mutation_audit_id=4127" in markdown
 
     def test_strict_counts_lab3_satisfied_without_any_gateway_row(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+        self, pg: Any, monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]
     ) -> None:
-        with SqliteLab3() as db:
-            db.turn(turn_id="turn-theo-ceramics", run_id=RUN_ID)
+        with _lab3_fixture(pg) as db:
+            db.turn(
+                turn_id="turn-theo-ceramics", run_id=RUN_ID,
+                trace='{"buildState":"current"}',
+            )
             row = db.lab3()
         evidence = _complete_evidence()
         evidence["lab3"] = row
         monkeypatch.setattr(
             receipt_module,
             "collect_source_state",
-            lambda: {"inventory_tool": PROVED, "inventory_agent_definition": PROVED},
+            lambda: {
+                name: {"lab": lab, "state": PROVED}
+                for lab, name, _p, _r, _m in receipt_module._BUILDS
+            },
         )
         monkeypatch.setattr(receipt_module, "collect_provenance", lambda: {})
         monkeypatch.setattr(

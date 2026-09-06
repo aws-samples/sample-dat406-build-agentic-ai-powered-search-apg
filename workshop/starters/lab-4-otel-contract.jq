@@ -1,5 +1,6 @@
-# Lab 3 build artifact: replace the four false placeholders with predicates
-# over $spans. The AgentCore CLI trace file remains the source of evidence.
+# Lab 4 build artifact (Build 4b): replace the four false placeholders with
+# predicates over $spans. The AgentCore CLI trace file remains the source of
+# evidence.
 
 [
   .[]
