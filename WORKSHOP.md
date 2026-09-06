@@ -328,6 +328,23 @@ what "relevant" means and measures it, Lab 3 puts the participant's own work on
 the managed control plane, Lab 4 governs a consequential action and proves the
 outcome four separate ways.
 
+At a glance, which is the whole shape of the two hours on one screen:
+
+| Lab | Person | Build a | Build b | Budget |
+|---|---|---|---|---|
+| **Lab 1 · Build a PostgreSQL-Grounded Agent** | Marco | Inventory Agent definition | the `check_inventory` body | 20 min |
+| **Lab 2 · Build and Measure PostgreSQL Hybrid Retrieval** | Anna | the RRF fusion expression | the labelled golden set | 20 min |
+| **Lab 3 · Deploy and Operate the Managed Agent Path** | Theo | publish the Gateway tool | reconcile the Runtime catalogue, then deploy | 30 min |
+| **Lab 4 · Govern and Prove Agent Actions** | Jessica | the Cedar identity rule | the OpenTelemetry trace contract | 30 min |
+
+Plus 10 minutes for orientation and `workshop-start`, and 10 to close. The
+budgets are repeated beside the labs here on purpose: a table that names the
+work without naming its cost invites a room to plan four equal labs, and they
+are not four equal labs. The reasoning behind 20/20/30/30 is under Time box
+below.
+
+What each lab asks of the participant, and what they leave with:
+
 | Lab | Participant moment | What they build or prove | Takeaway |
 |---|---|---|---|
 | **Lab 1 · Build**<br>**Build a PostgreSQL-Grounded Agent** | Marco needs a live availability answer. | Complete the Inventory Agent's warehouse capability, then reconcile the response, warehouse rows, and execution evidence in PostgreSQL. | An agent answer is grounded only when it can be checked against the system of record and an execution receipt. |
