@@ -38,6 +38,8 @@ import GovernedTurnReceipt from './GovernedTurnReceipt'
 import { TraceChip } from '../shared/TraceChip'
 import { imageSrc } from '../utils/assetPath'
 import { catalogTurnFollowUps } from '../utils/catalogFollowUps'
+import { awsServiceMark } from '../utils/awsServiceMarks'
+import { nextJourneyPrompt } from '../data/workshopJourneys'
 import { CHAT_TRUST, SCENARIO } from '../copy'
 import '../styles/pellier-chat.css'
 import '../styles/pellier-welcome.css'
@@ -110,13 +112,25 @@ function sourceIdentity(source: string): {
 
 function SourceActivityRow({ activity }: { activity: ChatSourceActivity }) {
   const { Icon, tone } = sourceIdentity(activity.source)
+  const mark = awsServiceMark(activity.source)
   const working = activity.status === 'in_progress'
   const unavailable = activity.status === 'unavailable'
   const details = Array.isArray(activity.details) ? activity.details : []
   return (
     <div className="ec-source-row" data-source-tone={tone} data-status={activity.status}>
-      <span className="ec-source-icon" aria-hidden="true">
-        <Icon size={14} strokeWidth={1.8} />
+      {/* An AWS service mark is a filled square badge in its own category
+          colour, so it replaces the tinted circle rather than sitting inside
+          it. Same 22px footprint either way, so the row rhythm is unchanged. */}
+      <span
+        className="ec-source-icon"
+        data-mark={mark ? 'aws' : undefined}
+        aria-hidden="true"
+      >
+        {mark ? (
+          <img src={imageSrc(mark.src)} alt="" width={22} height={22} />
+        ) : (
+          <Icon size={14} strokeWidth={1.8} />
+        )}
       </span>
       <span className="ec-source-copy">
         <span className="ec-source-name">{activity.source}</span>
@@ -187,12 +201,33 @@ function emphasizeProductMentionsAndPrices(
     .join('')
 }
 
+/**
+ * Follow-up chips for one answered turn.
+ *
+ * The scripted next turn leads when there is one. A participant who clicked
+ * Marco's "What linen do you have for 10 days in Goa?" is offered "What would
+ * go with the Hadley shirt?" rather than a generic catalog action, so the
+ * three-turn journey flows without anyone retyping it — and the room stays on
+ * its clock. Catalog actions fill the remaining slots, so the chips still
+ * respond to what the answer actually returned.
+ *
+ * Capped at three. These chips are a bounded nudge, not a menu.
+ */
+const MAX_FOLLOWUPS = 3
+
 function followupsForMessage(
   message: AgentChatMessage,
+  precedingUserQuery: string | undefined,
 ): string[] {
-  return catalogTurnFollowUps(
+  const catalog = catalogTurnFollowUps(
     (message.products ?? []).filter((product) => product.ownership !== 'owned'),
     [],
+  )
+  const scripted = nextJourneyPrompt(precedingUserQuery)
+  if (!scripted) return catalog.slice(0, MAX_FOLLOWUPS)
+  return [scripted, ...catalog.filter((chip) => chip !== scripted)].slice(
+    0,
+    MAX_FOLLOWUPS,
   )
 }
 
@@ -261,6 +296,12 @@ export default function PellierChatBody({
                 message={message}
                 addToCart={addToCart}
                 isLastAssistantMessage={index === lastAssistantIndex}
+                precedingUserQuery={
+                  messages
+                    .slice(0, index)
+                    .reverse()
+                    .find((earlier) => earlier.role === 'user')?.content
+                }
                 onFollowUp={(text) => void sendMessage(text)}
                 onRetry={(text) => void retryMessage(text)}
                 onEditRequest={onEditRequest}
@@ -309,6 +350,7 @@ function AgentMessage({
   onEditRequest,
   onAuthenticate,
   isLastAssistantMessage,
+  precedingUserQuery,
 }: {
   message: AgentChatMessage
   addToCart: PellierChatBodyProps['addToCart']
@@ -317,6 +359,8 @@ function AgentMessage({
   onEditRequest: (text: string) => void
   onAuthenticate: () => void
   isLastAssistantMessage: boolean
+  /** The question this answer replies to, used to find the next scripted turn. */
+  precedingUserQuery: string | undefined
 }) {
   const reducedMotion = useReducedMotion()
   const isThinking = message.agentStatus === 'thinking' && !message.content
@@ -700,7 +744,7 @@ function AgentMessage({
       {/* Follow-up chips */}
       {isComplete && isLastAssistantMessage && !message.failure && (
         <div className="ec-followups">
-          {followupsForMessage(message).map((chip) => (
+          {followupsForMessage(message, precedingUserQuery).map((chip) => (
             <button
               key={chip}
               type="button"

@@ -1,0 +1,24 @@
+AWS Architecture Icons
+======================
+
+Official AWS Architecture Icons, used unmodified and scaled only. One source,
+one size class, one style — keep it that way:
+
+  amazon-aurora.svg             Arch_Amazon-Aurora_48
+  amazon-bedrock.svg            Arch_Amazon-Bedrock_48
+  amazon-bedrock-agentcore.svg  Arch_Amazon-Bedrock-AgentCore_48
+
+All three are 48pt artwork on a 64x64 viewBox, FLAT, carrying their AWS
+category colour as a solid fill: Database #C925D1 for Aurora, Machine Learning
+#01A88D for the two Bedrock marks.
+
+Do not swap one for a gradient variant. A gradient Aurora beside two flat
+Bedrock marks reads as two icon generations in one row, and the AWS
+Architecture Icons deck (PPTX) is not a safe source for gradients either —
+PowerPoint flattens them on embed, so every SVG inside it is flat.
+
+The marks render into a 22px slot in the chat source rows, where they replace
+the tinted circle rather than sitting inside it.
+
+Source and terms: https://aws.amazon.com/architecture/icons/
+Do not recolour, distort, or redraw these marks. Scale them only.

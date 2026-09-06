@@ -706,6 +706,9 @@
   color: var(--ink-3);
   background: color-mix(in srgb, var(--ink-3) 8%, transparent);
 }
+/* An AWS service mark carries its own category colour on a filled square, so
+   the tinted circle behind it would read as a second, competing badge. The
+   mark fills the same 22px slot; only the shape changes. */
 .ec-source-copy {
   display: grid;
   gap: 2px;
@@ -760,6 +763,21 @@
 .ec-source-row[data-source-tone='control'] .ec-source-icon {
   color: #8a5d13;
   background: color-mix(in srgb, #8a5d13 10%, transparent);
+}
+
+/* Must come after the per-tone rules above. Those match
+   `.ec-source-row[data-source-tone=...] .ec-source-icon` at (0,3,0) — the same
+   specificity as this selector — so ordering, not specificity, is what stops
+   the tint being painted back behind a mark that carries its own colour. */
+.ec-source-row .ec-source-icon[data-mark='aws'] {
+  background: none;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.ec-source-row .ec-source-icon[data-mark='aws'] img {
+  display: block;
+  width: 22px;
+  height: 22px;
 }
 
 @keyframes ec-source-spin {

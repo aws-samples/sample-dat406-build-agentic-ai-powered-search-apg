@@ -73,6 +73,44 @@ export const WORKSHOP_JOURNEYS: Record<WorkshopAnchorId, WorkshopJourney> = {
   },
 }
 
+/**
+ * The next scripted prompt after `query`, when `query` is a journey turn.
+ *
+ * The storefront pins this as the first follow-up chip so a shopper who
+ * clicked Marco's turn 1 is offered turn 2 rather than a generic catalog
+ * action. Two things make that safe to force: the room is on a clock and the
+ * journey is the demo, and the chip is the participant's own next step rather
+ * than a claim about the answer.
+ *
+ * Matching is exact after normalisation, deliberately. A fuzzy match would let
+ * an ordinary shopper question that merely resembles a turn hijack the thread
+ * into a script they never chose. The pills send these strings verbatim, so
+ * exact is the behaviour that is wanted.
+ *
+ * Returns undefined for the last turn: a journey that has ended has no next
+ * step, and inventing one would push past the bounded path.
+ */
+function normalizePrompt(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+export function nextJourneyPrompt(
+  query: string | null | undefined,
+): string | undefined {
+  if (!query) return undefined
+  const needle = normalizePrompt(query)
+  if (!needle) return undefined
+  for (const journey of Object.values(WORKSHOP_JOURNEYS)) {
+    const turn = journey.prompts.findIndex(
+      (prompt) => normalizePrompt(prompt) === needle,
+    )
+    if (turn >= 0 && turn + 1 < journey.prompts.length) {
+      return journey.prompts[turn + 1]
+    }
+  }
+  return undefined
+}
+
 const JOURNEY_BY_LAB = new Map(
   Object.values(WORKSHOP_JOURNEYS).map((journey) => [journey.labId, journey]),
 )
