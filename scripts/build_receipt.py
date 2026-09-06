@@ -793,11 +793,21 @@ def render_markdown(receipt: Dict[str, Any]) -> str:
         )
     add("")
 
+    # The lab as the participant met it. The keys are join keys and never
+    # change; these are display strings and must match the guide's own titles,
+    # because the receipt is the artifact that leaves the room and a reader
+    # comparing it to the page should not have to work out that "02 Measure
+    # hybrid retrieval" and "Build and Measure PostgreSQL Hybrid Retrieval"
+    # are the same lab.
     titles = {
-        "01_ground_the_answer": "01 Ground the answer",
-        "02_measure_hybrid_retrieval": "02 Measure hybrid retrieval",
-        "03_operate_the_managed_path": "03 Operate the managed path",
-        "04_govern_and_prove": "04 Govern and prove actions",
+        "01_ground_the_answer": "Lab 1 - Build a PostgreSQL-Grounded Agent",
+        "02_measure_hybrid_retrieval": (
+            "Lab 2 - Build and Measure PostgreSQL Hybrid Retrieval"
+        ),
+        "03_operate_the_managed_path": (
+            "Lab 3 - Deploy and Operate the Managed Agent Path"
+        ),
+        "04_govern_and_prove": "Lab 4 - Govern and Prove Agent Actions",
     }
     for key, claims in receipt["labs"].items():
         add(f"## {titles.get(key, key)}")
