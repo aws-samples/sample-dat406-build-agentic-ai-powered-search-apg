@@ -84,6 +84,50 @@ def test_receipt_stores_a_hash_and_only_a_short_preview() -> None:
     assert len(row["query_preview"]) <= 120
 
 
+def test_persisted_plan_carries_no_full_query_text() -> None:
+    """Minimization covers the whole row, not just ``query_preview``.
+
+    ``SearchPlan.intent`` is the raw query and ``soft_preferences.soft_signal``
+    is the residual phrase carved out of it. Truncating the preview column
+    while persisting either of those verbatim would retain the shopper's
+    sentence in a different column and call the row minimized.
+    """
+    long_query = "a quiet housewarming gift for my sister " * 20
+    plan = build_plan(
+        long_query,
+        {
+            "categories": ["Home Decor"],
+            "tags": ["home"],
+            "price_max_usd": 100,
+            "in_stock_only": True,
+            "exclusions": ["candle"],
+            "soft_signal": long_query,
+        },
+    )
+
+    row = build_receipt(query=long_query, plan=plan).to_row()
+
+    assert len(row["search_plan"]["intent"]) <= 120
+    assert long_query not in row["search_plan"]["intent"]
+    assert len(row["soft_preferences"]["soft_signal"]) <= 120
+    assert long_query not in row["soft_preferences"]["soft_signal"]
+
+
+def test_redaction_keeps_the_structured_plan_intact() -> None:
+    """Only the two free-text fields are truncated.
+
+    The structured half is what makes a receipt explainable, so a redaction
+    that quietly dropped a price ceiling or an exclusion would trade one
+    correctness problem for a worse one.
+    """
+    row = build_receipt(query="gift", plan=_plan()).to_row()
+
+    assert row["hard_constraints"]["price_max_usd"] == 100.0
+    assert row["hard_constraints"]["in_stock_only"] is True
+    assert row["exclusions"] == ["candle"]
+    assert row["soft_preferences"]["tags"] == ["home"]
+
+
 # ---------------------------------------------------------------------------
 # Plan capture
 # ---------------------------------------------------------------------------

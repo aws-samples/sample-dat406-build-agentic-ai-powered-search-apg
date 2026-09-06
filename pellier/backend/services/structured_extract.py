@@ -75,6 +75,10 @@ TAGS list. Empty list when no tag is implied.
 an explicit budget ceiling (e.g. "under $100"). Null otherwise.
   - "in_stock_only": boolean — true when the shopper signals immediacy \
 (e.g. "ready to ship", "in stock", "today"). False otherwise.
+  - "exclusions": list[str] — zero or more values drawn from the allowed \
+TAGS list that the shopper asked NOT to see (e.g. "no candles", "nothing \
+in leather", "avoid wool"). Empty list when the shopper excluded nothing. \
+A tag belongs here or in "tags", never in both.
   - "soft_signal": string — the residual taste/intent phrase the reranker \
 should score against, with the structured constraints stripped out. \
 Never empty; if the whole query is structured, repeat the most \
@@ -83,6 +87,11 @@ descriptive phrase verbatim.
 Rules:
   - Never invent categories or tags outside the allowed lists.
   - Never echo the price ceiling into soft_signal.
+  - A negative requirement is an exclusion, never a tag. "No candles" means \
+exclusions ["candle"], not tags ["candle"]: the second one would rank the \
+excluded thing higher.
+  - Never echo an exclusion into soft_signal. The reranker scores similarity, \
+so "no candles" in the soft signal pulls candles up.
   - Be conservative — leaving a field empty is better than guessing.
   - Output JSON only. No prose. No markdown. No code fences.
 """
@@ -149,19 +158,28 @@ class StructuredExtractor:
                 "structured_extract failed: %s — falling back to empty filters",
                 exc,
             )
-            return self._empty(query)
+            return self._empty(query, status="extraction_failed")
 
     # -----------------------------------------------------------------
     # Internal helpers
     # -----------------------------------------------------------------
     @staticmethod
-    def _empty(query: str) -> Dict[str, Any]:
+    def _empty(query: str, status: str = "empty_query") -> Dict[str, Any]:
+        """The unconstrained envelope, tagged with WHY it is unconstrained.
+
+        "The model failed and we know nothing" and "the shopper genuinely
+        constrained nothing" produce the same filters and are not the same
+        finding. Only the first one can silently erase a requirement the
+        shopper actually stated, so the caller is told which it got.
+        """
         return {
             "categories": [],
             "tags": [],
             "price_max_usd": None,
             "in_stock_only": False,
+            "exclusions": [],
             "soft_signal": query.strip() if query else "",
+            "extraction_status": status,
         }
 
     @staticmethod
@@ -190,10 +208,21 @@ class StructuredExtractor:
             if isinstance(c, str) and c.lower() in cat_set
         ]
         tag_set = set(KNOWN_TAGS)
+        # Exclusions are resolved first so a tag the model put on both sides
+        # resolves to the safe reading. A false negative drops one candidate;
+        # a false positive ranks the thing the shopper just refused.
+        exclusions = [
+            t.lower()
+            for t in parsed.get("exclusions", []) or []
+            if isinstance(t, str) and t.lower() in tag_set
+        ]
+        exclusion_set = set(exclusions)
         tags = [
             t.lower()
             for t in parsed.get("tags", []) or []
-            if isinstance(t, str) and t.lower() in tag_set
+            if isinstance(t, str)
+            and t.lower() in tag_set
+            and t.lower() not in exclusion_set
         ]
         price_raw = parsed.get("price_max_usd")
         price_max: Optional[float]
@@ -210,7 +239,13 @@ class StructuredExtractor:
             "tags": tags,
             "price_max_usd": price_max,
             "in_stock_only": in_stock,
+            # `SearchPlan.exclusions` already renders `NOT (tags ?| %s)` and
+            # carries the predicate through every relaxation rung. Dropping the
+            # field here was the only reason a stated "no candles" never
+            # reached SQL.
+            "exclusions": exclusions,
             "soft_signal": soft_signal.strip(),
+            "extraction_status": "parsed",
         }
 
 

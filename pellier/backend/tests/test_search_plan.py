@@ -332,3 +332,88 @@ def test_empty_hard_constraints_describe_to_nothing() -> None:
 def test_plan_defaults_require_evidence() -> None:
     """Grounding is the default posture, not an opt-in."""
     assert SearchPlan(intent="gift").evidence_required is True
+
+
+# ---------------------------------------------------------------------------
+# The extractor-to-executor boundary for negative constraints
+# ---------------------------------------------------------------------------
+# A stated "no candles" used to die at the extractor: the prompt never asked for
+# `exclusions` and the sanitizer dropped the field even when the model returned
+# it, so `SearchPlan.exclusions` was always empty and the `NOT (tags ?| %s)`
+# predicate below was never rendered. Everything downstream already worked,
+# which is why a plan-level test passed while the shipped path did not enforce
+# anything. These tests cross the whole boundary.
+class TestNegativeConstraintsReachSQL:
+    @staticmethod
+    def _envelope(model_json: dict, query: str) -> dict:
+        from services.structured_extract import StructuredExtractor
+
+        return StructuredExtractor._sanitize(StructuredExtractor, model_json, query)
+
+    @pytest.mark.parametrize(
+        ("phrase", "term"),
+        [
+            ("a housewarming gift under $100, in stock, no candles", "candle"),
+            ("a weekend bag, nothing in leather", "leather"),
+        ],
+    )
+    def test_a_stated_negative_becomes_a_sql_predicate(
+        self, phrase: str, term: str
+    ) -> None:
+        from services.search_plan import build_plan
+
+        envelope = self._envelope(
+            {"categories": [], "tags": [], "price_max_usd": None,
+             "in_stock_only": False, "exclusions": [term], "soft_signal": phrase},
+            phrase,
+        )
+        assert envelope["exclusions"] == [term]
+
+        plan = build_plan(phrase, envelope)
+        assert plan.exclusions == (term,)
+
+        clauses, params = plan.compile_predicates()
+        assert "NOT (tags ?| %s)" in clauses
+        assert [term] in params
+
+    def test_every_relaxation_rung_keeps_the_negative(self) -> None:
+        """Relaxation may widen taste. It may not restore a refused thing."""
+        from services.search_plan import build_plan
+
+        phrase = "a housewarming gift under $100, no candles"
+        plan = build_plan(phrase, self._envelope(
+            {"categories": [], "tags": ["gift"], "price_max_usd": 100,
+             "in_stock_only": True, "exclusions": ["candle"], "soft_signal": phrase},
+            phrase,
+        ))
+        ladder = plan.relaxation_ladder()
+        assert ladder, "expected at least one rung"
+        for rung in ladder:
+            clauses, params = rung.compile_predicates()
+            assert rung.exclusions == ("candle",)
+            assert "NOT (tags ?| %s)" in clauses
+            assert ["candle"] in params
+
+    def test_an_excluded_tag_is_never_also_a_soft_preference(self) -> None:
+        """Ranking the refused thing higher is worse than not filtering it."""
+        phrase = "a gift, but no candles"
+        envelope = self._envelope(
+            {"categories": [], "tags": ["gift", "candle"], "price_max_usd": None,
+             "in_stock_only": False, "exclusions": ["candle"],
+             "soft_signal": phrase},
+            phrase,
+        )
+        assert envelope["exclusions"] == ["candle"]
+        assert "candle" not in envelope["tags"]
+        assert envelope["tags"] == ["gift"]
+
+    def test_extraction_failure_is_distinguishable_from_no_constraints(self) -> None:
+        """Same empty filters, different findings -- only one can erase a stated
+        requirement, so the caller is told which one it got."""
+        from services.structured_extract import StructuredExtractor
+
+        failed = StructuredExtractor._empty("no candles", status="extraction_failed")
+        genuine = StructuredExtractor._empty("something nice")
+        assert failed["extraction_status"] == "extraction_failed"
+        assert genuine["extraction_status"] == "empty_query"
+        assert failed["exclusions"] == [] and genuine["exclusions"] == []

@@ -79,6 +79,11 @@ THRESHOLDS: dict[str, float] = {
     "hybrid_candidate_coverage_min": 0.75,
     "hard_constraint_violation_rate_max": 0.0,
     "exclusion_violation_rate_max": 0.0,
+    # Same budget, different question: these two score the returned rows
+    # against what the shopper asked for rather than against the plan the
+    # planner produced, so a silently dropped requirement fails the gate.
+    "requested_constraint_violation_rate_max": 0.0,
+    "requested_exclusion_violation_rate_max": 0.0,
     "planner_hallucinated_constraint_rate_max": 0.0,
 }
 
@@ -90,9 +95,19 @@ PLANNER_RECALL_MIN = 0.60
 
 @dataclass(frozen=True)
 class Filters:
+    """What the shopper actually asked for, independent of any produced plan.
+
+    ``in_stock`` defaults to True because every golden id below was labeled
+    against the sellable catalog -- the same population ``_baseline_plan``
+    pins. Leaving stock out of the requested truth is what let a planner drop
+    it and still score a perfect run.
+    """
+
     categories: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     price_max: float | None = None
+    in_stock: bool = True
+    exclusions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -101,6 +116,10 @@ class GoldenQuery:
     query: str
     expected: tuple[str, ...]
     filters: Filters = field(default_factory=Filters)
+    # A case that asserts "return nothing eligible" has no relevant ids to
+    # recall, and averaging its 0.0 into the corpus would move the relevance
+    # thresholds for a reason that has nothing to do with relevance.
+    scored_for_recall: bool = True
 
 
 def _canonical_anna_labels() -> tuple[str, tuple[str, ...]]:
@@ -235,6 +254,28 @@ GOLDEN_QUERIES: tuple[GoldenQuery, ...] = (
         "merino travel socks temperature regulating",
         ("20",),
         Filters(categories=("Apparel",), tags=("merino", "travel")),
+    ),
+    # A stated negative. Before exclusions survived extraction this query
+    # scored a clean run while returning exactly what the shopper refused.
+    GoldenQuery(
+        "housewarming_no_candles",
+        "a housewarming gift under $100, in stock, no candles",
+        ("23", "36"),
+        Filters(
+            categories=("Home Decor", "Gifts"),
+            tags=("gift", "home"),
+            price_max=100,
+            exclusions=("candle",),
+        ),
+    ),
+    # An impossible ceiling. The only correct answer is an empty eligible set,
+    # so this is scored for constraint compliance and excluded from recall.
+    GoldenQuery(
+        "impossible_budget",
+        "a leather weekend bag under three dollars",
+        (),
+        Filters(categories=("Accessories",), tags=("leather",), price_max=3),
+        scored_for_recall=False,
     ),
 )
 
@@ -388,11 +429,33 @@ def _score_plan(plan: Any, expected: Filters) -> dict[str, Any]:
     elif got_price is not None:
         hallucinated += 1
 
+    # Stock. A dropped in-stock requirement is the quietest planner failure
+    # there is: nothing looks wrong until a shopper is offered something the
+    # warehouse cannot ship.
+    if expected.in_stock:
+        total += 1
+        if plan.hard.in_stock_only:
+            recovered += 1
+    elif plan.hard.in_stock_only:
+        hallucinated += 1
+
+    # Exclusions, scored per requested term rather than as a set, so dropping
+    # one of two stated negatives is a partial miss and not a pass.
+    expected_exclusions = {e.lower() for e in expected.exclusions}
+    got_exclusions = {e.lower() for e in plan.exclusions}
+    for term in expected_exclusions:
+        total += 1
+        if term in got_exclusions:
+            recovered += 1
+    hallucinated += len(got_exclusions - expected_exclusions)
+
     return {
         "expected_categories": sorted(expected_categories),
         "planned_categories": sorted(got_categories),
         "expected_price_max": expected_price,
         "planned_price_max": got_price,
+        "expected_in_stock": expected.in_stock,
+        "expected_exclusions": sorted(expected_exclusions),
         "planned_in_stock_only": plan.hard.in_stock_only,
         "planned_exclusions": list(plan.exclusions),
         "planned_soft_tags": list(plan.soft.tags),
@@ -411,10 +474,49 @@ def _score_compliance(rows: list[dict[str, Any]], plan: Any) -> dict[str, int]:
     result list. Scoring compliance on the *returned* rows catches that
     regardless of where filtering was supposed to happen.
     """
-    price_max = plan.hard.price_max_usd
-    categories = {c.lower() for c in plan.hard.categories}
-    exclusions = {t.lower() for t in plan.exclusions}
+    return _count_violations(
+        rows,
+        price_max=plan.hard.price_max_usd,
+        categories={c.lower() for c in plan.hard.categories},
+        exclusions={t.lower() for t in plan.exclusions},
+        in_stock=bool(plan.hard.in_stock_only),
+    )
 
+
+def _score_requested_compliance(
+    rows: list[dict[str, Any]], expected: Filters
+) -> dict[str, int]:
+    """Count returned rows that violate what the SHOPPER asked for.
+
+    ``_score_compliance`` scores the plan the planner produced, which makes the
+    plan both the thing under test and the test oracle: a requirement the
+    planner silently dropped disappears from the plan and therefore from the
+    measurement, and the run scores clean. This scores the same rows against
+    the pinned golden filters instead, so a dropped constraint shows up as a
+    violation rather than as an absence. The two numbers answer different
+    questions and are reported separately on purpose:
+
+        requested  -- did the shopper get what they asked for?
+        planned    -- did the executor honour the plan it was given?
+    """
+    return _count_violations(
+        rows,
+        price_max=expected.price_max,
+        categories={c.lower() for c in expected.categories},
+        exclusions={e.lower() for e in expected.exclusions},
+        in_stock=bool(expected.in_stock),
+    )
+
+
+def _count_violations(
+    rows: list[dict[str, Any]],
+    *,
+    price_max: float | None,
+    categories: set[str],
+    exclusions: set[str],
+    in_stock: bool,
+) -> dict[str, int]:
+    """One violation counter, used against a plan and against the truth."""
     hard_violations = 0
     exclusion_violations = 0
     for row in rows:
@@ -424,6 +526,16 @@ def _score_compliance(rows: list[dict[str, Any]], plan: Any) -> dict[str, int]:
         category = str(row.get("category") or "").lower()
         if categories and category and category not in categories:
             hard_violations += 1
+        # Stock was never counted here. An out-of-stock row under a plan that
+        # required in-stock results scored zero violations, which is precisely
+        # the failure this whole function exists to catch.
+        quantity = row.get("quantity")
+        if in_stock and quantity is not None:
+            try:
+                if float(quantity) <= 0:
+                    hard_violations += 1
+            except (TypeError, ValueError):
+                pass
         row_tags = {str(t).lower() for t in (row.get("tags") or [])}
         if exclusions and (row_tags & exclusions):
             exclusion_violations += 1
@@ -536,6 +648,7 @@ def _evaluate_gate(
     coverage: float,
     planner: dict[str, float],
     compliance: dict[str, float],
+    requested: dict[str, float],
     strict_planner: bool,
 ) -> dict[str, Any]:
     """Check every threshold and return the pass/fail verdict.
@@ -573,6 +686,18 @@ def _evaluate_gate(
             "hard-constraint violation rate",
             compliance["hard_constraint_violation_rate"],
             THRESHOLDS["hard_constraint_violation_rate_max"],
+            False,
+        ),
+        (
+            "requested-constraint violation rate",
+            requested["hard_constraint_violation_rate"],
+            THRESHOLDS["requested_constraint_violation_rate_max"],
+            False,
+        ),
+        (
+            "requested-exclusion violation rate",
+            requested["exclusion_violation_rate"],
+            THRESHOLDS["requested_exclusion_violation_rate_max"],
             False,
         ),
         (
@@ -701,6 +826,10 @@ def _detail_for(
     detail["agentic_hard_constraint_compliance"] = _score_compliance(
         agentic.returned, agentic.plan
     )
+    detail["agentic_requested_compliance"] = _score_requested_compliance(
+        agentic.returned, golden.filters
+    )
+    detail["scored_for_recall"] = golden.scored_for_recall
     detail["search_plan"] = agentic.plan.to_dict()
     for strategy in STRATEGIES:
         product_ids = [
@@ -750,6 +879,11 @@ async def _evaluate(args: argparse.Namespace, backend: dict[str, Any]) -> dict[s
         detailed[0]["hybrid_candidate_coverage"]["pool_k"] if detailed else pool_k
     )
 
+    # Relevance is averaged over queries that HAVE relevant results. A
+    # no-result case contributes a truthful 0.0 recall that means "correctly
+    # returned nothing", and averaging that into the corpus would lower the
+    # relevance thresholds to accommodate a constraint test.
+    recall_scored = [item for item in detailed if item.get("scored_for_recall", True)]
     summary = {
         strategy: [
             (
@@ -759,7 +893,7 @@ async def _evaluate(args: argparse.Namespace, backend: dict[str, Any]) -> dict[s
                 item[strategy]["hit_at_1"],
                 int(item[strategy]["short_result_at_5"]),
             )
-            for item in detailed
+            for item in recall_scored
         ]
         for strategy in STRATEGIES
     }
@@ -768,15 +902,23 @@ async def _evaluate(args: argparse.Namespace, backend: dict[str, Any]) -> dict[s
         for strategy in STRATEGIES
     }
     totals = _metric_totals(summary)
-    coverage_hits = sum(item["hybrid_candidate_coverage"]["hits"] for item in detailed)
-    coverage_expected = sum(item["hybrid_candidate_coverage"]["expected"] for item in detailed)
+    coverage_hits = sum(item["hybrid_candidate_coverage"]["hits"] for item in recall_scored)
+    coverage_expected = sum(
+        item["hybrid_candidate_coverage"]["expected"] for item in recall_scored
+    )
     coverage_total = round(coverage_hits / coverage_expected if coverage_expected else 0.0, 3)
     planner_totals = _planner_totals([item["planner"] for item in detailed])
     compliance_totals = _compliance_totals(
         [item["agentic_hard_constraint_compliance"] for item in detailed]
     )
+    # Every query is scored for constraint compliance, including the ones
+    # excluded from recall: "return nothing eligible" is a constraint claim.
+    requested_totals = _compliance_totals(
+        [item["agentic_requested_compliance"] for item in detailed]
+    )
     return {
         "query_count": len(GOLDEN_QUERIES),
+        "recall_scored_query_count": len(recall_scored),
         "rrf_k": args.rrf_k,
         "pool_k": resolved_pool_k,
         "requested_pool_k": int(args.pool_k),
@@ -797,11 +939,13 @@ async def _evaluate(args: argparse.Namespace, backend: dict[str, Any]) -> dict[s
         ),
         "planner": planner_totals,
         "hard_constraint_compliance": compliance_totals,
+        "requested_constraint_compliance": requested_totals,
         "gate": _evaluate_gate(
             totals=totals,
             coverage=coverage_total,
             planner=planner_totals,
             compliance=compliance_totals,
+            requested=requested_totals,
             strict_planner=args.strict_planner,
         ),
         "queries": detailed,

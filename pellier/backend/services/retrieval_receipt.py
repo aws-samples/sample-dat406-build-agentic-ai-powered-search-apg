@@ -17,7 +17,10 @@ Two design choices worth stating:
 * **The raw query is not stored.** ``query_hash`` is a SHA-256 of the
   normalized text, with a short preview for human readability. Receipts
   stay groupable and comparable without retaining shopper phrasing
-  indefinitely.
+  indefinitely. That claim covers the whole row, not just
+  ``query_preview``: ``_redact_plan`` truncates the two free-text fields
+  the plan carries (``intent``, and ``soft_preferences.soft_signal``) to
+  the same preview length before the plan is persisted.
 * **Writes are best-effort and never block a turn.** A receipt is
   evidence about a turn, not part of serving it. A failed insert logs and
   returns; it does not fail the shopper's request. Losing a receipt is a
@@ -74,6 +77,27 @@ def reset_turn_context(token: contextvars.Token) -> None:
 def current_turn_context() -> Dict[str, Any]:
     """Return a defensive copy of the trusted context for the current turn."""
     return dict(_turn_context_var.get() or {})
+
+
+def _redact_plan(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """Strip raw shopper phrasing out of the persisted plan.
+
+    The structured half of a plan -- categories, price ceiling, stock, tags,
+    exclusions, relaxations, strategy -- is what makes a receipt explainable,
+    and none of it is free text. Two fields are: ``intent`` is the query
+    verbatim, and ``soft_signal`` is the residual phrase carved out of it.
+    Both are replaced with the same bounded preview the receipt already stores,
+    so a receipt stays readable without holding the sentence indefinitely.
+    """
+    redacted = dict(plan)
+    if "intent" in redacted:
+        redacted["intent"] = str(redacted["intent"] or "")[:_PREVIEW_CHARS]
+    soft = redacted.get("soft_preferences")
+    if isinstance(soft, dict) and "soft_signal" in soft:
+        soft = dict(soft)
+        soft["soft_signal"] = str(soft["soft_signal"] or "")[:_PREVIEW_CHARS]
+        redacted["soft_preferences"] = soft
+    return redacted
 
 
 def query_hash(query: str) -> str:
@@ -156,8 +180,17 @@ class RetrievalReceipt:
     rail: Optional[str] = None
 
     def to_row(self) -> Dict[str, Any]:
-        """Project this receipt onto ``pellier.retrieval_receipts`` columns."""
-        plan_dict = self.plan.to_dict() if hasattr(self.plan, "to_dict") else {}
+        """Project this receipt onto ``pellier.retrieval_receipts`` columns.
+
+        The plan is redacted first. ``SearchPlan.intent`` is the raw query and
+        ``SoftPreferences.soft_signal`` is the residual phrase from it, so
+        persisting the plan verbatim contradicted this module's own
+        minimization claim in two columns while ``query_preview`` was being
+        carefully truncated in a third.
+        """
+        plan_dict = _redact_plan(
+            self.plan.to_dict() if hasattr(self.plan, "to_dict") else {}
+        )
         return {
             "turn_id": self.turn_id,
             "session_id": self.session_id,

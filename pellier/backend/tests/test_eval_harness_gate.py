@@ -181,6 +181,7 @@ def _gate(harness: Any, **overrides: Any) -> dict[str, Any]:
         "coverage": 0.90,
         "planner": _clean_planner(),
         "compliance": _clean_compliance(),
+        "requested": _clean_compliance(),
         "strict_planner": False,
     }
     kwargs.update(overrides)
@@ -253,6 +254,34 @@ def test_a_single_exclusion_violation_fails_the_gate(harness: Any) -> None:
     assert any("exclusion" in failure for failure in verdict["failures"])
 
 
+def test_a_constraint_the_planner_dropped_fails_the_gate(harness: Any) -> None:
+    """The oracle must not be the thing under test.
+
+    A requirement the planner silently drops disappears from the plan, so
+    plan-scored compliance reports a clean run. Scoring the same returned rows
+    against the pinned golden filters is what turns that silence into a failure.
+    """
+    requested = _clean_compliance()
+    requested["hard_violations"] = 1
+    requested["hard_constraint_violation_rate"] = 0.013
+
+    verdict = _gate(harness, compliance=_clean_compliance(), requested=requested)
+
+    assert verdict["passed"] is False
+    assert any("requested-constraint" in failure for failure in verdict["failures"])
+
+
+def test_a_dropped_exclusion_fails_the_gate(harness: Any) -> None:
+    requested = _clean_compliance()
+    requested["exclusion_violations"] = 1
+    requested["exclusion_violation_rate"] = 0.013
+
+    verdict = _gate(harness, compliance=_clean_compliance(), requested=requested)
+
+    assert verdict["passed"] is False
+    assert any("requested-exclusion" in failure for failure in verdict["failures"])
+
+
 def test_hallucinated_constraint_fails_the_gate(harness: Any) -> None:
     """An invented hard constraint silently removes valid results."""
     planner = _clean_planner()
@@ -293,15 +322,52 @@ def test_planner_score_credits_a_recovered_constraint(harness: Any) -> None:
 
     plan = build_plan(
         "linen under $200",
-        {"categories": ["Apparel"], "price_max_usd": 200},
+        {"categories": ["Apparel"], "price_max_usd": 200, "in_stock_only": True},
+    )
+    expected = harness.Filters(categories=("Apparel",), price_max=200.0)
+
+    score = harness._score_plan(plan, expected)
+
+    # Three: category, price, and stock. `Filters.in_stock` defaults to True
+    # because every golden id is labeled against the sellable catalog.
+    assert score["constraints_recovered"] == 3
+    assert score["constraints_expected"] == 3
+    assert score["hallucinated_constraints"] == 0
+
+
+def test_planner_score_flags_a_dropped_stock_requirement(harness: Any) -> None:
+    """The quietest planner failure: nothing looks wrong until it cannot ship."""
+    from services.search_plan import build_plan
+
+    plan = build_plan(
+        "linen under $200",
+        {"categories": ["Apparel"], "price_max_usd": 200},  # no in_stock_only
     )
     expected = harness.Filters(categories=("Apparel",), price_max=200.0)
 
     score = harness._score_plan(plan, expected)
 
     assert score["constraints_recovered"] == 2
-    assert score["constraints_expected"] == 2
-    assert score["hallucinated_constraints"] == 0
+    assert score["constraints_expected"] == 3
+    assert score["expected_in_stock"] is True
+    assert score["planned_in_stock_only"] is False
+
+
+def test_planner_score_counts_each_requested_exclusion(harness: Any) -> None:
+    from services.search_plan import build_plan
+
+    plan = build_plan(
+        "a gift, nothing in leather",
+        {"in_stock_only": True, "exclusions": ["leather"]},
+    )
+    expected = harness.Filters(exclusions=("leather", "candle"))
+
+    score = harness._score_plan(plan, expected)
+
+    # Two negatives requested, one recovered: a partial miss, not a pass.
+    assert score["expected_exclusions"] == ["candle", "leather"]
+    assert score["constraints_recovered"] == 2  # stock + leather
+    assert score["constraints_expected"] == 3   # stock + leather + candle
 
 
 def test_planner_score_flags_a_missed_constraint(harness: Any) -> None:
@@ -313,7 +379,7 @@ def test_planner_score_flags_a_missed_constraint(harness: Any) -> None:
     score = harness._score_plan(plan, expected)
 
     assert score["constraints_recovered"] == 0
-    assert score["constraints_expected"] == 2
+    assert score["constraints_expected"] == 3
 
 
 def test_planner_score_flags_an_invented_price_ceiling(harness: Any) -> None:
@@ -337,6 +403,26 @@ def test_compliance_counts_an_over_budget_row(harness: Any) -> None:
     rows = [
         {"price": 90.0, "category": "Gifts", "tags": []},
         {"price": 250.0, "category": "Gifts", "tags": []},
+    ]
+
+    score = harness._score_compliance(rows, plan)
+
+    assert score["rows"] == 2
+    assert score["hard_violations"] == 1
+
+
+def test_compliance_counts_an_out_of_stock_row(harness: Any) -> None:
+    """A returned row the warehouse cannot ship, under an in-stock plan.
+
+    This scored zero violations before stock was counted here, which is exactly
+    the failure a hard-constraint compliance metric exists to catch.
+    """
+    from services.search_plan import build_plan
+
+    plan = build_plan("gift, ready to ship", {"in_stock_only": True})
+    rows = [
+        {"price": 40.0, "category": "Gifts", "tags": [], "quantity": 4},
+        {"price": 40.0, "category": "Gifts", "tags": [], "quantity": 0},
     ]
 
     score = harness._score_compliance(rows, plan)
