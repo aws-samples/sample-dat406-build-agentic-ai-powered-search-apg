@@ -179,11 +179,11 @@ def test_sets_ef_search_with_validated_int(embedding: List[float]) -> None:
     assert first_sql.strip().endswith("= 64")
 
 
-def test_iterative_scan_true_sets_relaxed_order(embedding: List[float]) -> None:
+def test_iterative_scan_true_sets_strict_order(embedding: List[float]) -> None:
     """When iterative_scan=True SHALL issue SET LOCAL hnsw.iterative_scan.
 
     Postgres disallows bind parameters on utility statements, so the value
-    is a hardcoded literal (``'relaxed_order'``) — no external input ever
+    is a hardcoded literal (``'strict_order'``) — no external input ever
     reaches this SQL string.
     """
     db, _ = _call(embedding, iterative_scan=True)
@@ -192,7 +192,7 @@ def test_iterative_scan_true_sets_relaxed_order(embedding: List[float]) -> None:
     assert len(iterative_calls) == 1
     sql, _params = iterative_calls[0]
     assert "SET LOCAL hnsw.iterative_scan" in sql
-    assert "'relaxed_order'" in sql
+    assert "'strict_order'" in sql
 
 
 def test_iterative_scan_false_skips_set_local(embedding: List[float]) -> None:

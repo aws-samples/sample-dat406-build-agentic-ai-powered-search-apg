@@ -82,14 +82,18 @@ class FakePool:
 
 
 def test_pool_configure_sets_iterative_scan() -> None:
-    """`_configure_connection` SHALL run SET hnsw.iterative_scan = 'relaxed_order'."""
+    """`_configure_connection` SHALL run SET hnsw.iterative_scan = 'strict_order'.
+
+    Strict, not relaxed: this branch's rows are enumerated into vector ranks
+    that feed RRF, so an approximately-ordered scan becomes a fusion input.
+    """
     conn = FakeConnection()
 
     _run(_configure_connection(conn))  # type: ignore[arg-type]
 
     sql_calls = [c[0] for c in conn._cursor.calls]
     assert any(
-        "SET hnsw.iterative_scan" in sql and "relaxed_order" in sql
+        "SET hnsw.iterative_scan" in sql and "strict_order" in sql
         for sql in sql_calls
     ), sql_calls
     # Configure is expected to commit so the SET persists on the session.
@@ -128,7 +132,7 @@ def test_get_connection_sets_iterative_scan_on_acquire(
     ]
     assert len(iterative_calls) == 1, conn._cursor.calls
     sql, _params = iterative_calls[0]
-    assert "relaxed_order" in sql
+    assert "strict_order" in sql
 
 
 def test_verify_iterative_scan_warns_when_off(

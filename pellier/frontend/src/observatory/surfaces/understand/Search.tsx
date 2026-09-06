@@ -248,7 +248,7 @@ const CODE_READ: Array<{ step: string; path: string; body: string }> = [
   {
     step: 'Rerank reorders the survivors',
     path: 'services/rerank.py — Cohere Rerank v3.5',
-    body: 'The fused pool goes to Cohere Rerank v3.5, which reads the query + each candidate and returns calibrated relevance scores. The RERANK panel’s rrf_pos → reranked_pos column is the movement those scores buy. On a Bedrock outage the service returns [] and the caller falls back to RRF order — the documented degrade.',
+    body: 'The fused pool goes to Cohere Rerank v3.5, which reads the query + each candidate and returns relevance scores. The RERANK panel’s rrf_pos → reranked_pos column is the movement those scores buy. On a Bedrock outage the service returns [] and the caller falls back to RRF order — the documented degrade.',
   },
 ];
 

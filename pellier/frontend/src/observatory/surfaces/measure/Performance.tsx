@@ -596,7 +596,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
       >
         {[
           ['pgvector version', pgvectorVersion ?? 'unavailable'],
-          ['iterative scan', 'relaxed_order'],
+          ['iterative scan', 'strict_order'],
           ['baseline HNSW', '536 KB'],
         ].map(([label, value]) => (
           <div
@@ -977,7 +977,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
         price ceiling, in-stock) and a residual taste phrase, then the
         WHERE-clause filters run with{' '}
         <code style={{ fontFamily: 'var(--obs-mono)', fontSize: '13px' }}>
-          hnsw.iterative_scan = relaxed_order
+          hnsw.iterative_scan = strict_order
         </code>{' '}
         so a strict filter doesn't silently drop recall. Each row is a real
         choice – recall vs latency vs cost vs filter respect – and the

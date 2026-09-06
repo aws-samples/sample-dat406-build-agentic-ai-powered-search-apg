@@ -178,9 +178,26 @@ def _instrument_connection(conn: AsyncConnection) -> None:
 async def _configure_connection(conn: AsyncConnection) -> None:
     """Pool configure callback — runs on every new connection from the pool.
 
-    Sets hnsw.iterative_scan = 'relaxed_order' so filtered vector search
+    Sets hnsw.iterative_scan = 'strict_order' so filtered vector search
     (e.g., 'linen shirts under $100') returns complete result sets instead
-    of fewer-than-LIMIT rows. See pgvector 0.7+ iterative_scan docs.
+    of fewer-than-LIMIT rows, AND returns them in exact distance order.
+
+    Why strict and not relaxed. Both modes iterate, so both fix the short-list
+    problem that motivated the setting. They differ in ordering: pgvector
+    documents that a relaxed scan may return results slightly out of order.
+    That is harmless when the rows are the answer, and not harmless here --
+    ``services/hybrid_search.py`` enumerates this branch's rows into
+    ``vec_rank`` and RRF weights that rank as ``1 / (k + rank)``. Under relaxed
+    ordering an index artifact stops being an ordering detail and becomes a
+    fusion input, recorded in ``retrieval_receipts.vector_ranks`` as the vector
+    branch's considered opinion. The workshop then asks a participant to
+    reconstruct the fused score from those ranks.
+
+    Sorting in the query does not fix it: an outer ORDER BY over the same
+    distance is elided by the planner, which has no way to know the index's
+    output was only approximately sorted. Verified on pgvector 0.8.5 -- the
+    plan carries no Sort node above the index scan either way. The ordering
+    guarantee has to come from the scan mode.
 
     The catalog loader sets this at database level via ALTER DATABASE, but
     that only applies to NEW connections — existing pool connections need
@@ -199,7 +216,7 @@ async def _configure_connection(conn: AsyncConnection) -> None:
     ef_default = int(max(8, min(settings.VECTOR_EF_SEARCH_DEFAULT, settings.VECTOR_EF_SEARCH_MAX)))
 
     async with conn.cursor() as cur:
-        await cur.execute("SET hnsw.iterative_scan = 'relaxed_order'")
+        await cur.execute("SET hnsw.iterative_scan = 'strict_order'")
         try:
             await cur.execute(f"SET hnsw.ef_search = {ef_default}")
         except Exception:
@@ -345,9 +362,11 @@ class DatabaseService:
     async def _verify_iterative_scan(self) -> None:
         """Confirm pgvector iterative_scan is active on backend connections.
 
-        Logs at INFO if 'relaxed_order'. Logs at WARNING for anything else,
+        Logs at INFO if 'strict_order'. Logs at WARNING for anything else,
         including 'off' (the pgvector default that causes filtered vector
-        search to return incomplete results).
+        search to return incomplete results) and 'relaxed_order' (complete
+        results, approximate ordering -- see ``_configure_connection`` for why
+        the ranks this branch feeds cannot take that).
         """
         try:
             async with self.get_connection() as conn:
@@ -359,14 +378,15 @@ class DatabaseService:
                         if isinstance(result, dict)
                         else (result[0] if result else "unknown")
                     )
-                    if value == "relaxed_order":
+                    if value == "strict_order":
                         logger.info(f"✅ pgvector iterative_scan = {value}")
                     else:
                         logger.warning(
                             f"⚠️ pgvector iterative_scan = '{value}', "
-                            f"expected 'relaxed_order'. Filtered vector search "
-                            f"may return incomplete results. Check connection "
-                            f"pool configure callback."
+                            f"expected 'strict_order'. Filtered vector search "
+                            f"may return incomplete or mis-ordered results, and "
+                            f"vector ranks feed RRF. Check connection pool "
+                            f"configure callback."
                         )
         except Exception as e:
             logger.warning(f"Could not verify iterative_scan setting: {e}")
@@ -418,7 +438,7 @@ class DatabaseService:
                 # in case the pool configure callback didn't run (invalidated
                 # connection replay, future refactor, etc.)
                 async with conn.cursor() as cur:
-                    await cur.execute("SET hnsw.iterative_scan = 'relaxed_order'")
+                    await cur.execute("SET hnsw.iterative_scan = 'strict_order'")
                 # Wrap the connection's cursor factory to log queries for
                 # the Observatory State Management live strip. This catches
                 # raw cursor usage (VectorSearch, etc.) that bypasses

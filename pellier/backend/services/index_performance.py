@@ -638,7 +638,9 @@ class IndexPerformanceService:
 
                 # Test 2: With iterative scan
                 try:
-                    cur.execute("SET hnsw.iterative_scan = 'relaxed_order'")
+                    # The mode the pool actually configures, so this
+                    # measurement describes the shipped path.
+                    cur.execute("SET hnsw.iterative_scan = 'strict_order'")
                     cur.execute("SET hnsw.max_scan_tuples = 20000")
                     results["pgvector_080_available"] = True
 

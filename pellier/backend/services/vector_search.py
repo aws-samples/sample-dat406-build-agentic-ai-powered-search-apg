@@ -48,7 +48,10 @@ class VectorSearch:
             - Similarity: 1 - (embedding <=> emb)  (higher = more similar)
             - HNSW tuning: SET LOCAL hnsw.ef_search = {int}  (per-query accuracy knob;
               Postgres disallows binds on utility statements — value coerced to int first)
-            - Iterative scan: SET LOCAL hnsw.iterative_scan = 'relaxed_order'
+            - Iterative scan: SET LOCAL hnsw.iterative_scan = 'strict_order'
+              (strict, not relaxed: these rows are enumerated into
+              ranks that feed RRF, and a relaxed scan may return
+              them slightly out of order)
               (pgvector 0.8.0+ — prevents overfiltering when WHERE clauses are strict)
             - In-stock filter: quantity > 0
             - Parameterized placeholders only — never f-string values into SQL.
@@ -111,7 +114,7 @@ class VectorSearch:
                     logger.debug("hnsw.ef_search not supported; skipping per-query tuning")
                 if iterative_scan:
                     await cur.execute(
-                        "SET LOCAL hnsw.iterative_scan = 'relaxed_order'"
+                        "SET LOCAL hnsw.iterative_scan = 'strict_order'"
                     )
 
                 await cur.execute(sql, params)
@@ -205,7 +208,7 @@ class VectorSearch:
 
         Combines structured WHERE-clause filters (extracted by
         ``StructuredExtractor``) with pgvector cosine ranking. The
-        method always runs with ``hnsw.iterative_scan = 'relaxed_order'``
+        method always runs with ``hnsw.iterative_scan = 'strict_order'``
         because filtered HNSW is exactly the workload that ``iterative_scan``
         was designed for: a strict WHERE clause can drop the candidate
         count below the index's natural ``ef_search`` ceiling, which
@@ -260,7 +263,7 @@ class VectorSearch:
         stop applying.
 
         Filtered HNSW always runs with
-        ``hnsw.iterative_scan = 'relaxed_order'``: a strict WHERE clause
+        ``hnsw.iterative_scan = 'strict_order'``: a strict WHERE clause
         can drop the candidate count below the index's natural
         ``ef_search`` ceiling, which would cause silent recall loss.
         """
@@ -313,7 +316,7 @@ class VectorSearch:
                     logger.debug("hnsw.ef_search not supported; skipping per-query tuning")
                 # Filtered HNSW always benefits from iterative_scan.
                 await cur.execute(
-                    "SET LOCAL hnsw.iterative_scan = 'relaxed_order'"
+                    "SET LOCAL hnsw.iterative_scan = 'strict_order'"
                 )
                 await cur.execute(sql, bind)
                 rows = await cur.fetchall()

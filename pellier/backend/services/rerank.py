@@ -11,8 +11,12 @@ Why Cohere Rerank v3.5 specifically:
 
   - Trained on multilingual e-commerce-shaped data; product
     descriptions land in-distribution.
-  - Returns calibrated relevance scores in [0, 1], so we can
-    threshold ("don't show below 0.4") if we want.
+  - Returns relevance scores in [0, 1], so we can
+    threshold ("don't show below 0.4") if we want. The magnitudes are
+    not calibrated probabilities and a 0.8 is not "twice as relevant"
+    as a 0.4 -- Cohere's own guidance is that the scores order results
+    and that any threshold has to be chosen against labelled data for
+    the corpus it will run on, not read off the number.
   - Adds one extra Bedrock call per request; the Lab 2 compare
     endpoint reports the observed latency per strategy, so the
     workshop's "is the extra spend worth it?" question has a live
